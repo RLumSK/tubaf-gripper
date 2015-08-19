@@ -1,0 +1,24 @@
+<library path="src">
+  <class name="RobotiqFinger" type="tbf_gripper_rqt.finger_module.RobotiqFinger" base_class_type="rqt_gui_py::Plugin">
+     <description>
+      A Python plugin to monitor and control a finger of the 3 finger gripper from Robotiq
+    </description>
+    <qtgui>
+      <!-- optional grouping... -->
+      <group>
+        <label>TUBAF</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins developed by the MiningRoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+      </group>
+      <group>
+        <label>Hand</label>
+        <icon type="theme">applications-other</icon>
+        <statustip>A Python GUI plugin for monitoring and controlling a robotic finger of the 3 finger gripper from Robotiq.</statustip>
+      </group>
+      <!-- end of optional grouping... -->
+      <label>Robotiq Finger Plugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>User interface to a finger of the 3 finger gripper from Robotiq</statustip>
+    </qtgui>
+  </class>
+</library>

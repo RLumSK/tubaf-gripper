@@ -1,0 +1,18 @@
+<package>
+  <name>tubaf_gripper</name>
+  <version>1.0.0</version>
+  <description>ROS packages, driver, and nodes for the TUBAF Gripper</description>
+  <maintainer email="Steve.Grehl@informatik.tu-freiberg.de">Steve Grehl</maintainer>
+  <license>BSD</license>
+  <url type="website">http://miningrox.informatik.tu-freiberg.de</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>tbf_gripper_hand</run_depend>
+  <run_depend>tbf_gripper_launch</run_depend>
+  <run_depend>tbf_gripper_move_it</run_depend>
+  <run_depend>tbf_gripper_rqt</run_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>

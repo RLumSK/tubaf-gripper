@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!--
+	author: sgrehl
+	proj: MiningRoX
+	date: 31.07.2015
+	desc: starting the hand with its joint_state_publisher and robot_description
+-->
+<launch>
+	<arg name="use_gui" default="false"/>
+	<arg name="start_publisher" default="false"/>
+	
+	
+	 <param name="robot_description" command="$(find xacro)/xacro.py '$(find robotiq_s_model_visualization)/cfg/s-model_articulated.xacro'"/>
+	 <group if="$(arg start_publisher)">
+		<node name="rsp" type="robot_state_publisher" pkg="robot_state_publisher" />
+		<node name="jsp" type="joint_state_publisher" pkg="joint_state_publisher" >
+		 	<param name="use_gui" value="$(arg use_gui)" />
+		 	<rosparam>
+source_list:
+- joint_states_hand</rosparam>
+	 	</node>
+	 </group>
+	 <!-- TODO?
+	 <param name="robot_description_semantic" textfile="$(find pr2_moveit_config)/config/pr2.srdf"/> -->
+</launch>

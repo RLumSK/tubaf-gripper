@@ -1,0 +1,24 @@
+<library path="src">
+  <class name="WideGripper" type="tbf_gripper_rqt.gripper_module.WideGripper" base_class_type="rqt_gui_py::Plugin">
+     <description>
+      A Python plugin to monitor and control the 3 finger gripper from Robotiq in wide mode
+    </description>
+    <qtgui>
+      <!-- optional grouping... -->
+      <group>
+        <label>TUBAF</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins developed by the MiningRoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+      </group>
+      <group>
+        <label>Hand</label>
+        <icon type="theme">applications-other</icon>
+        <statustip>A Python GUI plugin for monitoring and controlling the 3 finger gripper from Robotiq in wide mode.</statustip>
+      </group>
+      <!-- end of optional grouping... -->
+      <label>Wide Gripper Plugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Simple user interface to the 3 finger gripper from Robotiq in wide mode</statustip>
+    </qtgui>
+  </class>
+</library>

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+	author: sgrehl
+	proj: MiningRoX
+	date: 31.07.2015
+	desc: start the hand and transform the robotiq commands to joint_state commands
+-->
+<launch>
+	<arg name="hand_ip" default="192.168.2.23" />
+ 	
+	<!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
+	<node name="hand_tcp" pkg="robotiq_s_model_control" type="SModelTcpNode.py" args="$(arg hand_ip)" respawn="false"/>
+	<node name="hand_controller" pkg="robotiq_s_model_control" type="SModelSimpleController.py" respawn="false"/>
+	<node name="hand_listener" pkg="robotiq_s_model_control" type="SModelStatusListener.py" respawn="false"/>
+
+	<!-- Setup Joint State Publisher to monitor the hand in rviz -->
+	<include file="$(find tbf_gripper_launch)/launch/hand_description.launch"/>
+
+	<!-- translate the states from robotiq to ROS -->
+	<node name="jstr_hand" pkg="tbf_gripper_hand" type="RobotiqJointStatePublisher.py" />
+</launch>

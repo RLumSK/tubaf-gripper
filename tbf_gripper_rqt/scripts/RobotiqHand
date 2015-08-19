@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+# https://github.com/ros-visualization/rqt_common_plugins/blob/master/rqt_bag/scripts/rqt_bag
+import sys
+
+from rqt_gui.main import Main
+
+plugin = 'tbf_gripper_rqt.hand_module.RobotiqHand'
+main = Main(filename=plugin)
+print main
+sys.exit(main.main(sys.argv, standalone=plugin))
