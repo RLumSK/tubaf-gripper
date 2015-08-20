@@ -9,8 +9,9 @@
   <buildtool_depend>catkin</buildtool_depend>
   <run_depend>tbf_gripper_hand</run_depend>
   <run_depend>tbf_gripper_launch</run_depend>
-  <run_depend>tbf_gripper_move_it</run_depend>
+  <run_depend>tbf_gripper_buero_move_it</run_depend>
   <run_depend>tbf_gripper_rqt</run_depend>
+  <run_depend>tbf_gripper_tools</run_depend>
 
   <export>
     <metapackage/>

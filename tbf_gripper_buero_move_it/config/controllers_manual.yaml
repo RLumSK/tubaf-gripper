@@ -1,0 +1,11 @@
+controller_list:
+  - name: ""
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    joints:
+      - gripper_ur5_shoulder_pan_joint
+      - gripper_ur5_shoulder_lift_joint
+      - gripper_ur5_elbow_joint
+      - gripper_ur5_wrist_1_joint
+      - gripper_ur5_wrist_2_joint
+      - gripper_ur5_wrist_3_joint

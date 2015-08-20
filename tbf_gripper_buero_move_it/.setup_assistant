@@ -5,4 +5,4 @@ moveit_setup_assistant_config:
   SRDF:
     relative_path: config/tubaf_gripper_buero.srdf
   CONFIG:
-    generated_timestamp: 1439979994
+    generated_timestamp: 1439984715

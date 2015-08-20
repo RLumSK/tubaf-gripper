@@ -12,6 +12,7 @@
     <arg name="ur5_min_payload" default="0.0"/>
     <arg name="ur5_max_payload" default="10.0"/>
     <arg name="ur5_max_velocity" default="10.0"/>
+    <arg name="ur5_link_prefix" default="gripper" />
     <arg name="debug" default="false"/>
     <arg name="use_gui" default="false"/>
 
@@ -25,6 +26,7 @@
     <arg name="cam_info_topic" default="$(arg cam)/rgb/camera_info"/>
     <arg name="output_frame" default="/camera_link"/>
 
+
     <!-- Bringup UR5 arm -->
     <include file="$(find tbf_gripper_launch)/launch/gripper_buero_description.launch">
         <arg name="start_publisher" value="$(arg start_publisher)"/>
@@ -35,6 +37,7 @@
     <group if="$(arg start_driver)">
         <node name="ur_driver" pkg="ur_driver" type="driver.py" args="$(arg ur5_robot_ip) $(arg ur5_reverse_port)"
               output="screen">
+            <param name="prefix" type="String" value="$(arg ur5_link_prefix)_ur5_"/>
             <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
             <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
             <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
