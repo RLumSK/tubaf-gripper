@@ -60,7 +60,7 @@ class WideGripper(Plugin):
         # Create QWidget
         self._widget = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_hand_rqt'), 'resource', 'WideGripper.ui')
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'WideGripper.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_main, self._widget, {'WideGripper': WideGripper})
         # Give QObjects reasonable names

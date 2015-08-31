@@ -8,8 +8,7 @@
 <launch>
 	<arg name="use_gui" default="false"/>
 	<arg name="start_publisher" default="false"/>
-	
-	
+
 	 <param name="robot_description" command="$(find xacro)/xacro.py '$(find robotiq_s_model_visualization)/cfg/s-model_articulated.xacro'"/>
 	 <group if="$(arg start_publisher)">
 		<node name="rsp" type="robot_state_publisher" pkg="robot_state_publisher" />
