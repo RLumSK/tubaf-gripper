@@ -39,9 +39,11 @@
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
+  <!--<build_depend>tbf_gripper_rqt</build_depend>-->
   <run_depend>rospy</run_depend>
   <run_depend>rqt_gui</run_depend>
   <run_depend>rqt_gui_py</run_depend>
+  <!--<run_depend>tbf_gripper_rqt</run_depend>-->
 
 
   <!-- The export tag contains other, unspecified, tags -->

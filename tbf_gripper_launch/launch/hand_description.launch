@@ -9,8 +9,8 @@
 	<arg name="use_gui" default="false"/>
 	<arg name="start_publisher" default="false"/>
 
-	 <param name="robot_description" command="$(find xacro)/xacro.py '$(find robotiq_s_model_visualization)/cfg/s-model_articulated.xacro'"/>
-	 <group if="$(arg start_publisher)">
+	 <group if="$(arg start_publisher)" ns="hand">
+	 	<param name="robot_description" command="$(find xacro)/xacro.py '$(find robotiq_s_model_visualization)/cfg/s-model_articulated.xacro'"/>
 		<node name="rsp" type="robot_state_publisher" pkg="robot_state_publisher" />
 		<node name="jsp" type="joint_state_publisher" pkg="joint_state_publisher" >
 		 	<param name="use_gui" value="$(arg use_gui)" />

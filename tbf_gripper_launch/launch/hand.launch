@@ -6,7 +6,7 @@
 	desc: start the hand and transform the robotiq commands to joint_state commands
 -->
 <launch>
-	<arg name="hand_ip" default="192.168.2.23" />
+	<arg name="hand_ip" default="192.168.1.111" />
  	
 	<!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
 	<node name="hand_tcp" pkg="robotiq_s_model_control" type="SModelTcpNode.py" args="$(arg hand_ip)" respawn="false"/>
