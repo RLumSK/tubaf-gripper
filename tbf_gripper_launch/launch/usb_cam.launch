@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!--
+  author: http://pharos.ece.utexas.edu/wiki/index.php/How_to_Use_a_Webcam_in_ROS_with_the_usb_cam_Package
+  proj: MiningRoX
+  date: 25.09.2015
+  desc: Enabling a usb camera
+-->
+<launch>
+  <arg name="video_mount" default="/dev/video1" />
+  <arg name="output_frame" default="usb_cam" />
+  <arg name="cam" default="camera" />
+
+  <!--run LG camera-->
+    <node name="$(arg cam)" pkg="usb_cam" type="usb_cam_node">
+        <param name="video_device" type="String" value="$(arg video_mount)" />
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_frame_id" value="$(arg output_frame)" />
+        <param name="io_method" value="mmap"/>
+        <remap from="$(arg output_frame)/image_raw" to="$(arg cam)/rgb/image_raw" />
+    </node>
+</launch>
