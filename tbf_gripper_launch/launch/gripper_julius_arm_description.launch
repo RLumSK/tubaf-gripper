@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="start_publisher" default="false" />
+    <arg name="use_gui" default="false" />
+
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find tubaf_robot_description)/urdf/gripper/tubaf_julius_arm.urdf.xacro'"/>
+           
+    <group if="$(arg start_publisher)">
+        <node name="rsp_buero" pkg="robot_state_publisher" type="robot_state_publisher"/>
+        <node name="jsp_buero" pkg="joint_state_publisher" type="joint_state_publisher">
+            <param name="use_gui" value="$(arg use_gui)" />
+            <rosparam>
+source_list:
+- joint_states_hand
+- joint_states_ur5</rosparam>
+        </node>
+    </group>
+</launch>
