@@ -5,12 +5,12 @@
     <arg name="ur5_use_controller" default="true"/>
     <arg name="set_goal_outside" default="false" />
 
-    <include file="$(find tbf_gripper_buero_move_it)/launch/default_warehouse_db.launch"/>
-    <include file="$(find tbf_gripper_buero_move_it)/launch/move_group.launch">
+    <include file="$(find tbf_gripper_julius_move_it)/launch/default_warehouse_db.launch"/>
+    <include file="$(find tbf_gripper_julius_move_it)/launch/move_group.launch">
         <arg name="debug" value="$(arg debug)"/>
         <arg name="allow_trajectory_execution" value="$(arg ur5_use_controller)"/>
     </include>
-    <include unless="$(arg set_goal_outside)" file="$(find tbf_gripper_buero_move_it)/launch/planning_context.launch">
+    <include unless="$(arg set_goal_outside)" file="$(find tbf_gripper_julius_move_it)/launch/planning_context.launch">
         <arg name="load_robot_description" value="$(arg load_description)"/>
     </include>
 

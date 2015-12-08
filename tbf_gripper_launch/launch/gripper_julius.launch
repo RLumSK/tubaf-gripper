@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!--
+	author: sgrehl
+	proj: MiningRoX
+	date: 07.12.2015
+	desc: start ur5 with robotiq hand mounted, including a control interface and visualisation for julius
+-->
+<launch>
+    <arg name="hand_ip" default="192.168.1.111"/>
+    <arg name="ur5_robot_ip" default="192.168.1.110"/>
+    <arg name="ur5_reverse_port" default="50001"/>
+    <arg name="ur5_min_payload" default="0.0"/>
+    <arg name="ur5_max_payload" default="10.0"/>
+    <arg name="ur5_max_velocity" default="10.0"/>
+    <arg name="ur5_link_prefix" default="gripper" />
+    <arg name="ur5_set_goal_outside" default="false" />
+    <arg name="debug" default="false"/>
+    <arg name="use_gui" default="false"/>
+
+    <arg name="limited" default="true"/>
+    <arg name="sim" default="false"/>
+    <arg name="start_moveit" default="true"/>
+    <arg name="start_driver" default="true"/>
+    <arg name="disable_hand" default="false" />
+
+
+    <arg name="cam" default="gripper_camera"/>
+    <arg name="cam_image_topic" default="$(arg cam)/depth_registered/points"/>
+    <arg name="cam_info_topic" default="$(arg cam)/rgb/camera_info"/>
+    <arg name="output_frame" default="/camera_link"/>
+
+    <include file="$(find julius)/launch/description.launch"/>
+
+
+    <!-- TF Buffer Server -->
+      <node pkg="tf2_ros" type="buffer_server" name="tf2_buffer_server">
+        <param name="buffer_size" value="120.0"/>
+      </node>
+
+
+    <!-- driver -->
+    <group if="$(arg start_driver)">
+        <!-- Bringup UR5 arm -->
+        <node name="ur_driver" pkg="ur_driver" type="driver.py" args="$(arg ur5_robot_ip) $(arg ur5_reverse_port)"
+              output="screen">
+            <param name="prefix" type="String" value="$(arg ur5_link_prefix)_ur5_"/>
+            <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
+            <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
+            <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
+            <remap from="joint_states" to="joint_states_ur5"/>
+        </node>
+
+        <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
+        <include file="$(find tbf_gripper_launch)/launch/hand.launch" unless="$(arg disable_hand)">
+            <arg name="hand_ip" value="$(arg hand_ip)"/>
+        </include>
+        <!-- hand description not needed as its part of the gripper_description-->
+
+        <!-- Launch moveit -->
+        <group if="$(arg start_moveit)">
+             <!-- Remap follow_joint_trajectory -->
+              <remap if="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
+
+              <!-- Launch moveit -->
+              <include file="$(find tbf_gripper_julius_move_it)/launch/move_group.launch">
+                <arg name="debug" default="$(arg debug)" />
+              </include>
+             <!-- Launch moveit-Rviz -->
+             <include file="$(find tbf_gripper_julius_move_it)/launch/moveit_rviz.launch">
+                <arg name="config" default="true"/>
+             </include>
+        </group>
+        <!--run camera-->
+        <include file="$(find openni2_launch)/launch/openni2.launch">
+            <arg name="camera" default="$(arg cam)"/>
+            <arg name="rgb_frame_id" default="$(arg cam)_rgb_optical_frame"/>
+            <arg name="depth_frame_id" default="$(arg cam)_depth_optical_frame"/>
+            <arg name="publish_tf" value="false"/>
+        </include>
+    </group>
+
+    <!-- Load Visualisation -->
+    <group if="$(arg use_gui)">
+        <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui"
+              args="--perspective-file $(find tbf_gripper_rqt)/resource/RobotiqGripper.perspective"/>
+    </group>
+</launch>

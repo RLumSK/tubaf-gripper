@@ -5,6 +5,6 @@
 
   <arg name="pipeline" default="ompl" />
 
-  <include file="$(find tbf_gripper_buero_move_it)/launch/$(arg pipeline)_planning_pipeline.launch.xml" />
+  <include file="$(find tbf_gripper_julius_move_it)/launch/$(arg pipeline)_planning_pipeline.launch.xml" />
 
 </launch>

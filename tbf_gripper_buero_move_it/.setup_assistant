@@ -1,8 +1,0 @@
-moveit_setup_assistant_config:
-  URDF:
-    package: tubaf_robot_description
-    relative_path: urdf/gripper/tubaf_buero.urdf.xacro
-  SRDF:
-    relative_path: config/tubaf_gripper_buero.srdf
-  CONFIG:
-    generated_timestamp: 1439984715

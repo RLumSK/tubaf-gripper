@@ -1,0 +1,8 @@
+moveit_setup_assistant_config:
+  URDF:
+    package: ""
+    relative_path: /tmp/julius.xacro
+  SRDF:
+    relative_path: config/julius.srdf
+  CONFIG:
+    generated_timestamp: 1449476503
