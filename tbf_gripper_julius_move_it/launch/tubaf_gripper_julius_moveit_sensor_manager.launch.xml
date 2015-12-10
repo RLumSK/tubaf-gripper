@@ -1,3 +1,14 @@
 <launch>
+    <!-- see also: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/perception_configuration.html-->
+    <!-- include Xtion as sensor for move_it perception-->
+    <rosparam command="load" file="$(find tbf_gripper_julius_move_it)/config/sensors_rgbd.yaml" />
 
+    <!-- Paramater-->
+    <!--octomap_frame: specifies the coordinate frame in which this representation will be stored.
+    If you are working with a mobile robot, this frame should be a fixed frame in the world.-->
+    <param name="octomap_frame" type="string" value="odom" />
+    <!--octomap_resolution: specifies the resolution at which this representation is maintained (in meters).-->
+    <param name="octomap_resolution" type="double" value="0.05" />
+    <!--max_range: specifies the maximum range value to be applied for any sensor input to this node.-->
+    <param name="max_range" type="double" value="5.0" />
 </launch>

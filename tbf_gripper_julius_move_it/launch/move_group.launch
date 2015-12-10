@@ -34,7 +34,7 @@
 
   <!-- Sensors Functionality -->
   <include ns="move_group" file="$(find tbf_gripper_julius_move_it)/launch/sensor_manager.launch.xml" if="$(arg allow_trajectory_execution)">
-    <arg name="moveit_sensor_manager" value="julius" />
+    <arg name="moveit_sensor_manager" value="tubaf_gripper_julius" />
   </include>
 
   <!-- Start the actual move_group node/action server -->

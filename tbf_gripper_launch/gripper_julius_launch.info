@@ -1,0 +1,32 @@
+@tbf_gripper_launch:
+	gripper_julius.launch:
+		rsp
+		jsp
+		odom_broadcaster
+		ur_driver
+		tf2_buffer_server
+		tbf_gripper_launch/launch/hand.launch:
+			hand_tcp
+			hand_controller
+			hand_listener
+			tbf_gripper_launch/launch/hand_description.launch:
+				rsp, jsp, parameters...
+			jstr_hand
+		tubaf_common/launch/fix/fix_openni2.launch
+			rgbd_launch/launch/includes/manager.launch.xml ...
+			tubaf_common/launch/fix/fix_openni_device.launch ...
+			rgbd_launch/launch/includes/processing.launch.xml ...
+			tubaf_launch/launch/include/xtion_tree.launch ...
+		tbf_gripper_julius_move_it/launch/julius.launch:
+			tbf_gripper_julius_move_it/launch/planning_context.launch:
+				[param] robot_description_semantic = tbf_gripper_julius_move_it/config/julius.srdf
+				[param] robot_description_kinematics = tbf_gripper_julius_move_it/config/kinematics.yaml
+			tbf_gripper_julius_move_it/launch/move_group.launch:
+				tbf_gripper_julius_move_it/launch/trajectory_execution.launch.xml
+					tbf_gripper_julius_move_it)/launch/tubaf_gripper_julius_moveit_controller_manager.launch.xml
+						[param] "tbf_gripper_julius_move_it/config/controllers_manual.yaml"
+				tbf_gripper_julius_move_it/launch/sensor_manager.launch.xml
+					tbf_gripper_julius_move_it/launch/tubaf_gripper_julius_moveit_sensor_manager.launch.xml
+						[param] "tbf_gripper_julius_moveit/config/sensors_kinect.yaml"
+				move_group
+			tbf_gripper_julius_move_it/launch/default_warehouse_db.launch
