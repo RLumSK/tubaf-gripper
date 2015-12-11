@@ -37,7 +37,7 @@ import moveit_msgs.msg
 import geometry_msgs.msg
 
 ## Setup
-rospy.loginfo("move_niddlefinger2pose.py: Starting setup")
+rospy.loginfo("move_middlefinger2pose.py: Starting setup")
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('move_group_python_interface_gripper',
                 anonymous=True)

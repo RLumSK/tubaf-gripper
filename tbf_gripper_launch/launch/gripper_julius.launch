@@ -28,6 +28,7 @@
     <arg name="data_skip" default="1"/>
     <arg name="compute_cloud" default="true"/>
     <arg name="use_driver" default="true"/>
+    <arg name="color_depth_synchronization" default="true"/>
 
     <arg name="cam_image_topic" default="$(arg cam)/depth_registered/points"/>
     <arg name="cam_info_topic" default="$(arg cam)/rgb/camera_info"/>
@@ -39,7 +40,7 @@
 
     <!-- General Software Settings-->
     <arg name="debug" default="false"/>
-    <arg name="use_gui" default="true"/>
+    <arg name="use_gui" default="false"/>
     <arg name="sim" default="false"/>
 
     <!-- Launch options-->
@@ -60,7 +61,6 @@
             - /joint_states_hand
         </rosparam>
     </node>
-    <node pkg="tf" type="static_transform_publisher" name="odom_broadcaster" args="1 0 0 0 0 0 1 odom base_link 100" />
 
 
     <!-- 1. UR5 arm -->
@@ -98,15 +98,16 @@
             <arg name="data_skip" value="$(arg data_skip)"/>
             <arg name="publish_tf" value="false"/>
 
-            <arg name="depth_processing" value="$(arg compute_cloud)"/>
+            <arg name="depth_registration" value="$(arg compute_cloud)"/>
             <arg name="depth_registered_processing" value="$(arg compute_cloud)"/>
+            <arg name="color_depth_synchronization" value="$(arg color_depth_synchronization)" />
 
             <arg name="rgb_camera_info_url" value="file://$(find tubaf_common)/camera_info/xtion1_calib_rgb.yaml"/>
             <arg name="depth_camera_info_url" value="file://$(find tubaf_common)/camera_info/xtion1_calib_depth.yaml"/>
 
 
-            <arg name="rgb_frame_id" default="$(arg cam)_rgb_optical_frame"/>
-            <arg name="depth_frame_id" default="$(arg cam)_depth_optical_frame"/>
+            <!--<arg name="rgb_frame_id" default="$(arg cam)_rgb_optical_frame"/>-->
+            <!--<arg name="depth_frame_id" default="$(arg cam)_depth_optical_frame"/>-->
 
             <arg name="load_driver" value="$(arg use_driver)" />
         </include>
@@ -117,14 +118,6 @@
     <group if="$(arg start_moveit)">
         <!-- Remap follow_joint_trajectory -->
         <remap if="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
-
-        <!-- Launch moveit -->
-        <!--<include file="$(find tbf_gripper_julius_move_it)/launch/move_group.launch">-->
-            <!--<arg name="debug" default="$(arg debug)" />-->
-            <!--<arg name="allow_trajectory_execution" value="true"/>-->
-            <!--<arg name="fake_execution" value="false"/>-->
-            <!--<arg name="info" value="true"/>-->
-        <!--</include>-->
         <include file="$(find tbf_gripper_julius_move_it)/launch/julius.launch">
             <arg name="debug" default="$(arg debug)" />
             <arg name="db" default="false" />

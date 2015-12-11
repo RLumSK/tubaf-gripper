@@ -5,4 +5,4 @@ moveit_setup_assistant_config:
   SRDF:
     relative_path: config/julius.srdf
   CONFIG:
-    generated_timestamp: 1449476503
+    generated_timestamp: 1449851218

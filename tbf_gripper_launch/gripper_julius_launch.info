@@ -2,7 +2,6 @@
 	gripper_julius.launch:
 		rsp
 		jsp
-		odom_broadcaster
 		ur_driver
 		tf2_buffer_server
 		tbf_gripper_launch/launch/hand.launch:

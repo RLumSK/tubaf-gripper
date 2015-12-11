@@ -118,6 +118,7 @@ class WideGripperModel(RobotiqHandModel):
         del self.mdl_fingerS
 
         self.rACT = 1
+        self.rGLV = 1
         self.atNewMOD = 2
         self.mdl_fingerA.rSP = 100
         self.mdl_fingerA.rFR = 200

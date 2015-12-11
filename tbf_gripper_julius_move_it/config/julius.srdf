@@ -1,13 +1,13 @@
 <?xml version="1.0" ?>
-<!--This does not replace URDF, and is not an extension of URDF.
+<!--This does not replace URDF. and is not an extension of URDF.
     This is a format for representing semantic information about the robot structure.
-    A URDF file must exist for this robot as well, where the joints and the links that are referenced are defined
+    A URDF file must exist for this robot as well. where the joints and the links that are referenced are defined
 -->
 <robot name="julius">
-    <!--GROUPS: Representation of a set of joints and links. This can be useful for specifying DOF to plan for, defining arms, end effectors, etc-->
-    <!--LINKS: When a link is specified, the parent joint of that link (if it exists) is automatically included-->
-    <!--JOINTS: When a joint is specified, the child link of that joint (which will always exist) is automatically included-->
-    <!--CHAINS: When a chain is specified, all the links along the chain (including endpoints) are included in the group. Additionally, all the joints that are parents to included links are also included. This means that joints along the chain and the parent joint of the base link are included in the group-->
+    <!--GROUPS: Representation of a set of joints and links. This can be useful for specifying DOF to plan for. defining arms. end effectors. etc-->
+    <!--LINKS: When a link is specified. the parent joint of that link (if it exists) is automatically included-->
+    <!--JOINTS: When a joint is specified. the child link of that joint (which will always exist) is automatically included-->
+    <!--CHAINS: When a chain is specified. all the links along the chain (including endpoints) are included in the group. Additionally. all the joints that are parents to included links are also included. This means that joints along the chain and the parent joint of the base link are included in the group-->
     <!--SUBGROUPS: Groups can also be formed by referencing to already defined group names-->
     <group name="UR5">
         <joint name="gripper_ur5_wrist_3_link-tool0_fixed_joint" />
@@ -46,7 +46,7 @@
         <joint name="ptu_top_pan" />
         <joint name="ptu_top_tilt" />
     </group>
-    <!--GROUP STATES: Purpose: Define a named state for a particular group, in terms of joint values. This is useful to define states like 'folded arms'-->
+    <!--GROUP STATES: Purpose: Define a named state for a particular group. in terms of joint values. This is useful to define states like 'folded arms'-->
     <group_state name="Default-UR5" group="UR5">
         <joint name="gripper_ur5_elbow_joint" value="-2.5061" />
         <joint name="gripper_ur5_shoulder_lift_joint" value="0" />
@@ -56,11 +56,11 @@
         <joint name="gripper_ur5_wrist_3_joint" value="0" />
     </group_state>
     <group_state name="Front-UR5" group="UR5">
-        <joint name="gripper_ur5_elbow_joint" value="0.0353" />
+        <joint name="gripper_ur5_elbow_joint" value="0" />
         <joint name="gripper_ur5_shoulder_lift_joint" value="0" />
         <joint name="gripper_ur5_shoulder_pan_joint" value="0" />
-        <joint name="gripper_ur5_wrist_1_joint" value="-1.5531" />
-        <joint name="gripper_ur5_wrist_2_joint" value="-1.5884" />
+        <joint name="gripper_ur5_wrist_1_joint" value="-1.5708" />
+        <joint name="gripper_ur5_wrist_2_joint" value="-1.5708" />
         <joint name="gripper_ur5_wrist_3_joint" value="-3.1415" />
     </group_state>
     <group_state name="Middle-UR5" group="UR5">
@@ -71,8 +71,16 @@
         <joint name="gripper_ur5_wrist_2_joint" value="-1.5884" />
         <joint name="gripper_ur5_wrist_3_joint" value="-3.1415" />
     </group_state>
+    <group_state name="Home-UR5" group="UR5">
+        <joint name="gripper_ur5_elbow_joint" value="0" />
+        <joint name="gripper_ur5_shoulder_lift_joint" value="-1.5708" />
+        <joint name="gripper_ur5_shoulder_pan_joint" value="0" />
+        <joint name="gripper_ur5_wrist_1_joint" value="-1.5708" />
+        <joint name="gripper_ur5_wrist_2_joint" value="0" />
+        <joint name="gripper_ur5_wrist_3_joint" value="0" />
+    </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="RobotiqHand" parent_link="gripper_ur5_tool0" group="Hand" parent_group="UR5" />
+    <end_effector name="UR5_ee" parent_link="gripper_ur5_ee_link" group="UR5" />
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
     <disable_collisions link1="back_laser_mount_btm_link" link2="back_laser_mount_top_link" reason="Adjacent" />
     <disable_collisions link1="back_laser_mount_btm_link" link2="battery_box" reason="Never" />
@@ -334,6 +342,7 @@
     <disable_collisions link1="drive_box_front" link2="front_laser_mount_top_link" reason="Never" />
     <disable_collisions link1="drive_box_front" link2="gripper_ur5_base_link" reason="Never" />
     <disable_collisions link1="drive_box_front" link2="gripper_ur5_shoulder_link" reason="Never" />
+    <disable_collisions link1="drive_box_front" link2="gripper_ur5_upper_arm_link" reason="Never" />
     <disable_collisions link1="drive_box_front" link2="heros_base_link" reason="Adjacent" />
     <disable_collisions link1="drive_box_front" link2="imu_link" reason="Never" />
     <disable_collisions link1="drive_box_front" link2="light_back_left_link" reason="Never" />
@@ -450,6 +459,8 @@
     <disable_collisions link1="gripper_camera_link" link2="gripper_ur5_wrist_1_link" reason="Never" />
     <disable_collisions link1="gripper_camera_link" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_camera_link" link2="gripper_ur5_wrist_3_link" reason="Never" />
+    <disable_collisions link1="gripper_camera_link" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_camera_link" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="gripper_robotiq_finger_1_link_1" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="gripper_robotiq_finger_1_link_2" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="gripper_robotiq_finger_1_link_3" reason="Never" />
@@ -461,6 +472,7 @@
     <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="gripper_ur5_wrist_3_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_1_link_0" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="gripper_robotiq_finger_1_link_2" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="gripper_robotiq_finger_2_link_0" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="gripper_robotiq_finger_2_link_1" reason="Never" />
@@ -471,6 +483,9 @@
     <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="gripper_ur5_wrist_1_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="gripper_ur5_wrist_3_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_1_link_1" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="gripper_robotiq_finger_1_link_3" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="gripper_robotiq_finger_2_link_0" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="gripper_robotiq_finger_2_link_1" reason="Never" />
@@ -481,6 +496,7 @@
     <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_1_link_2" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="gripper_robotiq_finger_2_link_0" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="gripper_robotiq_finger_2_link_1" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="gripper_robotiq_finger_2_link_2" reason="Never" />
@@ -489,6 +505,7 @@
     <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_1_link_3" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="gripper_robotiq_finger_2_link_1" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="gripper_robotiq_finger_2_link_2" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="gripper_robotiq_finger_2_link_3" reason="Never" />
@@ -503,6 +520,7 @@
     <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="gripper_ur5_wrist_3_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_2_link_0" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="gripper_robotiq_finger_2_link_2" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="gripper_robotiq_finger_middle_link_0" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="gripper_robotiq_palm" reason="Default" />
@@ -511,6 +529,8 @@
     <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="gripper_ur5_wrist_3_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_2_link_1" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_2" link2="gripper_robotiq_finger_2_link_3" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_2" link2="gripper_robotiq_finger_middle_link_0" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_2_link_2" link2="gripper_ur5_ee_link" reason="Never" />
@@ -533,22 +553,30 @@
     <disable_collisions link1="gripper_robotiq_finger_middle_link_0" link2="gripper_ur5_wrist_3_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_0" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_0" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_middle_link_0" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="gripper_robotiq_finger_middle_link_2" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="gripper_robotiq_palm" reason="Default" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="gripper_ur5_ee_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="gripper_ur5_wrist_1_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="gripper_ur5_wrist_3_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_middle_link_1" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_2" link2="gripper_robotiq_finger_middle_link_3" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_2" link2="gripper_ur5_wrist_1_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_2" link2="gripper_ur5_wrist_2_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_middle_link_2" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_middle_link_2" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_3" link2="gripper_ur5_wrist_1_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_3" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_finger_middle_link_3" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_finger_middle_link_3" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_palm" link2="gripper_ur5_ee_link" reason="Adjacent" />
     <disable_collisions link1="gripper_robotiq_palm" link2="gripper_ur5_wrist_1_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_palm" link2="gripper_ur5_wrist_2_link" reason="Never" />
     <disable_collisions link1="gripper_robotiq_palm" link2="gripper_ur5_wrist_3_link" reason="Default" />
+    <disable_collisions link1="gripper_robotiq_palm" link2="light_front_left_link" reason="Never" />
+    <disable_collisions link1="gripper_robotiq_palm" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_base_link" link2="gripper_ur5_shoulder_link" reason="Adjacent" />
     <disable_collisions link1="gripper_ur5_base_link" link2="heros_base_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_base_link" link2="imu_link" reason="Never" />
@@ -584,6 +612,7 @@
     <disable_collisions link1="gripper_ur5_forearm_link" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_forearm_link" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_forearm_link" link2="lms_front_link" reason="Never" />
+    <disable_collisions link1="gripper_ur5_forearm_link" link2="pc_2_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_shoulder_link" link2="gripper_ur5_upper_arm_link" reason="Adjacent" />
     <disable_collisions link1="gripper_ur5_shoulder_link" link2="heros_base_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_shoulder_link" link2="imu_link" reason="Never" />
@@ -623,12 +652,14 @@
     <disable_collisions link1="gripper_ur5_wrist_1_link" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_1_link" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_1_link" link2="lms_front_link" reason="Never" />
+    <disable_collisions link1="gripper_ur5_wrist_1_link" link2="pc_2_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_2_link" link2="gripper_ur5_wrist_3_link" reason="Adjacent" />
     <disable_collisions link1="gripper_ur5_wrist_2_link" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_2_link" link2="light_front_right_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_2_link" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_3_link" link2="light_front_left_link" reason="Never" />
     <disable_collisions link1="gripper_ur5_wrist_3_link" link2="light_front_right_link" reason="Never" />
+    <disable_collisions link1="gripper_ur5_wrist_3_link" link2="lms_front_link" reason="Never" />
     <disable_collisions link1="heros_base_link" link2="imu_link" reason="Adjacent" />
     <disable_collisions link1="heros_base_link" link2="light_back_left_link" reason="Never" />
     <disable_collisions link1="heros_base_link" link2="light_back_right_link" reason="Never" />

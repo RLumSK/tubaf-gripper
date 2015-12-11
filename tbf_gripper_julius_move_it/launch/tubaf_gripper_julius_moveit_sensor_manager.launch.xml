@@ -6,9 +6,9 @@
     <!-- Paramater-->
     <!--octomap_frame: specifies the coordinate frame in which this representation will be stored.
     If you are working with a mobile robot, this frame should be a fixed frame in the world.-->
-    <param name="octomap_frame" type="string" value="odom" />
+    <param name="octomap_frame" type="string" value="base_link" />
     <!--octomap_resolution: specifies the resolution at which this representation is maintained (in meters).-->
-    <param name="octomap_resolution" type="double" value="0.05" />
+    <param name="octomap_resolution" type="double" value="0.025" />
     <!--max_range: specifies the maximum range value to be applied for any sensor input to this node.-->
-    <param name="max_range" type="double" value="5.0" />
+    <param name="max_range" type="double" value="3.0" />
 </launch>

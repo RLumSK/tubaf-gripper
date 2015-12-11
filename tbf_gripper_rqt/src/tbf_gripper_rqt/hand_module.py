@@ -258,8 +258,7 @@ class RobotiqHandModel(QtCore.QObject):
         self.mdl_fingerC = RobotiqFingerModel('C', self)
         self.mdl_fingerS = RobotiqFingerModel('S', self)
 
-
-        rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
+        self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
         self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
 
     @QtCore.Slot(int)
@@ -391,7 +390,7 @@ class RobotiqHandModel(QtCore.QObject):
         @param data: ROS message of the type 'SModelRobotInput'
         @return: None
         """
-        #rospy.logwarn("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(data))
+        # rospy.logwarn("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message=\n"+str(data))
         self.gMOD = data.gMOD
         self.gACT = data.gACT
         self.gGTO = data.gGTO
@@ -406,10 +405,11 @@ class RobotiqHandModel(QtCore.QObject):
         """
         #update status
         self.atNewACT[bool].emit(self.gACT == 1)
-        self.atNewMOD[str].emit(self._sendMode(self.gMOD))
+        self.atNewIMC[str].emit(RobotiqHandModel._sendGripperState(self.gIMC))
+        self.atNewSTA[str].emit(RobotiqHandModel._sendGripperMotion(self.gSTA))
+        # self.atNewMOD[str].emit(RobotiqHandModel._sendMode(self.gMOD))
+        # self.atNewMOD[str].emit("foobar")
         self.atNewGTO[bool].emit(self.gGTO == 1)
-        self.atNewIMC[str].emit(self._sendGripperState(self.gIMC))
-        self.atNewSTA[str].emit(self._sendGripperMotion(self.gSTA))
 
     def shutdown(self):
         """
@@ -434,6 +434,7 @@ class RobotiqHandModel(QtCore.QObject):
             return 'Scissor Mode'
         else:
             rospy.logwarn("hand_module.py@RobotiqHandModel._sendMode(): Unknown gMOD: "+str(gMOD))
+            return 'ERROR'
 
     @staticmethod
     def _sendGripperState(gIMC):
@@ -447,6 +448,7 @@ class RobotiqHandModel(QtCore.QObject):
             return 'Activation and Mode change are complete'
         else:
             rospy.logwarn("hand_module.py@RobotiqHandModel._sendGripperState(): Unknown gIMC: "+str(gIMC))
+            return 'ERROR'
 
     @staticmethod
     def _sendGripperMotion(gSTA):
@@ -460,3 +462,4 @@ class RobotiqHandModel(QtCore.QObject):
             return 'Gripper is stopped. All fingers reached requested position.'
         else:
             rospy.logwarn("hand_module.py@RobotiqHandModel._sendGripperMotion(): Unknown gSTA: "+str(gSTA))
+            return 'ERROR'
