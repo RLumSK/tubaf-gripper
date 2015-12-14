@@ -92,8 +92,11 @@ class Demo(object):
         self.ur5.set_planning_time(10)
         self.ur5.set_goal_position_tolerance(1)
         self.ur5.set_goal_orientation_tolerance(1)
+
         size = 8.0
         self.ur5.set_workspace([-size/2.0, -size/2.0, -size/2.0, size/2.0, size/2.0, size/2.0])  #TODO
+
+
 
         self.manipulator = None
 

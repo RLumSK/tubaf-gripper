@@ -7,7 +7,7 @@
 -->
 <launch>
     <!-- Robotiq 3F Gripper -->
-    <arg name="start_hand" default="false" />
+    <arg name="start_hand" default="true" />
     <arg name="hand_ip" default="192.168.1.111"/>
 
     <!-- UR5 robot arm -->
