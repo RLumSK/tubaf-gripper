@@ -87,26 +87,6 @@ joint_limits:
     max_velocity: 3.2
     has_acceleration_limits: false
     max_acceleration: 0
-  joint_base_wheel_front_left:
-    has_velocity_limits: false
-    max_velocity: 0
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint_base_wheel_front_right:
-    has_velocity_limits: false
-    max_velocity: 0
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint_base_wheel_rear_left:
-    has_velocity_limits: false
-    max_velocity: 0
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint_base_wheel_rear_right:
-    has_velocity_limits: false
-    max_velocity: 0
-    has_acceleration_limits: false
-    max_acceleration: 0
   ptu_top_pan:
     has_velocity_limits: true
     max_velocity: 1

@@ -66,4 +66,8 @@
     <param name="planning_scene_monitor/publish_transforms_updates" value="$(arg publish_monitored_planning_scene)" />
   </node>
 
+  <!--https://github.com/ros-planning/moveit_ros/issues/629-->
+  <group ns="move_group">
+    <rosparam command="load" file="$(find tbf_gripper_julius_move_it)/config/kinematics.yaml"/>
+  </group>
 </launch>

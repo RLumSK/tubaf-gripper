@@ -7,7 +7,7 @@ controller_list:
       - gripper_ur5_wrist_1_joint
       - gripper_ur5_wrist_2_joint
       - gripper_ur5_wrist_3_joint
-  - name: fake_Hand_controller
+  - name: fake_Finger_controller
     joints:
       - gripper_robotiq_palm_finger_1_joint
       - gripper_robotiq_finger_1_joint_1
@@ -20,13 +20,18 @@ controller_list:
       - gripper_robotiq_finger_middle_joint_1
       - gripper_robotiq_finger_middle_joint_2
       - gripper_robotiq_finger_middle_joint_3
-  - name: fake_Wheels_controller
-    joints:
-      - joint_base_wheel_front_left
-      - joint_base_wheel_front_right
-      - joint_base_wheel_rear_left
-      - joint_base_wheel_rear_right
   - name: fake_Top_PTU_controller
     joints:
       - ptu_top_pan
       - ptu_top_tilt
+  - name: fake_manipulator_controller
+    joints:
+      - gripper_ur5_shoulder_pan_joint
+      - gripper_ur5_shoulder_lift_joint
+      - gripper_ur5_elbow_joint
+      - gripper_ur5_wrist_1_joint
+      - gripper_ur5_wrist_2_joint
+      - gripper_ur5_wrist_3_joint
+  - name: fake_endeffector_controller
+    joints:
+      []

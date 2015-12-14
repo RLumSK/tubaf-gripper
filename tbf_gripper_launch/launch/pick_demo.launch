@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!--
+	author: sgrehl
+	proj: MiningRoX
+	date: 11.12.2015
+	desc: press demo at 16/12/2015 - pick up a wlan_box identified by ar_marker with julius
+-->
+<launch>
+    <include file="$(find tbf_gripper_launch)/launch/gripper_julius.launch" />
+    <include file="$(find julius)/launch/experiment/ar.launch" />
+    <include file="$(find julius)/launch/experiment/detect.launch" />
+</launch>
