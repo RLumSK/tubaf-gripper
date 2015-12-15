@@ -197,16 +197,16 @@ class Demo(object):
 
     def moveElbow(self, rad_elbow_angular):
         print "moveElbow"
-        self._move_joints({mobile_joint_names[2]: (-0.90757121 - rad_elbow_angular)})
+        self._move_joints({mobile_joint_names[2]: (-numpy.pi/2 + rad_elbow_angular)})
 
     def adjust(self):
         print "adjust"
-        joints = {mobile_joint_names[0]: -numpy.pi,    # Base
-                  mobile_joint_names[1]: -numpy.pi/2,  # Shoulder
-                  mobile_joint_names[2]: -0.90757121,  # Elbow
-                  mobile_joint_names[3]:  2.0594885,  # Wrist 1
-                  mobile_joint_names[4]: -1.6406095,   # Wrist 2
-                  mobile_joint_names[5]: -0.89011792}  # Wrist 3
+        joints = {mobile_joint_names[0]: -numpy.pi,     # Base
+                  mobile_joint_names[1]: -numpy.pi/2,   # Shoulder
+                  mobile_joint_names[2]: -numpy.pi/2,   # Elbow
+                  mobile_joint_names[3]: -numpy.pi/2,   # Wrist 1
+                  mobile_joint_names[4]:  numpy.pi/2,   # Wrist 2
+                  mobile_joint_names[5]:  0.0}          # Wrist 3
         self._move_joints(joints)
 
     def plan_grasp_move(self):
@@ -267,7 +267,7 @@ class Demo(object):
         self.obj_recognition_command_publisher.publish(self.cmd_obj)
 
         # Move ur5 to find the WLAN box
-        for i in range(1, 3):
+        for i in range(-1, 2, 2):
             if self.pre_grasp_pose is not None:
                 break
             self.moveElbow(i*numpy.pi/8)
