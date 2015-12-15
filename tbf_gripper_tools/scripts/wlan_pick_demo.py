@@ -245,17 +245,17 @@ class Demo(object):
 
     def demo_pick(self):
         rospy.loginfo("Press Demo 16/12/2015 - Find the WLAN Box and grap it!")
-        rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  1/10: -Move to Starting Position-")
+        # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  1/10: -Move to Starting Position-")
         # Move to initial position
-        self.move2start()
-        self.hand.closeGripper() #TODO <-- change to wait till goal is reached or throw exception
-
-        rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  2/10: -Rotate for Lighthouse Model-")
-        # Rotate Base joint to get a 360deg scene for the occupancy map
-        for i in range(0, 6):
-            self.moveBase(i*numpy.pi/3)
-
-        rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  3/10: -Rotate to Starting Position and adjust Wrist Joints-")
+        # self.move2start()
+        # self.hand.closeGripper() #TODO <-- change to wait till goal is reached or throw exception
+        #
+        # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  2/10: -Rotate for Lighthouse Model-")
+        # # Rotate Base joint to get a 360deg scene for the occupancy map
+        # for i in range(0, 6):
+        #     self.moveBase(i*numpy.pi/3)
+        #
+        # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  3/10: -Rotate to Starting Position and adjust Wrist Joints-")
         # Move to initial position for the object recognition step - find the WLAN box now
         self.move2start()
         self.adjust()
