@@ -163,7 +163,7 @@ class Demo(object):
         # see: http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
         box_pose = msg.pose
         rospy.loginfo("@onNewBoxPose: Adding the wlna_box into the world at the location of the given pose:%s" % box_pose.position)
-        self.scene.add_box("wlan_box", box_pose, size=self.wlan_box_size)
+        self.scene.add_box("wlan_box", msg, size=self.wlan_box_size)
 
         self.pre_grasp_pose = box_pose
         self.pre_grasp_pose.position.x += GRIPPER_PLAN_OFFSET
@@ -257,8 +257,8 @@ class Demo(object):
         #
         # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  3/10: -Rotate to Starting Position and adjust Wrist Joints-")
         # Move to initial position for the object recognition step - find the WLAN box now
-        self.move2start()
-        self.adjust()
+        # self.move2start()
+        # self.adjust()
 
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  4/10: -Rotate Elbow for Front Model || Object Recognition -")
         # Init object recognition
@@ -267,11 +267,11 @@ class Demo(object):
         self.obj_recognition_command_publisher.publish(self.cmd_obj)
 
         # Move ur5 to find the WLAN box
-        for i in range(-1, 2, 2):
-            if self.pre_grasp_pose is not None:
-                break
-            self.moveElbow(i*numpy.pi/8)
-        rospy.sleep(3)
+        # for i in range(-1, 2, 2):
+        #     if self.pre_grasp_pose is not None:
+        #         break
+        #     self.moveElbow(i*numpy.pi/8)
+        rospy.sleep(5)
         # Stop object recognition
         self.cmd_obj.data = 1  # finish object recognition and publish /obj_pose
         self.obj_recognition_command_publisher.publish(self.cmd_obj)
