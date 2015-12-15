@@ -34,6 +34,7 @@ press demo at 16.12.2015
 """
 
 import sys
+import signal
 import copy
 import math
 import time
@@ -64,6 +65,11 @@ sample_pose = Pose(Point(-0.843,0.166350559267,-0.095),
 # sample_pose = Pose(Point(-0.833062205145,0.166350559267,-0.114325897108),
 #                    Quaternion(-0.338466495763,0.60137533094,0.337815120851,0.640053971714))
 
+def signal_handler(signal, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
 
 def pose_to_m(pose):
     res = tt.quaternion_matrix((pose.orientation.x,pose.orientation.y,pose.orientation.z,pose.orientation.w))
@@ -88,6 +94,12 @@ def trans_pose(pose,x,y,z):
     v1 = np.dot(m,v)
     m[:,3] = v1
     return m_to_pose(m)
+
+def rot_pose(pose,q):
+    m = pose_to_m(pose)
+    r = tt.quaternion_matrix(q)
+    res = np.dot(m,r)
+    return m_to_pose(res)
 
 class Demo(object):
     """
@@ -191,13 +203,18 @@ class Demo(object):
         # see: http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
         marker_pose = msg.pose
 
-        box_pose = trans_pose(marker_pose,0,0,-0.14)
+        box_pose = trans_pose(marker_pose,0,0,-0.06)
+        box_pose = rot_pose(box_pose, tt.quaternion_from_euler(0,0,np.pi * -60/180))
+
+        # box_pose.orientation = Quaternion(0,0,0,1)
 
         rospy.loginfo("@onNewBoxPose: Adding the wlna_box into the world at the location of the given pose:%s" % box_pose.position)
         self.scene.add_box("wlan_box", PoseStamped(msg.header,box_pose), size=self.wlan_box_size)
 
-        self.pre_grasp_pose = box_pose
-        self.pre_grasp_pose.position.x += GRIPPER_PLAN_OFFSET
+        hand_pose = rot_pose(marker_pose,tt.quaternion_from_euler(0,np.pi*0.5,0))
+        hand_pose = rot_pose(hand_pose, tt.quaternion_from_euler(np.pi,0,0))
+        hand_pose = trans_pose(hand_pose,-0.14,0,0)
+        self.pre_grasp_pose = hand_pose
 
         self.box_pose_subscriber.unregister()
         self.grasp_box = True
@@ -288,8 +305,8 @@ class Demo(object):
         #
         # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  3/10: -Rotate to Starting Position and adjust Wrist Joints-")
         # Move to initial position for the object recognition step - find the WLAN box now
-        # self.move2start()
-        # self.adjust()
+        self.move2start()
+        self.adjust()
 
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  4/10: -Rotate Elbow for Front Model || Object Recognition -")
         # Init object recognition
@@ -298,8 +315,8 @@ class Demo(object):
 
         self.box_pose_subscriber = rospy.Subscriber("/obj_pose", geometry_msgs.msg.PoseStamped, self.onNewBoxPose)
         self.obj_recognition_command_publisher.publish(Int8(0))
-
-
+        self.obj_recognition_command_publisher.publish(Int8(0))
+        self.obj_recognition_command_publisher.publish(Int8(0))
         # Move ur5 to find the WLAN box
         # for i in range(-1, 2, 2):
         #     if self.pre_grasp_pose is not None:
