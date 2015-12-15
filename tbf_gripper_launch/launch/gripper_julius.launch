@@ -69,31 +69,31 @@
     <!-- 1. UR5 arm -->
     <group if="$(arg start_ur5)">
         <!-- Bringup UR5 arm (classic driver)-->
-        <!--<node name="ur_driver" pkg="ur_driver" type="driver.py" args="$(arg ur5_robot_ip) $(arg ur5_reverse_port)"-->
-              <!--output="screen">-->
-            <!--<param name="prefix" type="String" value="$(arg ur5_link_prefix)"/>-->
-            <!--<param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>-->
-            <!--<param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>-->
-            <!--<param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>-->
-            <!--<remap from="joint_states" to="$(arg ur5_link_prefix)joint_states"/>-->
-        <!--</node>-->
-
-        <!-- Bringup UR5 arm (modern driver) -->
-        <!-- https://github.com/ThomasTimm/ur_modern_driver -->
-        <node name="ur_driver" pkg="ur_modern_driver" type="ur_driver" output="screen">
-            <!-- copy the specified IP address to be consistant with ROS-Industrial spec. -->
-            <param name="robot_ip_address" type="str" value="$(arg ur5_robot_ip)" />
+        <node name="ur_driver" pkg="ur_driver" type="driver.py" args="$(arg ur5_robot_ip) $(arg ur5_reverse_port)"
+              output="screen">
             <param name="prefix" type="String" value="$(arg ur5_link_prefix)"/>
             <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
             <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
             <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
-
-            <param name="servoj_time" type="double" value="$(arg ur5_servoj_time)" />
-            <param name="base_frame" type="str" value="$(arg ur5_link_prefix)base_link"/>
-            <param name="tool_frame" type="str" value="$(arg ur5_link_prefix)tool0"/>
-
             <remap from="joint_states" to="$(arg ur5_link_prefix)joint_states"/>
         </node>
+
+        <!-- Bringup UR5 arm (modern driver) -->
+        <!-- https://github.com/ThomasTimm/ur_modern_driver -->
+        <!--<node name="ur_driver" pkg="ur_modern_driver" type="ur_driver" output="screen">-->
+            <!--&lt;!&ndash; copy the specified IP address to be consistant with ROS-Industrial spec. &ndash;&gt;-->
+            <!--<param name="robot_ip_address" type="str" value="$(arg ur5_robot_ip)" />-->
+            <!--<param name="prefix" type="String" value="$(arg ur5_link_prefix)"/>-->
+            <!--<param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>-->
+            <!--<param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>-->
+            <!--<param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>-->
+
+            <!--<param name="servoj_time" type="double" value="$(arg ur5_servoj_time)" />-->
+            <!--<param name="base_frame" type="str" value="$(arg ur5_link_prefix)base_link"/>-->
+            <!--<param name="tool_frame" type="str" value="$(arg ur5_link_prefix)tool0"/>-->
+
+            <!--<remap from="joint_states" to="$(arg ur5_link_prefix)joint_states"/>-->
+        <!--</node>-->
 
             <!-- TF Buffer Server -->
             <node pkg="tf2_ros" type="buffer_server" name="tf2_buffer_server">
