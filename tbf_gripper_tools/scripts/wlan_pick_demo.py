@@ -263,6 +263,9 @@ class Demo(object):
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  4/10: -Rotate Elbow for Front Model || Object Recognition -")
         # Init object recognition
         self.cmd_obj.data = 0  # init object recognition
+
+        self._init_manipulator()
+
         self.box_pose_subscriber = rospy.Subscriber("/obj_pose", geometry_msgs.msg.PoseStamped, self.onNewBoxPose)
         self.obj_recognition_command_publisher.publish(self.cmd_obj)
 
@@ -283,14 +286,13 @@ class Demo(object):
 
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick: Phase  5/10: -Open the 3F Hand-")
         self.hand.openGripper()  #TODO <-- change to wait till goal is reached or throw exception
-        
+
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick: Phase  6/10: -Plan Grasping Position-")
         final_plan = self.plan_grasp_move()
-        
+
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick: Phase  8/10: -Move to Grasping Position-")
-        self._init_manipulator()
         self._go(comander=self.manipulator, plan=final_plan)
-        
+
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick: Phase  9/10: -Grasp-")
         self.grasp()
 
