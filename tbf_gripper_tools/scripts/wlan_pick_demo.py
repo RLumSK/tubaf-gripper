@@ -190,10 +190,10 @@ class Demo(object):
         # add a box to the planning_scene - occupancy map should remove those voxel
         # see: http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
         marker_pose = msg.pose
-        rospy.loginfo("@onNewBoxPose: Adding the wlna_box into the world at the location of the given pose:%s" % box_pose.position)
 
         box_pose = trans_pose(marker_pose,0,0,-0.14)
 
+        rospy.loginfo("@onNewBoxPose: Adding the wlna_box into the world at the location of the given pose:%s" % box_pose.position)
         self.scene.add_box("wlan_box", PoseStamped(msg.header,box_pose), size=self.wlan_box_size)
 
         self.pre_grasp_pose = box_pose
@@ -309,7 +309,8 @@ class Demo(object):
         # Stop object recognition
         self.obj_recognition_command_publisher.publish(Int8(1))
 
-        while not self.grasp_box or rospy.is_shutdown():
+        while not self.grasp_box:
+
             rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick: Waiting for Target Pose")
             rospy.sleep(1)
 
@@ -339,4 +340,6 @@ if __name__=='__main__':
         #new_demo.demo_place()
     except rospy.ROSInterruptException:
         new_demo.ur5.stop()
+        print "end"
+        exit(0)
         pass
