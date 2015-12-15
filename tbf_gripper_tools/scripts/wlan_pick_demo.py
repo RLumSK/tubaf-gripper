@@ -44,6 +44,7 @@ import moveit_msgs.msg
 import geometry_msgs.msg
 from geometry_msgs.msg import Pose, Quaternion, Point
 import std_msgs.msg
+from std_msgs.msg import Int8
 import tf.transformations as transform
 import tbf_gripper_rqt.gripper_module as gm
 
@@ -262,12 +263,12 @@ class Demo(object):
 
         rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  4/10: -Rotate Elbow for Front Model || Object Recognition -")
         # Init object recognition
-        self.cmd_obj.data = 0  # init object recognition
 
         self._init_manipulator()
 
         self.box_pose_subscriber = rospy.Subscriber("/obj_pose", geometry_msgs.msg.PoseStamped, self.onNewBoxPose)
-        self.obj_recognition_command_publisher.publish(self.cmd_obj)
+        self.obj_recognition_command_publisher.publish(Int8(0))
+
 
         # Move ur5 to find the WLAN box
         # for i in range(-1, 2, 2):
@@ -276,10 +277,9 @@ class Demo(object):
         #     self.moveElbow(i*numpy.pi/8)
         rospy.sleep(5)
         # Stop object recognition
-        self.cmd_obj.data = 1  # finish object recognition and publish /obj_pose
-        self.obj_recognition_command_publisher.publish(self.cmd_obj)
+        self.obj_recognition_command_publisher.publish(Int8(1))
 
-        while not self.grasp_box:
+        while not self.grasp_box or rospy.is_shutdown():
             rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick: Waiting for Target Pose")
             rospy.sleep(1)
 
