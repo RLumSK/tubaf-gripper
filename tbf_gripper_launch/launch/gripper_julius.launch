@@ -7,11 +7,11 @@
 -->
 <launch>
     <!-- Robotiq 3F Gripper -->
-    <arg name="start_hand" default="true" />
+    <arg name="start_hand" default="false" />
     <arg name="hand_ip" default="192.168.1.111"/>
 
     <!-- UR5 robot arm -->
-    <arg name="start_ur5" default="true"/>
+    <arg name="start_ur5" default="false"/>
     <arg name="ur5_robot_ip" default="192.168.1.110"/>
     <arg name="ur5_reverse_port" default="50001"/>
     <arg name="ur5_min_payload" default="0.0"/>
@@ -24,7 +24,7 @@
     <arg name="limited" default="true"/>
 
     <!-- Xtion RGB-D camera -->
-    <arg name="start_rgbd" default="true" />
+    <arg name="start_rgbd" default="false" />
     <arg name="device_id" default=""/>
     <arg name="cam" default="gripper_camera"/>
     <arg name="data_skip" default="1"/>
@@ -48,7 +48,6 @@
     <!-- Launch options-->
     <arg name="start_driver" default="true"/>
     <arg name="start_description" default="true"/>
-    <arg name="start_rsp" default="true"/>
     <arg name="start_jsp" default="true"/>
 
     <!--__________________________________________________________-->
@@ -58,7 +57,6 @@
 
     <!-- 0. Set-Up -->
     <include file="$(find julius)/launch/description.launch" if="$(arg start_description)" />
-    <node name="rsp" pkg="robot_state_publisher" type="robot_state_publisher" if="$(arg start_rsp)"/>
     <node name="jsp" pkg="joint_state_publisher" type="joint_state_publisher" if="$(arg start_jsp)">
         <rosparam subst_value="true">
             source_list:
