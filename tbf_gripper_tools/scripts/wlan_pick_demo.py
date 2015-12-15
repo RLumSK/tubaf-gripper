@@ -118,12 +118,16 @@ class Demo(object):
         self.manipulator.set_workspace([-2, -2, -2, 2, 2, 2])
 
     def _go(self, plan=None, comander=None):
-        print "_go"
+        rospy.loginfo("_go")
         if (True == self.isStopped):
             rospy.logwarn("wlan_pick_demo.py@Demo._go: UR5 Stopped (%s)" % self.isStopped)
             return False
         if comander is None:
             comander = self.ur5
+        print "current joint values before p ", comander.get_current_joint_values()
+        if (False == bool(input("Start planning UR5? (True/False):"))):
+            return False
+        print "current joint values planning ", comander.get_current_joint_values()
         comander.set_start_state_to_current_state()
         if plan is None:
             # THIS TAKES TO MUCH TIME 12/12/15
@@ -139,7 +143,7 @@ class Demo(object):
         comander.execute(plan)
         rospy.loginfo("wlan_pick_demo.py@Demo._go: Stopped moving?")
         comander.clear_pose_targets()
-        print "_go - end"
+        rospy.loginfo("_go - end")
         return True
 
     def _move_joints(self, dct_joints):
