@@ -214,7 +214,7 @@ class Demo(object):
         self.ur5.clear_pose_targets()
         self.manipulator.clear_pose_targets()
         # self.manipulator.set_pose_target(sample_pose)
-        self.manipulator.set_pose_target(self.obj_box_pose)
+        self.manipulator.set_pose_target(self.pre_grasp_pose)
         return self.manipulator.plan()
 
     def grasp(self):
