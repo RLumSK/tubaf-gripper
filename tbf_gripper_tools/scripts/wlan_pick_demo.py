@@ -42,7 +42,9 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
-from geometry_msgs.msg import Pose, Quaternion, Point
+from geometry_msgs.msg import Pose, Point, PoseStamped, Quaternion
+import numpy as np
+import tf.transformations as tt
 import std_msgs.msg
 from std_msgs.msg import Int8
 import tf.transformations as transform
@@ -61,6 +63,31 @@ sample_pose = Pose(Point(-0.843,0.166350559267,-0.095),
                    Quaternion(-0.338466495763,0.60137533094,0.337815120851,0.640053971714))
 # sample_pose = Pose(Point(-0.833062205145,0.166350559267,-0.114325897108),
 #                    Quaternion(-0.338466495763,0.60137533094,0.337815120851,0.640053971714))
+
+
+def pose_to_m(pose):
+    res = tt.quaternion_matrix((pose.orientation.x,pose.orientation.y,pose.orientation.z,pose.orientation.w))
+    res[0,3] = pose.position.x
+    res[1,3] = pose.position.y
+    res[2,3] = pose.position.z
+    return res
+
+def m_to_pose(m):
+    p_inv = m[:,3]
+    p_inv = p_inv[:-1] / p_inv[-1]
+    p = Point(*p_inv)
+    m1 = m.copy()
+    m1[:,3] = np.array([0,0,0,1])
+    q = tt.quaternion_from_matrix(m1)
+    o = Quaternion(*q)
+    return Pose(p,o)
+
+def trans_pose(pose,x,y,z):
+    v = np.array([x,y,z,1])
+    m = pose_to_m(pose)
+    v1 = np.dot(m,v)
+    m[:,3] = v1
+    return m_to_pose(m)
 
 class Demo(object):
     """
@@ -106,7 +133,7 @@ class Demo(object):
 
         self.cmd_obj = std_msgs.msg.Int8()
         self.pre_grasp_pose = None
-        self.wlan_box_size = (0.17, 0.14, 0.1)
+        self.wlan_box_size = (0.1, 0.17, 0.14)
 
         #TODO start DO0 at the UR5 and initilize the hand
 
@@ -162,9 +189,12 @@ class Demo(object):
         # WLAN Box found
         # add a box to the planning_scene - occupancy map should remove those voxel
         # see: http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
-        box_pose = msg.pose
+        marker_pose = msg.pose
         rospy.loginfo("@onNewBoxPose: Adding the wlna_box into the world at the location of the given pose:%s" % box_pose.position)
-        self.scene.add_box("wlan_box", msg, size=self.wlan_box_size)
+
+        box_pose = trans_pose(marker_pose,0,0,-0.14)
+
+        self.scene.add_box("wlan_box", PoseStamped(msg.header,box_pose), size=self.wlan_box_size)
 
         self.pre_grasp_pose = box_pose
         self.pre_grasp_pose.position.x += GRIPPER_PLAN_OFFSET
