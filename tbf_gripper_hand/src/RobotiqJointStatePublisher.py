@@ -53,7 +53,7 @@ class RobotiqJointStatePublisher(object):
         rospy.init_node('RobotiqJointStatePublisher', anonymous=True)
         prefix = rospy.get_param('~prefix', default='default')
         joint_topic = rospy.get_param('~pub_topic', default='joint_states_hand')
-        rospy.loginfo("[RobotiqJointStatePublisher.__init__()] prefix: %s" % prefix)
+        # rospy.loginfo("[RobotiqJointStatePublisher.__init__()] prefix: %s" % prefix)
 
         rospy.Subscriber(name="/SModelRobotInput", data_class=hand_msg.SModel_robot_input,
                          callback=self.onSModelInputMessage)
