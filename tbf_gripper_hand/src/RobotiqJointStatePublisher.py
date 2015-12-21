@@ -51,10 +51,17 @@ class RobotiqJointStatePublisher(object):
         @return:
         """
         rospy.init_node('RobotiqJointStatePublisher', anonymous=True)
+        prefix = rospy.get_param('~prefix', default='default')
+        joint_topic = rospy.get_param('~pub_topic', default='joint_states_hand')
+        rospy.loginfo("[RobotiqJointStatePublisher.__init__()] prefix: %s" % prefix)
+
         rospy.Subscriber(name="/SModelRobotInput", data_class=hand_msg.SModel_robot_input,
                          callback=self.onSModelInputMessage)
-        self.publisher = rospy.Publisher(name='joint_states_hand', data_class=JointState, queue_size=10)
-        self.names = ['finger_middle_joint_1', 'finger_1_joint_1', 'finger_2_joint_1','finger_middle_joint_2', 'finger_1_joint_2', 'finger_2_joint_2', 'finger_middle_joint_3', 'finger_1_joint_3', 'finger_2_joint_3', 'palm_finger_1_joint', 'palm_finger_2_joint']
+        self.publisher = rospy.Publisher(name=joint_topic, data_class=JointState, queue_size=10)
+        self.names = ['finger_middle_joint_1', 'finger_1_joint_1', 'finger_2_joint_1','finger_middle_joint_2',
+                      'finger_1_joint_2', 'finger_2_joint_2', 'finger_middle_joint_3', 'finger_1_joint_3',
+                      'finger_2_joint_3', 'palm_finger_1_joint', 'palm_finger_2_joint']
+        self.names = [prefix+name for name in self.names]
         self.position = [-1.0, -1.0, -1.0,-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
         # self.position = [-1.0, -1.0, -1.0, -1.0, -1.0]
         # self.velocity = [-1.0, -1.0, -1.0, -1.0, -1.0]

@@ -18,13 +18,10 @@
     <arg name="ur5_max_payload" default="5.0"/>
     <arg name="ur5_max_velocity" default="10.0"/>
     <arg name="ur5_servoj_time" default="0.008" />
-
-    <arg name="ur5_link_prefix" default="gripper_ur5_" />
     <arg name="ur5_set_goal_outside" default="false" />
-    <arg name="limited" default="true"/>
 
     <!-- Xtion RGB-D camera -->
-    <arg name="start_rgbd" default="true" />
+    <arg name="start_rgbd" default="false" />
     <arg name="device_id" default=""/>
     <arg name="cam" default="gripper_camera"/>
     <arg name="data_skip" default="1"/>
@@ -45,6 +42,11 @@
     <arg name="use_gui" default="false"/>
     <arg name="sim" default="false"/>
 
+    <!-- Description options-->
+    <arg name="gripper_prefix" default="gripper_ur5_" />
+    <arg name="limited" default="true"/>
+
+
     <!-- Launch options-->
     <arg name="start_driver" default="true"/>
     <arg name="modern_driver" default="true"/>
@@ -61,8 +63,8 @@
     <node name="jsp" pkg="joint_state_publisher" type="joint_state_publisher" if="$(arg start_jsp)">
         <rosparam subst_value="true">
             source_list:
-            - /$(arg ur5_link_prefix)joint_states
-            - /joint_states_hand
+            - /$(arg gripper_prefix)joint_states
+            - /$(arg gripper_prefix)hand_joint_states
         </rosparam>
     </node>
 
@@ -72,11 +74,11 @@
         <!-- Bringup UR5 arm (classic driver)-->
         <node unless="$(arg modern_driver)" name="ur_driver" pkg="ur_driver" type="driver.py" args="$(arg ur5_robot_ip) $(arg ur5_reverse_port)"
               output="screen">
-            <param name="prefix" type="String" value="$(arg ur5_link_prefix)"/>
+            <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
             <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
             <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
             <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
-            <remap from="joint_states" to="$(arg ur5_link_prefix)joint_states"/>
+            <remap from="joint_states" to="$(arg gripper_prefix)joint_states"/>
         </node>
 
         <!-- Bringup UR5 arm (modern driver) -->
@@ -84,16 +86,16 @@
         <node if="$(arg modern_driver)" name="ur_driver" pkg="ur_modern_driver" type="ur_driver" output="screen">
             <!-- copy the specified IP address to be consistant with ROS-Industrial spec. -->
             <param name="robot_ip_address" type="str" value="$(arg ur5_robot_ip)" />
-            <param name="prefix" type="String" value="$(arg ur5_link_prefix)"/>
+            <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
             <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
             <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
             <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
 
             <param name="servoj_time" type="double" value="$(arg ur5_servoj_time)" />
-            <param name="base_frame" type="str" value="$(arg ur5_link_prefix)base_link"/>
-            <param name="tool_frame" type="str" value="$(arg ur5_link_prefix)tool0"/>
+            <param name="base_frame" type="str" value="$(arg gripper_prefix)base_link"/>
+            <param name="tool_frame" type="str" value="$(arg gripper_prefix)tool0"/>
 
-            <remap from="joint_states" to="$(arg ur5_link_prefix)joint_states"/>
+            <remap from="joint_states" to="$(arg gripper_prefix)joint_states"/>
         </node>
 
             <!-- TF Buffer Server -->
@@ -107,6 +109,7 @@
         <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
         <include file="$(find tbf_gripper_launch)/launch/hand.launch">
             <arg name="hand_ip" value="$(arg hand_ip)"/>
+            <arg name="prefix" value="$(arg gripper_prefix)"/>
         </include>
     </group>
 

@@ -7,6 +7,7 @@
 -->
 <launch>
 	<arg name="hand_ip" default="192.168.1.111" />
+	<arg name="prefix" default="" />
  	
 	<!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
 	<node name="hand_tcp" pkg="robotiq_s_model_control" type="SModelTcpNode.py" args="$(arg hand_ip)" respawn="false"/>
@@ -17,5 +18,8 @@
 	<include file="$(find tbf_gripper_launch)/launch/hand_description.launch"/>
 
 	<!-- translate the states from robotiq to ROS -->
-	<node name="jstr_hand" pkg="tbf_gripper_hand" type="RobotiqJointStatePublisher.py" />
+	<node name="joint_states_translate_hand" pkg="tbf_gripper_hand" type="RobotiqJointStatePublisher.py">
+		<param name="pub_topic" value="$(arg prefix)hand_joint_states" />
+		<param name="prefix" value="$(arg prefix)" />
+	</node>
 </launch>

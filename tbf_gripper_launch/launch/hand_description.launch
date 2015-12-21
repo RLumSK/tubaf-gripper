@@ -14,9 +14,9 @@
 		<node name="rsp" type="robot_state_publisher" pkg="robot_state_publisher" />
 		<node name="jsp" type="joint_state_publisher" pkg="joint_state_publisher" >
 		 	<param name="use_gui" value="$(arg use_gui)" />
-		 	<rosparam>
-source_list:
-- joint_states_hand</rosparam>
+		 	<rosparam subst_value="true">
+			source_list:
+      		- /$(arg ur5_link_prefix)hand_joint_states</rosparam>
 	 	</node>
 	 </group>
 	 <!-- TODO?
