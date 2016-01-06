@@ -44,6 +44,7 @@
 
     <!-- Description options-->
     <arg name="gripper_prefix" default="gripper_ur5_" />
+    <arg name="gripper_hand_prefix" default="gripper_robotiq_" />
     <arg name="limited" default="true"/>
 
 
@@ -64,7 +65,7 @@
         <rosparam subst_value="true">
             source_list:
             - /$(arg gripper_prefix)joint_states
-            - /$(arg gripper_prefix)hand_joint_states
+            - /$(arg gripper_hand_prefix)hand_joint_states
         </rosparam>
     </node>
 
@@ -109,7 +110,7 @@
         <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
         <include file="$(find tbf_gripper_launch)/launch/hand.launch">
             <arg name="hand_ip" value="$(arg hand_ip)"/>
-            <arg name="prefix" value="$(arg gripper_prefix)"/>
+            <arg name="prefix" value="$(arg gripper_hand_prefix)"/>
         </include>
     </group>
 
