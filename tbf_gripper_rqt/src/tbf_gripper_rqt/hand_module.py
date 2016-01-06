@@ -244,7 +244,7 @@ class RobotiqHandModel(QtCore.QObject):
         self.rGTO = 0
         self.rICF = 0
         self.rACT = 0
-        self.rGLV = 0
+        self.rGLV = 1   # for Julius
         self.rICS = 0
 
         self.gMOD = 0
