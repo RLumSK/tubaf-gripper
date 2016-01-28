@@ -12,7 +12,7 @@
 
     <!-- UR5 robot arm -->
     <arg name="start_ur5" default="true"/>
-    <arg name="ur5_robot_ip" default="192.168.1.110"/>
+    <arg name="ur5_robot_ip" default="192.168.2.26"/>
     <arg name="ur5_reverse_port" default="50001"/>
     <arg name="ur5_min_payload" default="0.0"/>
     <arg name="ur5_max_payload" default="5.0"/>

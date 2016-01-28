@@ -258,6 +258,8 @@ class RobotiqHandModel(QtCore.QObject):
         self.mdl_fingerC = RobotiqFingerModel('C', self)
         self.mdl_fingerS = RobotiqFingerModel('S', self)
 
+        # init ROS
+        rospy.init_node('hand_module', anonymous=True)
         self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
         self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
 

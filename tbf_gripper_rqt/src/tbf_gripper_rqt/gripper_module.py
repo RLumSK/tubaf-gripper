@@ -29,13 +29,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 import os
 import rospkg
-
+import socket
+import rospy
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
 from python_qt_binding.QtGui import QWidget
-
 from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
-
 from hand_module import RobotiqHandModel
 
 
@@ -50,8 +49,8 @@ class WideGripper(Plugin):
         parser = ArgumentParser()
         # Add argument(s) to the parser.
         parser.add_argument("-q", "--quiet", action="store_true",
-                      dest="quiet",
-                      help="Put plugin in silent mode")
+                            dest="quiet",
+                            help="Put plugin in silent mode")
         args, unknowns = parser.parse_known_args(context.argv())
         if not args.quiet:
             print 'arguments: ', args
@@ -75,7 +74,6 @@ class WideGripper(Plugin):
         # Add widget to the user interface
         context.add_widget(self._widget)
 
-
         # initilize model
         self.model = WideGripperModel()
 
@@ -85,7 +83,7 @@ class WideGripper(Plugin):
         self._widget.hsl_position.sliderMoved.connect(self.model.moveGripperTo)
 
     def shutdown_plugin(self):
-        #self._widget.shutdown_all()
+        # self._widget.shutdown_all()
         self.model.shutdown()
         # TODO unregister all publishers here
         pass
@@ -100,14 +98,13 @@ class WideGripper(Plugin):
         # v = instance_settings.value(k)
         pass
 
-    #def trigger_configuration(self):
+        # def trigger_configuration(self):
         # Comment in to signal that the plugin has a way to configure
         # This will enable a setting button (gear icon) in each dock widget title bar
         # Usually used to open a modal configuration dialog
 
 
 class WideGripperModel(RobotiqHandModel):
-
     def __init__(self):
         super(WideGripperModel, self).__init__()
         self.mdl_fingerB.shutdown()
@@ -161,3 +158,40 @@ class WideGripperModel(RobotiqHandModel):
         msg.rFRA = self.mdl_fingerA.rFR
         # rospy.logwarn("hand_module.py@RobotiqHandModel.sendROSMessage(): msg="+str(msg))
         self.publisher.publish(msg)
+
+
+class PinchGripperModel(WideGripperModel):
+    def __init__(self):
+        super.__init__()
+        self.atNewMOD = 1  # pinch mode
+
+
+class BasicGripperModel(WideGripperModel):
+    def __init__(self):
+        super.__init__()
+        self.atNewMOD = 0  # basic mode
+
+
+class GripperUdpController:
+    def __init__(self):
+        # setup udp
+        # https://wiki.python.org/moin/UdpCommunication
+        HOST = '127.0.0.1'    # The remote host
+        PORT = 59995          # The same port as used by the server
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s.bind(('255.255.255.255', PORT))
+
+        #setup gripper
+        self.gripper = BasicGripperModel()
+
+    def run(self):
+        bytes = self.s.recv(2)
+        if bytes[0] is 1:
+            self.gripper.openGripper()
+        elif bytes[0] is 0:
+            self.gripper.closeGripper()
+        elif bytes[0] is 2:
+            as_number = int(bytes[1])
+            self.gripper.moveGripperTo(as_number)
+        else:
+            rospy.logwarn("GripperUdpController - unknown message receives: " + str(bytes[0]) + ", " + str(bytes[1]))
