@@ -7,12 +7,12 @@
 -->
 <launch>
     <!-- Robotiq 3F Gripper -->
-    <arg name="start_hand" default="false" />
-    <arg name="hand_ip" default="192.168.2.26"/>
+    <arg name="start_hand" default="true" />
+    <arg name="hand_ip" default="192.168.1.111"/>
 
     <!-- UR5 robot arm -->
-    <arg name="start_ur5" default="true"/>
-    <arg name="ur5_robot_ip" default="192.168.2.26"/>
+    <arg name="start_ur5" default="false"/>
+    <arg name="ur5_robot_ip" default="192.168.1.110"/>
     <arg name="ur5_reverse_port" default="50001"/>
     <arg name="ur5_min_payload" default="0.0"/>
     <arg name="ur5_max_payload" default="5.0"/>
@@ -69,42 +69,6 @@
         </rosparam>
     </node>
 
-
-    <!-- 1. UR5 arm -->
-    <group if="$(arg start_ur5)">
-        <!-- Bringup UR5 arm (classic driver)-->
-        <node unless="$(arg modern_driver)" name="ur_driver" pkg="ur_driver" type="driver.py" args="$(arg ur5_robot_ip) $(arg ur5_reverse_port)"
-              output="screen">
-            <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
-            <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
-            <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
-            <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
-            <remap from="joint_states" to="$(arg gripper_prefix)joint_states"/>
-        </node>
-
-        <!-- Bringup UR5 arm (modern driver) -->
-        <!-- https://github.com/ThomasTimm/ur_modern_driver -->
-        <node if="$(arg modern_driver)" name="ur_driver" pkg="ur_modern_driver" type="ur_driver" output="screen">
-            <!-- copy the specified IP address to be consistant with ROS-Industrial spec. -->
-            <param name="robot_ip_address" type="str" value="$(arg ur5_robot_ip)" />
-            <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
-            <param name="min_payload" type="double" value="$(arg ur5_min_payload)"/>
-            <param name="max_payload" type="double" value="$(arg ur5_max_payload)"/>
-            <param name="max_velocity" type="double" value="$(arg ur5_max_velocity)"/>
-
-            <param name="servoj_time" type="double" value="$(arg ur5_servoj_time)" />
-            <param name="base_frame" type="str" value="$(arg gripper_prefix)base_link"/>
-            <param name="tool_frame" type="str" value="$(arg gripper_prefix)tool0"/>
-
-            <remap from="joint_states" to="$(arg gripper_prefix)joint_states"/>
-        </node>
-
-            <!-- TF Buffer Server -->
-            <node pkg="tf2_ros" type="buffer_server" name="tf2_buffer_server">
-                <param name="buffer_size" value="120.0"/>
-            </node>
-    </group>
-
     <!-- 2. 3F Gripper -->
     <group if="$(arg start_hand)">
         <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
@@ -113,7 +77,6 @@
             <arg name="prefix" value="$(arg gripper_hand_prefix)"/>
         </include>
     </group>
-
     <!-- 3. RGB-D camera -->
     <group if="$(arg start_rgbd)">
         <include file="$(find tubaf_common)/launch/fix/fix_openni2.launch">
@@ -139,22 +102,10 @@
 
     </group>
 
-    <!-- 4. MoveIt -->
-    <group if="$(arg start_moveit)">
-        <!-- Remap follow_joint_trajectory -->
-        <remap if="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
-        <include file="$(find tbf_gripper_julius_move_it)/launch/julius.launch">
-            <arg name="debug" default="$(arg debug)" />
-            <arg name="db" default="false" />
-        </include>
-    </group>
-
-    <!-- 5. RQT Plugins -->
-    <group if="$(arg use_gui)">
-        <!-- Start Hand Plugin-->
-        <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui"
-              args="--perspective-file $(find tbf_gripper_rqt)/resource/RobotiqGripper.perspective"/>
-    </group>
+    <!-- Teleoperating Interface-->
+    <node name="jsp_from_imod" pkg="tubaf_imod" type="imod_ur5_listener.py">
+        <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
+    </node>
 
     <!-- 6. RVis -->
     <group if="$(arg use_gui)">
