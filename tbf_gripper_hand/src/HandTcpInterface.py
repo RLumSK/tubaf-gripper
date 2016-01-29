@@ -34,12 +34,17 @@ from tbf_gripper_rqt.gripper_module import BasicGripperModel
 
 class HandTcpInterface:
     def __init__(self, server_ip='127.0.0.1', port=59995):
+        #setup gripper (starts a ROS node)
+        self.gripper = BasicGripperModel()
+        # get parameter from ROS
+        self.prefix = rospy.get_param("server_ip", server_ip)
+        self.prefix = rospy.get_param("port", port)
+
         # setup tcp
         # https://wiki.python.org/moin/UdpCommunication
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((server_ip, port))
-        #setup gripper
-        self.gripper = BasicGripperModel()
+
 
         self.run()
 
