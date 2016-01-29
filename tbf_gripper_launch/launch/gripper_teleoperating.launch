@@ -81,7 +81,7 @@
         </include>
 
         <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
-        <node name="imod_hand_tcp_controller" pkg="tbf_gripper_hand" type="HandTcpInterface">
+        <node name="imod_hand_tcp_controller" pkg="tbf_gripper_hand" type="HandTcpInterface.py">
             <param name="server_ip" value="192.168.1.238"/>
             <param name="port" value="59995"/>
         </node>
