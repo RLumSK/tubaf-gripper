@@ -143,6 +143,11 @@
         </node>
     </group>
 
+    <include file="$(find tubaf_imod)/launch/ur5_listener.launch">
+        <arg name="prefix" value="gripper_ur5_"/>
+        <arg name="port" value="33997"/>
+    </include>
+
     <!-- 6. RVis -->
     <group if="$(arg use_gui)">
         <!-- Launch moveit-Rviz -->
