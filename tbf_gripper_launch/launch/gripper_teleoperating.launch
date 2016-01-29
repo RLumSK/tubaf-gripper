@@ -63,14 +63,14 @@
        value="$(find tbf_gripper_launch)/config/rosconsole.conf"/>
 
     <!-- 0. Set-Up -->
-    <include file="$(find julius)/launch/description.launch" if="$(arg start_description)" />
-    <node name="jsp" pkg="joint_state_publisher" type="joint_state_publisher" if="$(arg start_jsp)">
-        <rosparam subst_value="true">
-            source_list:
-            - /$(arg gripper_prefix)joint_states
-            - /$(arg gripper_hand_prefix)hand_joint_states
-        </rosparam>
-    </node>
+    <!--<include file="$(find julius)/launch/description.launch" if="$(arg start_description)" />-->
+    <!--<node name="jsp" pkg="joint_state_publisher" type="joint_state_publisher" if="$(arg start_jsp)">-->
+        <!--<rosparam subst_value="true">-->
+            <!--source_list:-->
+            <!-- - /$(arg gripper_prefix)joint_states-->
+            <!-- - /$(arg gripper_hand_prefix)hand_joint_states-->
+        <!--</rosparam>-->
+    <!--</node>-->
 
     <!-- 2. 3F Gripper -->
     <group if="$(arg start_hand)">
