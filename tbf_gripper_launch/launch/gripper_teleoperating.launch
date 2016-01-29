@@ -21,7 +21,7 @@
     <arg name="ur5_set_goal_outside" default="false" />
 
     <!-- Xtion RGB-D camera -->
-    <arg name="start_rgbd" default="false" />
+    <arg name="start_rgbd" default="true" />
     <arg name="device_id" default=""/>
     <arg name="cam" default="gripper_camera"/>
     <arg name="data_skip" default="1"/>
@@ -86,6 +86,7 @@
             <param name="port" value="59995"/>
         </node>
     </group>
+
     <!-- 3. RGB-D camera -->
     <group if="$(arg start_rgbd)">
         <include file="$(find tubaf_common)/launch/fix/fix_openni2.launch">
@@ -110,11 +111,6 @@
         </include>
 
     </group>
-
-    <!-- Teleoperating Interface-->
-    <node name="jsp_from_imod" pkg="tubaf_imod" type="imod_ur5_listener.py">
-        <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
-    </node>
 
     <group if="$(arg start_rtab)" ns="rtabmap">
     <!--http://wiki.ros.org/rtabmap_ros/Tutorials/SetupOnYourRobot-->
