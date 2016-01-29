@@ -162,36 +162,57 @@ class WideGripperModel(RobotiqHandModel):
 
 class PinchGripperModel(WideGripperModel):
     def __init__(self):
-        super.__init__()
+        super(PinchGripperModel, self).__init__()
         self.atNewMOD = 1  # pinch mode
 
 
 class BasicGripperModel(WideGripperModel):
     def __init__(self):
-        super.__init__()
+        super(BasicGripperModel, self).__init__()
         self.atNewMOD = 0  # basic mode
 
 
-class GripperUdpController:
-    def __init__(self):
-        # setup udp
+class GripperTcpController:
+    def __init__(self, server_ip='127.0.0.1', port=59995):
+        # setup tcp
         # https://wiki.python.org/moin/UdpCommunication
-        HOST = '127.0.0.1'    # The remote host
-        PORT = 59995          # The same port as used by the server
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.s.bind(('255.255.255.255', PORT))
-
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((server_ip, port))
         #setup gripper
         self.gripper = BasicGripperModel()
 
+        self.run()
+
     def run(self):
-        bytes = self.s.recv(2)
-        if bytes[0] is 1:
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            data = self.s.recv(3)
+            if not data:
+                continue
+            rospy.logdebug("GripperTcpController: received data - %s" % data)
+            self.control(data)
+            rate.sleep()
+
+    def control(self, msg):
+        if msg == "_o_":
+            rospy.loginfo("GripperTcpController: open gripper")
             self.gripper.openGripper()
-        elif bytes[0] is 0:
+        elif msg == "_c_":
+            rospy.loginfo("GripperTcpController: close gripper")
             self.gripper.closeGripper()
-        elif bytes[0] is 2:
-            as_number = int(bytes[1])
-            self.gripper.moveGripperTo(as_number)
+
         else:
-            rospy.logwarn("GripperUdpController - unknown message receives: " + str(bytes[0]) + ", " + str(bytes[1]))
+            as_number = int(msg)
+            if as_number > -1 and as_number < 256:
+                rospy.loginfo("GripperTcpController: set gripper to %s" % as_number)
+                self.gripper.moveGripperTo(as_number)
+            else:
+                rospy.logwarn("GripperUdpController - unknown message receives: " + str(msg))
+
+def main():
+    print("Hello world")
+    obj = GripperTcpController(server_ip='192.168.2.35')
+
+
+if __name__ == '__main__':
+    main()
