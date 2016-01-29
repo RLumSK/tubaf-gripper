@@ -37,6 +37,9 @@
     <!-- MoveIt settings-->
     <arg name="start_moveit" default="false"/>
 
+    <!--RtabMap-->
+    <arg name="start_rtab" default="true"/>
+
     <!-- General Software Settings-->
     <arg name="debug" default="false"/>
     <arg name="use_gui" default="false"/>
@@ -76,6 +79,12 @@
             <arg name="hand_ip" value="$(arg hand_ip)"/>
             <arg name="prefix" value="$(arg gripper_hand_prefix)"/>
         </include>
+
+        <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
+        <node name="imod_hand_tcp_controller" pkg="tbf_gripper_hand" type="GripperTcpController">
+            <param name="server_ip" value="192.168.1.142"/>
+            <param name="port" value="59995"/>
+        </node>
     </group>
     <!-- 3. RGB-D camera -->
     <group if="$(arg start_rgbd)">
@@ -106,6 +115,37 @@
     <node name="jsp_from_imod" pkg="tubaf_imod" type="imod_ur5_listener.py">
         <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
     </node>
+
+    <group if="$(arg start_rtab)" ns="rtabmap">
+    <!--http://wiki.ros.org/rtabmap_ros/Tutorials/SetupOnYourRobot-->
+    <!-- Odometry -->
+        <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="screen">
+          <remap from="rgb/image"       to="/gripper_camera/rgb/image_rect_color"/>
+          <remap from="depth/image"     to="/gripper_camera/depth_registered/image_raw"/>
+          <remap from="rgb/camera_info" to="/gripper_camera/rgb/camera_info"/>
+
+          <param name="frame_id" type="string" value="base_link"/>
+        </node>
+
+        <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="--delete_db_on_start">
+              <param name="frame_id" type="string" value="base_link"/>
+              <param name="subscribe_depth" type="bool" value="true"/>
+
+              <remap from="odom" to="odom"/>
+              <remap from="rgb/image" to="/gripper_camera/rgb/image_rect_color"/>
+              <remap from="depth/image" to="/gripper_camera/depth_registered/image_raw"/>
+              <remap from="rgb/camera_info" to="/gripper_camera/rgb/camera_info"/>
+
+              <param name="queue_size" type="int" value="10"/>
+
+              <!-- RTAB-Map's parameters -->
+              <param name="RGBD/AngularUpdate" type="string" value="0.01"/>
+              <param name="RGBD/LinearUpdate" type="string" value="0.01"/>
+              <param name="Rtabmap/TimeThr" type="string" value="700"/>
+              <param name="Mem/RehearsalSimilarity" type="string" value="0.45"/>
+              <param name="RGBD/OptimizeFromGraphEnd" type="string" value="true"/>
+        </node>
+    </group>
 
     <!-- 6. RVis -->
     <group if="$(arg use_gui)">
