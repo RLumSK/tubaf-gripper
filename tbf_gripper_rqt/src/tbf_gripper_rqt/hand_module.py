@@ -259,9 +259,14 @@ class RobotiqHandModel(QtCore.QObject):
         self.mdl_fingerS = RobotiqFingerModel('S', self)
 
         # init ROS
-        rospy.init_node('hand_module', anonymous=True)
+        # rospy.init_node('hand_module', anonymous=True)
+        # The plugin should not call init_node as this is performed by rqt_gui_py. The plugin can use any rospy-specific
+        # functionality (like Publishers, Subscribers, Parameters). Just make sure to stop timers and publishers,
+        # unsubscribe from Topics etc in the shutdown_plugin method.
         self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
         self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
+
+
 
     @QtCore.Slot(int)
     def onActivationChanged(self, obj):
@@ -423,6 +428,7 @@ class RobotiqHandModel(QtCore.QObject):
         self.mdl_fingerC.shutdown()
         self.mdl_fingerS.shutdown()
         self.publisher.unregister()
+        self.subscriber.unregister()
 
     @staticmethod
     def _sendMode(gMOD):

@@ -225,8 +225,7 @@ class RobotiqFingerModel(QtCore.QObject):
 
         self.parentModel = parentModel
         # ROS
-        #rospy.init_node('RobotiqFinger'+self.strID, anonymous=True)
-        rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
+        self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
         if self.parentModel is None:
             self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
         else:
@@ -317,6 +316,8 @@ class RobotiqFingerModel(QtCore.QObject):
         """
         if self.publisher is not None:
             self.publisher.unregister()
+        if self.subscriber is not None:
+            self.subscriber.unregister()
 
     def _forA(self, msg):
         #rospy.logwarn("hand_module.py@RobotiqFingerModel._forA(): type="+str(type(self.rFR)))
