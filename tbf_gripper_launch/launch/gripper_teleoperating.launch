@@ -116,11 +116,14 @@
     <!--http://wiki.ros.org/rtabmap_ros/Tutorials/SetupOnYourRobot-->
     <!-- Odometry -->
         <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="screen">
-          <remap from="rgb/image"       to="/gripper_camera/rgb/image_rect_color"/>
-          <remap from="depth/image"     to="/gripper_camera/depth_registered/image_raw"/>
-          <remap from="rgb/camera_info" to="/gripper_camera/rgb/camera_info"/>
+            <remap from="rgb/image"       to="/gripper_camera/rgb/image_rect_color"/>
+            <remap from="depth/image"     to="/gripper_camera/depth_registered/image_raw"/>
+            <remap from="rgb/camera_info" to="/gripper_camera/rgb/camera_info"/>
 
-          <param name="frame_id" type="string" value="base_link"/>
+            <param name="frame_id" type="string" value="base_link"/>
+
+            <param name="Odom/Strategy"            type="string" value="0"/> <!-- Strategy: 0=BOW (bag-of-words) 1=Optical Flow -->
+            <param name="Odom/FeatureType"         type="string" value="1"/> <!-- Feature type: 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK -->
         </node>
 
         <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="--delete_db_on_start">
@@ -147,13 +150,5 @@
         <arg name="prefix" value="gripper_ur5_"/>
         <arg name="port" value="33997"/>
     </include>
-
-    <!-- 6. RVis -->
-    <group if="$(arg use_gui)">
-        <!-- Launch moveit-Rviz -->
-        <include file="$(find tbf_gripper_julius_move_it)/launch/moveit_rviz.launch">
-            <arg name="config" default="true"/>
-        </include>
-    </group>
 
 </launch>
