@@ -37,16 +37,23 @@ class HandTcpInterface:
         #setup gripper (starts a ROS node)
         self.gripper = BasicGripperModel()
         # get parameter from ROS
+        rospy.init_node("hand_imod_interface",Anonymous=True)
         self.prefix = rospy.get_param("server_ip", server_ip)
         self.prefix = rospy.get_param("port", port)
 
         # setup tcp
         # https://wiki.python.org/moin/UdpCommunication
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((server_ip, port))
+        self.try_connect(server_ip, port)
 
-
-        self.run()
+    def try_connect(self, ip, port):
+        sleeper = rospy.Rate(0.5)
+        try:
+            self.s.connect((ip, port))
+            return True
+        except:
+            sleeper.sleep()
+            return False
 
     def run(self):
         rate = rospy.Rate(10)
