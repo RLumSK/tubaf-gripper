@@ -30,28 +30,40 @@
 
 import socket
 import rospy
+import signal
+import sys
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
+
+def signal_handler(signal, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
 
 class HandTcpInterface:
     def __init__(self, server_ip='127.0.0.1', port=59995):
-        #setup gripper (starts a ROS node)
-        self.gripper = BasicGripperModel()
+        # ROS
+        rospy.init_node("hand_imod_interface", anonymous=True)
         # get parameter from ROS
-        rospy.init_node("hand_imod_interface",Anonymous=True)
         self.prefix = rospy.get_param("server_ip", server_ip)
         self.prefix = rospy.get_param("port", port)
 
+        #setup gripper
+        self.gripper = BasicGripperModel()
         # setup tcp
         # https://wiki.python.org/moin/UdpCommunication
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.try_connect(server_ip, port)
+
+        while not self.try_connect(server_ip, port):
+            rospy.loginfo("Waiting for connection")
+        rospy.loginfo("Connected")
 
     def try_connect(self, ip, port):
         sleeper = rospy.Rate(0.5)
         try:
             self.s.connect((ip, port))
             return True
-        except:
+        except socket.error, e:
             sleeper.sleep()
             return False
 
