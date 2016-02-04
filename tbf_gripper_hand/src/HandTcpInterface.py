@@ -100,7 +100,7 @@ class HandTcpInterface:
 def main():
     print("Hello world")
     obj = HandTcpInterface(server_ip='192.168.2.35')
-
+    obj.run()
 
 if __name__ == '__main__':
     main()
