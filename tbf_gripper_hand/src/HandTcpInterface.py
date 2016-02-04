@@ -45,14 +45,17 @@ class HandTcpInterface:
         # ROS
         rospy.init_node("hand_imod_interface", anonymous=True)
         # get parameter from ROS
-        self.prefix = rospy.get_param("~server_ip", server_ip)
-        self.prefix = rospy.get_param("~port", port)
+        server_ip = rospy.get_param("~server_ip", server_ip)
+        port = rospy.get_param("~port", port)
 
         #setup gripper
         self.gripper = BasicGripperModel()
         # setup tcp
         # https://wiki.python.org/moin/UdpCommunication
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        rospy.loginfo("server_ip: %d" % server_ip)
+        rospy.loginfo("port: %d" % port)
 
         while not self.try_connect(server_ip, port):
             rospy.loginfo("Waiting for connection")
