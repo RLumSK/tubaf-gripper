@@ -54,7 +54,7 @@ class HandTcpInterface:
         # https://wiki.python.org/moin/UdpCommunication
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        rospy.loginfo("server_ip: %d" % server_ip)
+        rospy.loginfo("server_ip: %s" % server_ip)
         rospy.loginfo("port: %d" % port)
 
         while not self.try_connect(server_ip, port):
