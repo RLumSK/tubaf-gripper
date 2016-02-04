@@ -45,8 +45,8 @@ class HandTcpInterface:
         # ROS
         rospy.init_node("hand_imod_interface", anonymous=True)
         # get parameter from ROS
-        self.prefix = rospy.get_param("server_ip", server_ip)
-        self.prefix = rospy.get_param("port", port)
+        self.prefix = rospy.get_param("~server_ip", server_ip)
+        self.prefix = rospy.get_param("~port", port)
 
         #setup gripper
         self.gripper = BasicGripperModel()
