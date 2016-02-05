@@ -56,8 +56,8 @@ class HandTcpInterface(object):
         # https://wiki.python.org/moin/UdpCommunication
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        rospy.loginfo("server_ip: %s" % server_ip)
-        rospy.loginfo("port: %d" % port)
+        rospy.loginfo("HandTcpInterface - server_ip: %s" % server_ip)
+        rospy.loginfo("HandTcpInterface - port: %d" % port)
 
         while not self.try_connect(server_ip, port):
             rospy.loginfo("Waiting for connection")
@@ -78,25 +78,25 @@ class HandTcpInterface(object):
             data = self.s.recv(3)
             if not data:
                 continue
-            rospy.logdebug("GripperTcpController: received data - %s" % data)
+            rospy.logdebug("HandTcpInterface: received data - %s" % data)
             self.control(data)
             rate.sleep()
 
     def control(self, msg):
         if msg == "_o_":
-            rospy.loginfo("GripperTcpController: open gripper")
+            rospy.loginfo("HandTcpInterface: open gripper")
             self.gripper.openGripper()
         elif msg == "_c_":
-            rospy.loginfo("GripperTcpController: close gripper")
+            rospy.loginfo("HandTcpInterface: close gripper")
             self.gripper.closeGripper()
 
         else:
             as_number = int(msg)
             if as_number > -1 and as_number < 256:
-                rospy.loginfo("GripperTcpController: set gripper to %s" % as_number)
+                rospy.loginfo("HandTcpInterface: set gripper to %s" % as_number)
                 self.gripper.moveGripperTo(as_number)
             else:
-                rospy.logwarn("GripperUdpController - unknown message receives: " + str(msg))
+                rospy.logwarn("HandTcpInterface - unknown message receives: " + str(msg))
 
 
 class HandMappingController(HandTcpInterface):
@@ -131,34 +131,45 @@ class HandMappingController(HandTcpInterface):
                 rospy.logerr("Can't call \"pause\" service")
         elif msg == "_c_":
             # resume mapping after delay
-            thread.start_new_thread(self.resume_mapping)
+            thread.start_new_thread(self.resume_mapping, ())
             return
 
-        # TODO specify number: 198
-        # else:
-            # as_number = int(msg)
-            # if as_number > -1 and as_number < 256:
-            #     rospy.loginfo("GripperTcpController: set gripper to %s" % as_number)
-            #     self.gripper.moveGripperTo(as_number)
-            # else:
-            #     rospy.logwarn("GripperUdpController - unknown message receives: " + str(msg))
+        else:
+            as_number = int(msg)
+            if as_number > -1 and as_number < 256:
+                if as_number <= 198:
+                    self.resume_mapping()
+                else:
+                    self.pause_odom_service.call()
+                    if not self.pause_rtab_service.call():
+                        rospy.logerr("Can't call \"pause\" service")
+            else:
+                rospy.logwarn("HandMappingController - unknown message receives: " + str(msg))
 
     def resume_mapping(self):
         rospy.loginfo("Starting delayed resume service call")
         time = rospy.Duration(2, 500000000)  # 2.5s
         rospy.sleep(time)
         # Resume rtabmap
-        if not rospy.ServiceProxy('resume', std_srvs.srv.Empty):
+        if not self.resume_rtab_service.call():
             rospy.logerr("Can't call \"resume\" service")
         # Resume visual_odometry
-        rospy.ServiceProxy('resume_odom', std_srvs.srv.Empty)
+        rospy.loginfo("Resume service call")
+        self.resume_odom_service.call()
 
-        
+
 def main():
     print("Hello world")
     #obj = HandTcpInterface(server_ip='127.0.0.1')
-    obj = HandMappingController(server_ip='127.0.0.1')
+    obj = HandMappingController()
     obj.run()
+    # For Testing
+    # while True:
+    #     obj.control("_o_")
+    #     rospy.sleep(rospy.Duration(10))
+    #     obj.control("_c_")
+    #     rospy.sleep(rospy.Duration(10))
+
 
 if __name__ == '__main__':
     main()
