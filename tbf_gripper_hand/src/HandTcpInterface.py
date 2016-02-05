@@ -32,6 +32,8 @@ import socket
 import rospy
 import signal
 import sys
+import std_srvs.srv
+import thread
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
 
 def signal_handler(signal, frame):
@@ -40,7 +42,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-class HandTcpInterface:
+class HandTcpInterface(object):
     def __init__(self, server_ip='127.0.0.1', port=59995):
         # ROS
         rospy.init_node("hand_imod_interface", anonymous=True)
@@ -97,9 +99,65 @@ class HandTcpInterface:
                 rospy.logwarn("GripperUdpController - unknown message receives: " + str(msg))
 
 
+class HandMappingController(HandTcpInterface):
+    """
+    class that controls the mapping during the gripper actions. pauses the mapping if the hand opens and continues,
+    if the hand is closed again.
+    """
+
+    def __init__(self):
+        super(HandMappingController, self).__init__()
+        # ROS is started in the parent class
+        # hand is initilized in the parent class
+
+        # Initilize RTabMap controller
+        self.pause_odom_service = rospy.ServiceProxy('pause_odom', std_srvs.srv.Empty)
+        self.pause_rtab_service = rospy.ServiceProxy('pause', std_srvs.srv.Empty)
+        self.resume_odom_service = rospy.ServiceProxy('resume_odom', std_srvs.srv.Empty)
+        self.resume_rtab_service = rospy.ServiceProxy('resume', std_srvs.srv.Empty)
+
+    def control(self, msg):
+        # TODO thread saftey
+        # Control hand
+        super(HandMappingController, self).control(msg)
+
+        # Handle RTab
+        if msg == "_o_":
+            # pause mapping
+            # Pause visual_odometry
+            self.pause_odom_service.call()
+            # Pause rtabmap
+            if not  self.pause_rtab_service.call():
+                rospy.logerr("Can't call \"pause\" service")
+        elif msg == "_c_":
+            # resume mapping after delay
+            thread.start_new_thread(self.resume_mapping)
+            return
+
+        # TODO specify number: 198
+        # else:
+            # as_number = int(msg)
+            # if as_number > -1 and as_number < 256:
+            #     rospy.loginfo("GripperTcpController: set gripper to %s" % as_number)
+            #     self.gripper.moveGripperTo(as_number)
+            # else:
+            #     rospy.logwarn("GripperUdpController - unknown message receives: " + str(msg))
+
+    def resume_mapping(self):
+        rospy.loginfo("Starting delayed resume service call")
+        time = rospy.Duration(2, 500000000)  # 2.5s
+        rospy.sleep(time)
+        # Resume rtabmap
+        if not rospy.ServiceProxy('resume', std_srvs.srv.Empty):
+            rospy.logerr("Can't call \"resume\" service")
+        # Resume visual_odometry
+        rospy.ServiceProxy('resume_odom', std_srvs.srv.Empty)
+
+        
 def main():
     print("Hello world")
-    obj = HandTcpInterface(server_ip='192.168.2.35')
+    #obj = HandTcpInterface(server_ip='127.0.0.1')
+    obj = HandMappingController(server_ip='127.0.0.1')
     obj.run()
 
 if __name__ == '__main__':
