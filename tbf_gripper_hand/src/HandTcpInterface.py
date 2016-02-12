@@ -36,6 +36,7 @@ import std_srvs.srv
 import thread
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
 
+
 def signal_handler(signal, frame):
         print('You pressed Ctrl+C!')
         sys.exit(0)
@@ -47,8 +48,8 @@ class HandTcpInterface(object):
         # ROS
         rospy.init_node("hand_imod_interface", anonymous=True)
         # get parameter from ROS
-        server_ip = rospy.get_param("~server_ip", server_ip)
-        port = rospy.get_param("~port", port)
+        self.server_ip = rospy.get_param("~server_ip", server_ip)
+        self.port = rospy.get_param("~port", port)
 
         #setup gripper
         self.gripper = BasicGripperModel()
@@ -59,7 +60,7 @@ class HandTcpInterface(object):
         rospy.loginfo("HandTcpInterface - server_ip: %s" % server_ip)
         rospy.loginfo("HandTcpInterface - port: %d" % port)
 
-        while not self.try_connect(server_ip, port):
+        while not self.try_connect(self.server_ip, self.port):
             rospy.loginfo("Waiting for connection")
         rospy.loginfo("Connected")
 
@@ -74,13 +75,20 @@ class HandTcpInterface(object):
 
     def run(self):
         rate = rospy.Rate(10)
-        while not rospy.is_shutdown():
-            data = self.s.recv(3)
-            if not data:
-                continue
-            rospy.logdebug("HandTcpInterface: received data - %s" % data)
-            self.control(data)
-            rate.sleep()
+        try:
+            while not rospy.is_shutdown():
+                data = self.s.recv(3)
+                if not data:
+                    continue
+                rospy.logdebug("HandTcpInterface: received data - %s" % data)
+                self.control(data)
+                rate.sleep()
+        except Exception as ex:
+            rospy.logwarn("HandTcpInterface: received exception - %s" % ex)
+            while not self.try_connect(self.server_ip, self.port):
+                rospy.loginfo("Waiting for connection")
+            rospy.loginfo("Connected")
+            self.run()
 
     def control(self, msg):
         if msg == "_o_":
