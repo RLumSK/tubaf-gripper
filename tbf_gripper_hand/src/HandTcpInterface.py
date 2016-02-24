@@ -68,6 +68,7 @@ class HandTcpInterface(object):
         sleeper = rospy.Rate(0.5)
         try:
             self.s.connect((ip, port))
+            self.gripper.sendROSMessage()
             return True
         except socket.error, e:
             sleeper.sleep()
