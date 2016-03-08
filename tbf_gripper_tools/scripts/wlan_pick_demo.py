@@ -304,27 +304,32 @@ class Demo(object):
         # self.scene.attach_box(self.gripper.get_link("gripper_robotiq_palm"), "wlan_box", self.wlan_box_size, touch_links=finger_links)
 
     def demo_pick(self):
+        self._init_manipulator()
+        start_at = rospy.get_param("~start_at",0)
         rospy.loginfo("Press Demo 16/12/2015 - Find the WLAN Box and grap it!")
         # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  1/10: -Move to Starting Position-")
         # Move to initial position
-        self.move2start()
-        self.hand.closeGripper() #TODO <-- change to wait till goal is reached or throw exception
+        if start_at < 1:
+            self.move2start()
+            self.hand.closeGripper() #TODO <-- change to wait till goal is reached or throw exception
         #
         # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  2/10: -Rotate for Lighthouse Model-")
         # # Rotate Base joint to get a 360deg scene for the occupancy map
-        for i in range(0, 6):
-            self.moveBase(i*numpy.pi/3)
-        #
-        # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  3/10: -Rotate to Starting Position and adjust Wrist Joints-")
-        # Move to initial position for the object recognition step - find the WLAN box now
-        self.move2start()
-        self.adjust()
+        if start_at < 2:
+            for i in range(0, 6):
+                self.moveBase(i*numpy.pi/3)
+            #
+            # rospy.loginfo("tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  3/10: -Rotate to Starting Position and adjust Wrist Joints-")
+            # Move to initial position for the object recognition step - find the WLAN box now
+        if start_at < 3:
+            self.move2start()
+        if start_at < 4:
+            self.adjust()
 
         rospy.loginfo(
             "tbf_gripper_tools/scripts/wlan_pick_demo.py@demo_pick.py: Phase  4/10: -Rotate Elbow for Front Model || Object Recognition -")
         # Init object recognition
 
-        self._init_manipulator()
 
         self.box_pose_subscriber = rospy.Subscriber("/obj_pose", geometry_msgs.msg.PoseStamped, self.onNewBoxPose)
         self.obj_recognition_command_publisher.publish(Int8(0))
