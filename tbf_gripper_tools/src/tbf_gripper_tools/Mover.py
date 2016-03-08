@@ -27,7 +27,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#author: donner
+# author: donner
 
 import rospy
 import actionlib
@@ -44,9 +44,10 @@ HOME_POINT = [0.0, -90, 0, -90, 0, 0]
 
 
 class Mover:
-    def __init__(self, action_target):
+    def __init__(self, action_target, state_topic="/joint_states", prefix=""):
+        self.joint_names = map(lambda s: prefix + s, JOINT_NAMES)
         self.lastPose = None
-        self.jss = rospy.Subscriber("/joint_states", JointState, self.on_js, queue_size=1)
+        self.jss = rospy.Subscriber(state_topic, JointState, self.on_js, queue_size=1)
 
         self.ac = actionlib.SimpleActionClient(action_target, FollowJointTrajectoryAction)
         rospy.loginfo("waiting for action server")
@@ -73,7 +74,7 @@ class Mover:
     def move_and_wait(self, target_pose_deg, dur):
         pt = JointTrajectoryPoint(positions=np.deg2rad(target_pose_deg), time_from_start=rospy.Time(dur))
         tra = JointTrajectory()
-        tra.joint_names = JOINT_NAMES
+        tra.joint_names = self.joint_names
         tra.points = (pt,)
 
         # print "------", type(tra.points)
@@ -103,6 +104,7 @@ def main():
     target = [-133.8, -75.0, -100, -90.0, 17.71, 45]
     time = obj.compute_dur(target, MAX_SPEEDS) + 0.5
     obj.move_and_wait(target_pose_deg=target, dur=time)
+
 
 if __name__ == '__main__':
     main()
