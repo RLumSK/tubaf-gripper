@@ -134,7 +134,7 @@ class SchnickSchnackSchnuckController():
         self.hand.setPose()
 
         # Arm
-        self.ur5_mover = Mover.Mover('/ur5/pos_based_pos_traj_controller/follow_joint_trajectory')
+        self.ur5_mover = Mover.Mover('/ur5/pos_based_pos_traj_controller/follow_joint_trajectory',prefix="gripper_ur5_", state_topic="/ur5/joint_states")
         self.ur5_mover.move_home()
         self.move_down(10.0)
 
@@ -144,7 +144,7 @@ class SchnickSchnackSchnuckController():
         if self.isExecuting:
             rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - action pending")
             return
-        if msg.data is not "start":
+        if msg.data != "start":
             rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - received:"+msg.data)
             return
         self.isExecuting = True

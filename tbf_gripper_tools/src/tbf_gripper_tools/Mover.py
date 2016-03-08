@@ -44,7 +44,7 @@ HOME_POINT = [0.0, -90, 0, -90, 0, 0]
 
 
 class Mover:
-    def __init__(self, action_target, state_topic="/joint_states", prefix=""):
+    def __init__(self, action_target, state_topic="joint_states", prefix=""):
         self.joint_names = map(lambda s: prefix + s, JOINT_NAMES)
         self.lastPose = None
         self.jss = rospy.Subscriber(state_topic, JointState, self.on_js, queue_size=1)
