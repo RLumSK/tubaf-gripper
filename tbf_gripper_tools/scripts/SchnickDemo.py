@@ -29,22 +29,29 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #author: grehl
 
+import random
 import signal
 import sys
-import random
-import rospy
-from tbf_gripper_rqt.hand_module import RobotiqHandModel
 
+import rospy
+from std_msgs.msg import String
+
+from tbf_gripper_rqt.hand_module import RobotiqHandModel
+from tbf_gripper_tools import Mover
+
+# [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
+UP_JS = [-4.65, -48.12, -95.24, -152.48, -93.91, -38.99]
+LOW_JS = [-4.74, -15.95, -117.97, -51.06, -87.09, -46.08]
 
 def signal_handler(signal, frame):
         print('You pressed Ctrl+C!')
         sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
-class SchnickSchnackSchnuckModel(RobotiqHandModel):
+class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
 
     def __init__(self):
-        super(SchnickSchnackSchnuckModel, self).__init__()
+        super(SchnickSchnackSchnuckHandModel, self).__init__()
 
         # initilize Hand
         self.onActivationChanged(1)
@@ -114,11 +121,51 @@ class SchnickSchnackSchnuckModel(RobotiqHandModel):
         self.sendROSMessage()
         rospy.sleep(3.)
 
+class SchnickSchnackSchnuckController():
 
-def main():
+    def __init__(self):
+        # ROS Anbindung
+        self.sub = rospy.Subscriber("/schnick_cmd", String, self.execute, queue_size=1)
+        self.isExecuting = True
+
+        # Hand
+        self.hand = SchnickSchnackSchnuckHandModel()
+        rospy.sleep(2.)
+        self.hand.setPose()
+
+        # Arm
+        self.ur5_mover = Mover.Mover('/pos_based_pos_traj_controller/follow_joint_trajectory')
+        self.ur5_mover.move_home()
+        self.move_down(10.0)
+
+        self.isExecuting = False
+
+    def execute(self, msg):
+        rospy.loginfo(["SchnickDemo.py@SchnickSchnackSchnuckController.execute() - received msg: ", msg.data])
+        return
+        if msg != "start" or self.isExecuting:
+            rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo")
+            return
+        self.hand.setPose()
+        self.move_up(5.)
+        self.move_down(5.)
+        self.move_up(5.)
+        self.move_down(5.)
+        self.move_up(5.)
+        self.move_down(5.)
+        rospy.sleep(2.)
+
+    def move_down(self, duration=0.5):
+        self.ur5_mover.move_and_wait(LOW_JS, duration)
+
+    def move_up(self, duration=0.5):
+        self.ur5_mover.move_and_wait(UP_JS, duration)
+
+def test_SchnickSchnackSchnuckHandModel():
     print("Hello world")
-    rospy.init_node("einnamen")
-    obj = SchnickSchnackSchnuckModel()
+    # Test Hand Poses
+    rospy.init_node("Test_SchnickSchnackSchnuckHandModel")
+    obj = SchnickSchnackSchnuckHandModel()
     obj.setPaper()
     obj.setScisscor()
     obj.setStone()
@@ -127,6 +174,13 @@ def main():
     while True:
         obj.setPose()
 
-if __name__ == '__main__':
-    main()
+def test_SchnickSchnackSchnuckController():
+    print("Hello world")
+    # Test Hand Poses
+    rospy.init_node("Test_SchnickSchnackSchnuckController")
+    obj = SchnickSchnackSchnuckController()
+    rospy.spin()
 
+if __name__ == '__main__':
+    #test_SchnickSchnackSchnuckHandModel()
+    test_SchnickSchnackSchnuckController()
