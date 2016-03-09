@@ -36,16 +36,17 @@ from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryG
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 
-JOINT_NAMES = (
+DEFAULT_JOINT_NAMES = (
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint")
-MAX_SPEEDS = (45.0, 30.0, 30.0, 60.0, 60.0, 60.0)
+DEFAULT_ACTION_TARGET = "pos_based_pos_traj_controller/follow_joint_trajectory"
+DEFAULT_STATE_TOPIC = "joint_states"
 
 HOME_POINT = [0.0, -90, 0, -90, 0, 0]
 
-
-class Mover:
-    def __init__(self, action_target, state_topic="joint_states", prefix=""):
-        self.joint_names = map(lambda s: prefix + s, JOINT_NAMES)
+class TrajectoryExecutor:
+    def __init__(self, action_target=DEFAULT_ACTION_TARGET, state_topic=DEFAULT_STATE_TOPIC,
+                 joint_names=DEFAULT_JOINT_NAMES):
+        self.joint_names = joint_names
         self.lastPose = None
         self.jss = rospy.Subscriber(state_topic, JointState, self.on_js, queue_size=1)
 
@@ -69,21 +70,21 @@ class Mover:
         pass
 
     def move_home(self):
-        self.move_and_wait(HOME_POINT, 10.)
+        self.move_and_wait(HOME_POINT, 5.)
 
-    def move_and_wait(self, target_pose_deg, dur):
-        pt = JointTrajectoryPoint(positions=np.deg2rad(target_pose_deg), time_from_start=rospy.Time(dur))
+    def move_and_wait(self, *poses):
         tra = JointTrajectory()
+        tra.points = list()
         tra.joint_names = self.joint_names
-        tra.points = (pt,)
-
+        for pose, dur in poses:
+            pt = JointTrajectoryPoint(positions=np.deg2rad(pose), time_from_start=rospy.Duration.from_sec(dur))
+            tra.points.append(pt)
         # print "------", type(tra.points)
 
         go = FollowJointTrajectoryGoal()
         go.trajectory = tra
         self.ac.send_goal(go, self._actionCb, self._actionCb, self._actionCb)
         self.ac.wait_for_result()
-        pass
 
     def compute_dur(self, target_pose_deg, speeds_deg):
         cur_pose = self.lastPose.copy()
@@ -91,19 +92,20 @@ class Mover:
         timings = np.divide(distance, speeds_deg)
 
         return np.max(timings)
-        pass
-
-    def auto_move_wait(self, target_pose_deg):
-        self.move_and_wait(target_pose_deg, self.compute_dur(target_pose_deg, MAX_SPEEDS))
 
 
 def main():
-    print("Hello world")
     rospy.init_node("Test_Mover")
-    obj = Mover('/pos_based_pos_traj_controller/follow_joint_trajectory')
+
+    prefix = "gripper_ur5_"
+    names = map(lambda s: prefix + s, DEFAULT_JOINT_NAMES)
+
+    speeds = [90, 45, 45, 45, 45, 45]
+
+    obj = TrajectoryExecutor(joint_names=names)
     target = [-133.8, -75.0, -100, -90.0, 17.71, 45]
-    time = obj.compute_dur(target, MAX_SPEEDS) + 0.5
-    obj.move_and_wait(target_pose_deg=target, dur=time)
+    dur = obj.compute_dur(target, speeds) + 0.5
+    obj.move_and_wait(target_pose_deg=target, dur=dur)
 
 
 if __name__ == '__main__':

@@ -27,29 +27,50 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#author: grehl
+# author: grehl
 
 import random
 import signal
 import sys
 
 import rospy
+import time
 from std_msgs.msg import String
+from sensor_msgs.msg import JointState
 
 from tbf_gripper_rqt.hand_module import RobotiqHandModel
-from tbf_gripper_tools import Mover
+
+
+import numpy as np
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
-UP_JS = [-4.65, -48.12, -95.24, -152.48, -93.91, -38.99]
-LOW_JS = [-4.74, -15.95, -117.97, -51.06, -87.09, -46.08]
+UP_JS = [0.0, -45.0, -95, -150, -90, -39]
+LOW_JS = [0.0, -15.0, -115, -50, -90, -45]
+HOME_POS = [0.0, -90, 0, -90, 0, 0]
+
+
+def pos2str(pos):
+    rad = np.deg2rad(pos)
+    rad = map(str, rad)
+    return "[" + ", ".join(rad) + "]"
+
+
+HOME_PROGRAM = \
+"""movej(%(homepos)s, a=%(a)f, v=%(v)f)
+movej(%(lowpos)s, a=%(a)f, v=%(v)f)
+""" % {'homepos': pos2str(HOME_POS), 'lowpos': pos2str(LOW_JS),
+       'a': np.deg2rad(20), 'v': np.deg2rad(45)}
+
 
 def signal_handler(signal, frame):
-        print('You pressed Ctrl+C!')
-        sys.exit(0)
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+
 signal.signal(signal.SIGINT, signal_handler)
 
-class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
 
+class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
     def __init__(self):
         super(SchnickSchnackSchnuckHandModel, self).__init__()
 
@@ -119,50 +140,104 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
             else:
                 self.setFountain()
         self.sendROSMessage()
-        rospy.sleep(3.)
+        # rospy.sleep(3.)
+
 
 class SchnickSchnackSchnuckController():
-
     def __init__(self):
         # ROS Anbindung
         self.sub = rospy.Subscriber("/schnick_cmd", String, self.execute, queue_size=1)
+
+        self.joint_sub = rospy.Subscriber("/ur5/joint_states", JointState, self.onJs, queue_size=1)
+
+        self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
         self.isExecuting = True
+        self.lasttime = time.time()
 
         # Hand
         self.hand = SchnickSchnackSchnuckHandModel()
         rospy.sleep(2.)
         self.hand.setPose()
 
+        self.move_dur = 1.0
+        self.cur_pos = np.zeros((6,))
+
         # Arm
-        self.ur5_mover = Mover.Mover('/ur5/pos_based_pos_traj_controller/follow_joint_trajectory',prefix="gripper_ur5_", state_topic="/ur5/joint_states")
-        self.ur5_mover.move_home()
-        self.move_down(10.0)
+        # self.ur5_mover = TrajectoryExecutor.TrajectoryExecutor( '/ur5/pos_based_pos_traj_controller/follow_joint_trajectory',
+        #                                                         ="gripper_ur5_", state_topic="/ur5/joint_states")
+        # self.ur5_mover.move_home()
+        # self.move_down(5.0)
 
         self.isExecuting = False
+
+        rospy.sleep(0.5)
+        prg = HOME_PROGRAM.replace("\n","\t")
+        # for line in HOME_PROGRAM.strip().split('\n'):
+        #     self.program_pub.publish(line)
+        #     rospy.sleep(3.5)
+
+        self.moveWait(HOME_POS,v=45,a=20)
+        self.moveWait(LOW_JS,v=45,a=20)
+
+        print "init done"
+        rospy.sleep(0.5)
+
+
+
+
+    def onJs(self,js):
+        if time.time() - self.lasttime > 0.02:
+            pp = list(js.position)
+            pp[0] = js.position[2]
+            pp[2] = js.position[0]
+
+            self.cur_pos = np.rad2deg(pp)
+            self.lasttime = time.time()
+
+    def moveWait(self,pose,goal_tolerance = 0.5,v=None,a=None,t=None):
+        prog = "movej(%s" % pos2str(pose)
+        if a is not None:
+            prog += ", a=%f" % np.deg2rad(a)
+        if v is not None:
+            prog += ", v=%f" % np.deg2rad(v)
+        if t is not None:
+            prog += ", t=%f" % t
+        prog += ")"
+        self.program_pub.publish(prog)
+        while True:
+            dst = np.abs(np.subtract(pose,self.cur_pos))
+            if np.max(dst) < goal_tolerance:
+                break
+            rospy.sleep(0.02)
 
     def execute(self, msg):
         if self.isExecuting:
             rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - action pending")
             return
-        if msg.data != "start":
-            rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - received:"+msg.data)
+        if not msg.data.startswith("start"):
+            rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - received:" + msg.data)
             return
         self.isExecuting = True
+
+
+        d = msg.data.split(" ")
+        t = 1.0
+        if len(d) > 1:
+            try:
+                t = float(d[1])
+            except ValueError:
+                pass
         self.hand.setPose()
-        self.move_up(5.)
-        self.move_down(5.)
-        self.move_up(5.)
-        self.move_down(5.)
-        self.move_up(5.)
-        self.move_down(5.)
+        for i in range(3):
+            if i == 2: self.hand.setPose()
+            self.moveWait(UP_JS,t=t)
+            self.moveWait(LOW_JS,t=t)
+
+
+
         rospy.sleep(2.)
         self.isExecuting = False
 
-    def move_down(self, duration=0.5):
-        self.ur5_mover.move_and_wait(LOW_JS, duration)
-
-    def move_up(self, duration=0.5):
-        self.ur5_mover.move_and_wait(UP_JS, duration)
 
 def test_SchnickSchnackSchnuckHandModel():
     print("Hello world")
@@ -177,6 +252,7 @@ def test_SchnickSchnackSchnuckHandModel():
     while True:
         obj.setPose()
 
+
 def test_SchnickSchnackSchnuckController():
     print("Hello world")
     # Test Hand Poses
@@ -184,6 +260,7 @@ def test_SchnickSchnackSchnuckController():
     obj = SchnickSchnackSchnuckController()
     rospy.spin()
 
+
 if __name__ == '__main__':
-    #test_SchnickSchnackSchnuckHandModel()
+    # test_SchnickSchnackSchnuckHandModel()
     test_SchnickSchnackSchnuckController()
