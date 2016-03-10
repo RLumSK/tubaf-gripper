@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="pnp_demo" ns="hand" pkg="tbf_gripper_tools" type="SchnickDemo.py" output="screen">
+  </node>
+
+
+</launch>
