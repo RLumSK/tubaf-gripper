@@ -49,6 +49,7 @@ WAYPOINTS = [
     [-174.67, -90.60,  50.88,   35.38, 87.62, 45],
     [  -2.48, -79.31,  38.12,   36.86, 85.16, 45],
     [  -2.3,  -6.15,   94.22,  -91.52, 84.42, 45]
+    # [  -2.28,  -6.98,   94.95,  -91.42, 84.44, 45]
 ]
 
 def pos2str(pos):
@@ -146,12 +147,12 @@ class PickAndPlaceWlanDemo:
         self.move_wait(HOME_POS, v=45, a=20)
         self.hand.openGripper()
         self.move_wait(WAYPOINTS[0], v=spd)
-        self.move_wait(WAYPOINTS[1],  move_cmd="movel")
+        self.move_wait(WAYPOINTS[1], t=2.4,  move_cmd="movel")
 
         # Grasp station
         self.hand.closeGripper()
         rospy.sleep(2.)
-        self.move_wait(WAYPOINTS[2], move_cmd="movel")
+        self.move_wait(WAYPOINTS[2], t=1.6, move_cmd="movel")
 
         # Set station
         self.move_wait(WAYPOINTS[3], v=spd)
@@ -177,7 +178,7 @@ class PickAndPlaceWlanDemo:
         rospy.sleep(2.)
 
         # Back to HOME position
-        self.move_wait(WAYPOINTS[0], v=spd, move_cmd="movel")
+        self.move_wait(WAYPOINTS[0], t=2.4, move_cmd="movel")
         self.move_wait(HOME_POS, v=spd, a=20)
 
         self.isExecuting = False
