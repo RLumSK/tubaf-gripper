@@ -57,11 +57,11 @@ def pos2str(pos):
     return "[" + ", ".join(rad) + "]"
 
 
-HOME_PROGRAM = \
-"""movej(%(homepos)s, a=%(a)f, v=%(v)f)
-movej(%(lowpos)s, a=%(a)f, v=%(v)f)
-""" % {'homepos': pos2str(HOME_POS), 'lowpos': pos2str(LOW_JS),
-       'a': np.deg2rad(20), 'v': np.deg2rad(45)}
+# HOME_PROGRAM = \
+# """movej(%(homepos)s, a=%(a)f, v=%(v)f)
+# movej(%(lowpos)s, a=%(a)f, v=%(v)f)
+# """ % {'homepos': pos2str(HOME_POS), 'lowpos': pos2str(LOW_JS),
+#        'a': np.deg2rad(20), 'v': np.deg2rad(45)}
 
 
 def signal_handler(signal, frame):
@@ -97,7 +97,7 @@ class PickAndPlaceWlanDemo:
         self.isExecuting = False
 
         rospy.sleep(0.5)
-        prg = HOME_PROGRAM.replace("\n","\t")
+        # prg = HOME_PROGRAM.replace("\n","\t")
         # for line in HOME_PROGRAM.strip().split('\n'):
         #     self.program_pub.publish(line)
         #     rospy.sleep(3.5)
@@ -106,6 +106,16 @@ class PickAndPlaceWlanDemo:
 
         print "init done"
         rospy.sleep(0.5)
+
+    def onJs(self, js):
+        if time.time() - self.lasttime > 0.02:
+            pp = list(js.position)
+            pp[0] = js.position[2]
+            pp[2] = js.position[0]
+
+            self.cur_pos = np.rad2deg(pp)
+            self.lasttime = time.time()
+
 
     def move_wait(self, pose, goal_tolerance=0.5, v=None, a=None, t=None, move_cmd="movej"):
         prog = move_cmd+"(%s" % pos2str(pose)
@@ -173,5 +183,7 @@ class PickAndPlaceWlanDemo:
 
 
 if __name__ == '__main__':
+    print("Hello world")
+    rospy.init_node("Test_PnPwlanDemo")
     obj = PickAndPlaceWlanDemo()
     obj.execute()
