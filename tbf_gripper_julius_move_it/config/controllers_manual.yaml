@@ -1,5 +1,7 @@
 controller_list:
-  - name: ""
+  - name: "/ur5/pos_based_pos_traj_controller"
+  # that name actually specifies the namespace in which the "follow_joint_trajectory" action interface resides
+  # in our case this is the namespace of the ur5 driver and the subnamespace of the trajectory controller
     action_ns: follow_joint_trajectory
     type: FollowJointTrajectory
     joints:
@@ -9,15 +11,3 @@ controller_list:
       - gripper_ur5_wrist_1_joint
       - gripper_ur5_wrist_2_joint
       - gripper_ur5_wrist_3_joint
-#controller_list:
-# - name: vel_based_pos_traj_controller #or pos_based_pos_traj_controller (ur5_moder_driver)
-#   action_ns: follow_joint_trajectory
-#   type: FollowJointTrajectory
-#   default: true
-#   joints:
-#      - gripper_ur5_shoulder_pan_joint
-#      - gripper_ur5_shoulder_lift_joint
-#      - gripper_ur5_elbow_joint
-#      - gripper_ur5_wrist_1_joint
-#      - gripper_ur5_wrist_2_joint
-#      - gripper_ur5_wrist_3_joint
