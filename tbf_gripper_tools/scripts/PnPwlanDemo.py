@@ -44,11 +44,11 @@ import numpy as np
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
 HOME_POS = [0.0, -90, 0, -90, 0, 0]
 WAYPOINTS = [
-    [-176.36, -69.79,   2.09,   67.31, 87.44, 45.24],
-    [-176.36, -96.82,  69.03,   27.41, 87.77, 45.04],
-    [-174.67, -90.60,  50.88,   35.38, 87.62, 47.20],
-    [  -2.48, -79.31,  38.12,   36.86, 85.16, 47.20],
-    [  -3.63,  -3.75, 113.73, -114.39, 83.54, 48.24]
+    [-176.36, -69.79,   2.09,   67.31, 87.44, 45],
+    [-176.36, -96.82,  69.03,   27.41, 87.77, 45],
+    [-174.67, -90.60,  50.88,   35.38, 87.62, 45],
+    [  -2.48, -79.31,  38.12,   36.86, 85.16, 45],
+    [  -2.3,  -6.15,   94.22,  -91.52, 84.42, 45]
 ]
 
 def pos2str(pos):
@@ -134,6 +134,7 @@ class PickAndPlaceWlanDemo:
             rospy.sleep(0.02)
 
     def execute(self, msg):
+        spd = 20
         if self.isExecuting:
             rospy.loginfo("Not executing Pick and Place Demo - action pending")
             return
@@ -144,8 +145,8 @@ class PickAndPlaceWlanDemo:
         # Move to Station on top of the Robot starting at HOME position
         self.move_wait(HOME_POS, v=45, a=20)
         self.hand.openGripper()
-        self.move_wait(WAYPOINTS[0])
-        self.move_wait(WAYPOINTS[1], move_cmd="movel")
+        self.move_wait(WAYPOINTS[0], v=spd)
+        self.move_wait(WAYPOINTS[1],  move_cmd="movel")
 
         # Grasp station
         self.hand.closeGripper()
@@ -153,31 +154,31 @@ class PickAndPlaceWlanDemo:
         self.move_wait(WAYPOINTS[2], move_cmd="movel")
 
         # Set station
-        self.move_wait(WAYPOINTS[3])
+        self.move_wait(WAYPOINTS[3], v=spd)
         self.move_wait(WAYPOINTS[4], move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
 
         # Move to HOME position
         self.move_wait(WAYPOINTS[3], move_cmd="movel")
-        self.move_wait(HOME_POS, v=45, a=20)
+        self.move_wait(HOME_POS, v=spd, a=20)
 
         # Grasp station again
-        self.move_wait(WAYPOINTS[3])
+        self.move_wait(WAYPOINTS[3], v=spd)
         self.move_wait(WAYPOINTS[4], move_cmd="movel")
         self.hand.closeGripper()
         rospy.sleep(2.)
 
         # Set station on top of the robot
         self.move_wait(WAYPOINTS[3], move_cmd="movel")
-        self.move_wait(WAYPOINTS[2])
+        self.move_wait(WAYPOINTS[2], v=spd)
         self.move_wait(WAYPOINTS[1], move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
 
         # Back to HOME position
-        self.move_wait(WAYPOINTS[0], move_cmd="movel")
-        self.move_wait(HOME_POS, v=45, a=20)
+        self.move_wait(WAYPOINTS[0], v=spd, move_cmd="movel")
+        self.move_wait(HOME_POS, v=spd, a=20)
 
         self.isExecuting = False
 
@@ -186,4 +187,4 @@ if __name__ == '__main__':
     print("Hello world")
     rospy.init_node("Test_PnPwlanDemo")
     obj = PickAndPlaceWlanDemo()
-    obj.execute()
+    obj.execute(String("start"))
