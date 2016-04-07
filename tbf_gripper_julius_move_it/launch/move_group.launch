@@ -51,7 +51,6 @@
 				      move_group/MoveGroupExecuteService
 				      move_group/MoveGroupKinematicsService
 				      move_group/MoveGroupMoveAction
-				      move_group/MoveGroupPickPlaceAction
 				      move_group/MoveGroupPlanService
 				      move_group/MoveGroupQueryPlannersService
 				      move_group/MoveGroupStateValidationService
@@ -66,6 +65,9 @@
     <param name="planning_scene_monitor/publish_transforms_updates" value="$(arg publish_monitored_planning_scene)" />
 
     <param name="arm_prefix" value="gripper_ur5_" />
+
+    <!--global joint states, otherwise won't work when this file is included and moved to its own ns-->
+    <remap from="joint_states" to="/joint_states" />
   </node>
 
   <!--https://github.com/ros-planning/moveit_ros/issues/629-->
