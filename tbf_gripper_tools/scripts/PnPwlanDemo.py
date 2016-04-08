@@ -38,7 +38,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
-
+from DemoStatus import *
 import numpy as np
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
@@ -72,9 +72,16 @@ def signal_handler(signal, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-class PickAndPlaceWlanDemo:
 
+class PickAndPlaceWlanDemo:
+    """
+    Class to perform a simple Pick and Place demo
+    """
     def __init__(self):
+        """
+        Default constructor, start ROS, hand_model and demo_monitoring
+        """
+
         # ROS Anbindung
         self.sub = rospy.Subscriber("/pnpwlan_cmd", String, self.execute, queue_size=1)
 
@@ -83,6 +90,8 @@ class PickAndPlaceWlanDemo:
         self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
         self.isExecuting = True
         self.lasttime = time.time()
+
+        self.demo_monitor = DemoStatus("/pnp_demo")
 
         # Hand
         self.hand = BasicGripperModel()
@@ -96,6 +105,7 @@ class PickAndPlaceWlanDemo:
 
         # Arm
         self.isExecuting = False
+        self.demo_monitor.set_status(DemoState.initialized)
 
         rospy.sleep(0.5)
         # prg = HOME_PROGRAM.replace("\n","\t")
@@ -104,7 +114,6 @@ class PickAndPlaceWlanDemo:
         #     rospy.sleep(3.5)
 
         self.move_wait(HOME_POS, v=45, a=20)
-
         print "init done"
         rospy.sleep(0.5)
 
@@ -135,14 +144,24 @@ class PickAndPlaceWlanDemo:
             rospy.sleep(0.02)
 
     def execute(self, msg):
+        """
+        pick and place and pick and place the WLAN station
+        :param msg: string message with any content, just to trigger the execution
+        :type msg: String
+        :return: -
+        :rtype: None
+        """
         spd = 20
         if self.isExecuting:
             rospy.loginfo("Not executing Pick and Place Demo - action pending")
+            self.demo_monitor.set_status(DemoState.stop)
             return
         if not msg.data.startswith("start"):
             rospy.loginfo("Not executing Pick and Place Demo - received:" + msg.data)
+            self.demo_monitor.set_status(DemoState.error)
             return
         self.isExecuting = True
+        self.demo_monitor.set_status(DemoState.running)
         # Move to Station on top of the Robot starting at HOME position
         self.move_wait(HOME_POS, v=45, a=20)
         self.hand.openGripper()
@@ -181,6 +200,7 @@ class PickAndPlaceWlanDemo:
         self.move_wait(WAYPOINTS[0], t=2.4, move_cmd="movel")
         self.move_wait(HOME_POS, v=spd, a=20)
 
+        self.demo_monitor.set_status(DemoState.stop)
         self.isExecuting = False
 
 

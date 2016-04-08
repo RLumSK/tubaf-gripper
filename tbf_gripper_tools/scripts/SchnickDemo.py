@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding=utf-8
 # Software License Agreement (BSD License)
 #
 # Copyright (c) 2015, TU Bergakademie Freiberg
@@ -39,6 +40,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 
 from tbf_gripper_rqt.hand_module import RobotiqHandModel
+from DemoStatus import *
 
 
 import numpy as np
@@ -71,7 +73,13 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
+    """
+    model for the Schnick Schnack Schnuck demo, handels the different hand poses
+    """
     def __init__(self):
+        """
+        default constructor - set parameter, starting hand
+        """
         super(SchnickSchnackSchnuckHandModel, self).__init__()
 
         # initilize Hand
@@ -100,6 +108,11 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         self.onGoToChanged(1)
 
     def setStone(self):
+        """
+        sets the equivalent of a stone form (all fingers closed)
+        :return: -
+        :rtype: None
+        """
         self.mdl_fingerA.onPositionRequestChanged(255)
         self.mdl_fingerB.onPositionRequestChanged(255)
         self.mdl_fingerC.onPositionRequestChanged(255)
@@ -107,6 +120,11 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         rospy.loginfo("SchnickSchnackSchnuckModel.setStone")
 
     def setScisscor(self):
+        """
+        sets the equivalent of a sciccor pose (middle finger closed, adjacent fingers spread)
+        :return: -
+        :rtype: None
+        """
         self.mdl_fingerA.onPositionRequestChanged(255)
         self.mdl_fingerB.onPositionRequestChanged(0)
         self.mdl_fingerC.onPositionRequestChanged(0)
@@ -114,6 +132,11 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         rospy.loginfo("SchnickSchnackSchnuckModel.setScissor")
 
     def setPaper(self):
+        """
+        sets the equivalent of a paper pose (all fingers open, but sciccor closed)
+        :return: -
+        :rtype: None
+        """
         self.mdl_fingerA.onPositionRequestChanged(0)
         self.mdl_fingerB.onPositionRequestChanged(0)
         self.mdl_fingerC.onPositionRequestChanged(0)
@@ -121,6 +144,11 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         rospy.loginfo("SchnickSchnackSchnuckModel.setPaper")
 
     def setFountain(self):
+        """
+        sets the equivalent of a fountain pose (all fingers in the middle)
+        :return: -
+        :rtype: None
+        """
         self.mdl_fingerA.onPositionRequestChanged(120)
         self.mdl_fingerB.onPositionRequestChanged(120)
         self.mdl_fingerC.onPositionRequestChanged(120)
@@ -128,6 +156,11 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         rospy.loginfo("SchnickSchnackSchnuckModel.setFountain")
 
     def setPose(self):
+        """
+        randomly set a hand pose
+        :return: -
+        :rtype: None
+        """
         decision = random.random()
         if decision > 0.4:
             if decision > 0.7:
@@ -154,6 +187,9 @@ class SchnickSchnackSchnuckController():
         self.isExecuting = True
         self.lasttime = time.time()
 
+        self.demo_monitor = DemoStatus("/schnick_demo")
+        self.demo_monitor.set_status(DemoState.stop)
+
         # Hand
         self.hand = SchnickSchnackSchnuckHandModel()
         rospy.sleep(2.)
@@ -179,11 +215,8 @@ class SchnickSchnackSchnuckController():
         self.moveWait(HOME_POS,v=45,a=20)
         self.moveWait(LOW_JS,v=45,a=20)
 
-        print "init done"
         rospy.sleep(0.5)
-
-
-
+        self.demo_monitor.set_status(DemoState.initialized)
 
     def onJs(self,js):
         if time.time() - self.lasttime > 0.02:
@@ -216,9 +249,10 @@ class SchnickSchnackSchnuckController():
             return
         if not msg.data.startswith("start"):
             rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - received:" + msg.data)
+            self.demo_monitor.set_status(DemoState.error)
             return
         self.isExecuting = True
-
+        self.demo_monitor.set_status(DemoState.running)
 
         d = msg.data.split(" ")
         t = 1.0
@@ -237,6 +271,7 @@ class SchnickSchnackSchnuckController():
 
         rospy.sleep(2.)
         self.isExecuting = False
+        self.demo_monitor.set_status(DemoState.pause)
 
 
 def test_SchnickSchnackSchnuckHandModel():
