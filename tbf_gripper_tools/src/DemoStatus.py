@@ -45,7 +45,7 @@ class DemoStatus(object):
         :param str_name: name of the demo to monitor
         :type str_name: String
         """
-        self.pub = rospy.Publisher(str_name+'_status', String, queue_size=10)
+        self.pub = rospy.Publisher("/"+str_name+'_status', String, queue_size=10)
 
     def set_status(self, state):
         """
