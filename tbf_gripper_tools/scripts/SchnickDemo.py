@@ -40,7 +40,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 
 from tbf_gripper_rqt.hand_module import RobotiqHandModel
-from DemoStatus import *
+from tbf_gripper_tools.DemoStatus import *
 
 
 import numpy as np

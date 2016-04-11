@@ -38,7 +38,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
-from DemoStatus import *
+from tbf_gripper_tools.DemoStatus import *
 import numpy as np
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
