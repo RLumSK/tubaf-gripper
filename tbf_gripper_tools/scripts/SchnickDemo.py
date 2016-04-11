@@ -187,7 +187,7 @@ class SchnickSchnackSchnuckController():
         self.isExecuting = True
         self.lasttime = time.time()
 
-        self.demo_monitor = DemoStatus("/schnick_demo")
+        self.demo_monitor = DemoStatus("schnick")
         self.demo_monitor.set_status(DemoState.stop)
 
         # Hand
