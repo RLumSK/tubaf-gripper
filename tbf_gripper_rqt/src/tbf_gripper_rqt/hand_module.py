@@ -32,11 +32,11 @@
 import os
 import rospy
 import rospkg
+import argparse
 
 from qt_gui.plugin import Plugin
-from python_qt_binding import loadUi
+from python_qt_binding import loadUi, QtCore, QtGui
 from python_qt_binding.QtGui import QWidget
-from python_qt_binding import QtCore, QtGui
 
 from robotiq_s_model_control.msg import SModel_robot_input  as inputMsg
 from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
@@ -65,6 +65,9 @@ class RobotiqHand(Plugin):
         super(RobotiqHand, self).__init__(context)
         # Give QObjects reasonable names
         self.setObjectName('RobotiqHand')
+
+        # Vorlage:
+        # https: // github.com / ros - visualization / rqt_common_plugins / blob / master / rqt_plot / src / rqt_plot / plot.py
 
         # Process standalone plugin command-line arguments
         from argparse import ArgumentParser
@@ -121,12 +124,31 @@ class RobotiqHand(Plugin):
 
         mainLayout = QtGui.QVBoxLayout(self._widget)
         fingerLayout = QtGui.QHBoxLayout()
+        topicLayout = QtGui.QHBoxLayout()
 
         fingerLayout.addWidget(self._wdg_fingerA)
         fingerLayout.addWidget(self._wdg_fingerB)
         fingerLayout.addWidget(self._wdg_fingerC)
         fingerLayout.addWidget(self._wdg_fingerS)
 
+        # Set up the ComboBox for the topics
+        self._lbl_subtopic = QtGui.QLabel("Subscribe to: ")
+        self._cb_subTopic = QtGui.QComboBox()
+        self._btn_refreshSubscriber = QtGui.QPushButton("refresh")
+        self._lbl_pubTopic = QtGui.QLabel("Publish at: ")
+        self._le_pubTopic = QtGui.QLineEdit("/hand/SModelRobotOutput")
+        self._btn_newPublisher = QtGui.QPushButton("set")
+
+        self.actualize_topic_list()
+
+        topicLayout.addWidget(self._lbl_subtopic)
+        topicLayout.addWidget(self._cb_subTopic)
+        topicLayout.addWidget(self._btn_refreshSubscriber)
+        topicLayout.addWidget(self._lbl_pubTopic)
+        topicLayout.addWidget(self._le_pubTopic)
+        topicLayout.addWidget(self._btn_newPublisher)
+
+        mainLayout.addLayout(topicLayout)
         mainLayout.addLayout(fingerLayout)
         mainLayout.addWidget(self._wdg_main)
 
@@ -156,8 +178,90 @@ class RobotiqHand(Plugin):
         self._wdg_main.chk_rACT.stateChanged.connect(self._wdg_fingerA.setEnabled)
         self._wdg_main.chk_rICF.stateChanged.connect(self._wdg_fingerB.setEnabled)
         self._wdg_main.chk_rICF.stateChanged.connect(self._wdg_fingerC.setEnabled)
-
         self._wdg_main.chk_rICS.stateChanged.connect(self._wdg_fingerS.setEnabled)
+
+        self._btn_newPublisher.clicked.connect(self.setCurrentPublisherTopic)
+        self._btn_refreshSubscriber.clicked.connect(self.actualize_topic_list)
+        self._cb_subTopic.currentIndexChanged.connect(self.onNewSubscriberTopic)
+
+    @QtCore.Slot(str)
+    def onNewSubscriberTopic(self, topic_name):
+        """
+    Pass the topic name in the line edit to the model and update the subscriber
+        :param topic_name: name of the new subscriber topic
+        :type topic_name: QString
+        :return: -
+        :rtype: None
+        """
+        rospy.loginfo(topic_name)
+
+
+    @QtCore.Slot(int)
+    def setCurrentPublisherTopic(self):
+        """
+        Pass the topic name in the line edit to the model and update the publisher
+        :return: -
+        :rtype: None
+        """
+        self.model.onNewPublisherTopic(self._le_pubTopic.text())
+
+    @QtCore.Slot(int)
+    def actualize_topic_list(self):
+        """
+        Get all published topics and actulize the QComboBox
+        :return: -
+        :rtype: None
+        """
+        self._cb_subTopic.clear()
+        lst_topics = rospy.get_published_topics()
+        for topic in lst_topics:
+            if topic[1] == inputMsg._type:
+                self._cb_subTopic.addItem(topic[0])
+                rospy.loginfo("RobotiqHand.actualize_topic_list(): append: "+str(topic[0])+"   type: "+str(topic[1]))
+
+    def _parse_args(self, argv):
+        """
+        parsing the context arguments - see: https://github.com/ros-visualization/rqt_common_plugins/blob/master/rqt_plot/src/rqt_plot/plot.py
+        :param argv: context arguments
+        :type argv:
+        :return: args
+        :rtype:
+        """
+        parser = argparse.ArgumentParser(prog='tbf_gripper_rqt', add_help=False)
+        RobotiqHand.add_arguments(parser)
+        args = parser.parse_args(argv)
+
+        # convert topic arguments into topic names
+        topic_list = []
+        for t in args.topics:
+            # c_topics is the list of topics to plot
+            c_topics = []
+            # compute combined topic list, t == '/foo/bar1,/baz/bar2'
+            for sub_t in [x for x in t.split(',') if x]:
+                # check for shorthand '/foo/field1:field2:field3'
+                if ':' in sub_t:
+                    base = sub_t[:sub_t.find(':')]
+                    # the first prefix includes a field name, so save then strip it off
+                    c_topics.append(base)
+                    if not '/' in base:
+                        parser.error("%s must contain a topic and field name" % sub_t)
+                    base = base[:base.rfind('/')]
+
+                    # compute the rest of the field names
+                    fields = sub_t.split(':')[1:]
+                    c_topics.extend(["%s/%s" % (base, f) for f in fields if f])
+                else:
+                    c_topics.append(sub_t)
+            # #1053: resolve command-line topic names
+            import rosgraph
+            c_topics = [rosgraph.names.script_resolve_name('tbf_gripper_rqt', n) for n in c_topics]
+            if type(c_topics) == list:
+                topic_list.extend(c_topics)
+            else:
+                topic_list.append(c_topics)
+        args.topics = topic_list
+
+        return args
 
     def shutdown_plugin(self):
         """
@@ -178,7 +282,8 @@ class RobotiqHand(Plugin):
         """
         # TODO save intrinsic configuration, usually using:
         # instance_settings.set_value(k, v)
-        pass
+        # NOT implemented: self.model.save_settings(plugin_settings, instance_settings)
+        # instance_settings.set_value('topics', pack(self._widget._rosdata.keys()))
 
     def restore_settings(self, plugin_settings, instance_settings):
         """
@@ -189,7 +294,18 @@ class RobotiqHand(Plugin):
         """
         # TODO restore intrinsic configuration, usually using:
         # v = instance_settings.value(k)
-        pass
+        # autoscroll = instance_settings.value('autoscroll', True) in [True, 'true']
+        # self._widget.autoscroll_checkbox.setChecked(autoscroll)
+        # self.model.autoscroll(autoscroll)
+        # self._update_title()
+        #
+        # if len(self._widget._rosdata.keys()) == 0 and not self._args.start_empty:
+        #     topics = unpack(instance_settings.value('topics', []))
+        #     if topics:
+        #         for topic in topics:
+        #             self._widget.add_topic(topic)
+        #
+        # self._data_plot.restore_settings(plugin_settings, instance_settings)
 
     #def trigger_configuration(self):
         # Comment in to signal that the plugin has a way to configure
@@ -217,6 +333,15 @@ class RobotiqHand(Plugin):
         model.atNewGTO.connect(widget.chk_gGTO.setChecked)
         model.atNewIMC.connect(widget.lbl_gIMC.setText)
         model.atNewSTA.connect(widget.lbl_gSTA.setText)
+
+    @staticmethod
+    def add_arguments(parser):
+        group = parser.add_argument_group('Options for rqt_plot plugin')
+        group.add_argument('-P', '--pause', action='store_true', dest='start_paused',
+                           help='Start in paused state')
+        group.add_argument('-e', '--empty', action='store_true', dest='start_empty',
+                           help='Start without restoring previous topics')
+        group.add_argument('topics', nargs='*', default=[], help='Topics to plot')
 
 
 class RobotiqHandModel(QtCore.QObject):
@@ -263,10 +388,40 @@ class RobotiqHandModel(QtCore.QObject):
         # The plugin should not call init_node as this is performed by rqt_gui_py. The plugin can use any rospy-specific
         # functionality (like Publishers, Subscribers, Parameters). Just make sure to stop timers and publishers,
         # unsubscribe from Topics etc in the shutdown_plugin method.
+
+        #TODO: parameterize topics
         self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
         self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
 
+    @QtCore.Slot(str)
+    def onNewSubscriberTopic(self, topic):
+        """
+        Set a new subscriber and unregister the previous one
+        :param topic: name of the topic
+        :type topic: String
+        :return: None
+        :rtype: -
+        """
+        if topic == self.subscriber.name:
+            return
+        self.subscriber.unregister()
+        self.subscriber = rospy.Subscriber(topic, inputMsg, self.onReceivedROSMessage)
+        rospy.loginfo("RobotiqHandModel.onNewSubscriberTopic: "+topic)
 
+    @QtCore.Slot(str)
+    def onNewPublisherTopic(self, topic):
+        """
+        Set a new publisher and unregister the previous one
+        :param topic: name of the topic
+        :type topic: String
+        :return: None
+        :rtype: -
+        """
+        if topic == self.publisher.name:
+            return
+        self.publisher.unregister()
+        self.publisher = rospy.Publisher(topic, outputMsg, queue_size=10)
+        rospy.loginfo("RobotiqHandModel.onNewPublisherTopic: "+topic)
 
     @QtCore.Slot(int)
     def onActivationChanged(self, obj):

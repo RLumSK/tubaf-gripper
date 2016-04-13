@@ -225,9 +225,12 @@ class RobotiqFingerModel(QtCore.QObject):
 
         self.parentModel = parentModel
         # ROS
-        self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
+        # dynamic topic names
+        input_topic = rospy.get_param('~robotiq_hand_sub_topic', default='SModelRobotInput')
+        joint_topic = rospy.get_param('~robotiq_hand_pub_topic', default='SModelRobotOutput')
+        self.subscriber = rospy.Subscriber(input_topic, inputMsg, self.onReceivedROSMessage)
         if self.parentModel is None:
-            self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
+            self.publisher = rospy.Publisher(joint_topic, outputMsg, queue_size=10)
         else:
             self.publisher = None
 
