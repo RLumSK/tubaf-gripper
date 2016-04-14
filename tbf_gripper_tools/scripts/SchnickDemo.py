@@ -86,8 +86,8 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         self.onActivationChanged(1)
 
         # set Speed and Force
-        force = 255
-        speed = 255
+        force = 200
+        speed = 200
         self.mdl_fingerA.onForceRequestChanged(force)
         self.mdl_fingerA.onSpeedRequestChanged(speed)
         self.mdl_fingerB.onForceRequestChanged(force)
@@ -113,9 +113,9 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         :return: -
         :rtype: None
         """
-        self.mdl_fingerA.onPositionRequestChanged(255)
-        self.mdl_fingerB.onPositionRequestChanged(255)
-        self.mdl_fingerC.onPositionRequestChanged(255)
+        self.mdl_fingerA.onPositionRequestChanged(200)
+        self.mdl_fingerB.onPositionRequestChanged(200)
+        self.mdl_fingerC.onPositionRequestChanged(200)
         self.mdl_fingerS.onPositionRequestChanged(0)
         rospy.loginfo("SchnickSchnackSchnuckModel.setStone")
 
@@ -125,7 +125,7 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         :return: -
         :rtype: None
         """
-        self.mdl_fingerA.onPositionRequestChanged(255)
+        self.mdl_fingerA.onPositionRequestChanged(200)
         self.mdl_fingerB.onPositionRequestChanged(0)
         self.mdl_fingerC.onPositionRequestChanged(0)
         self.mdl_fingerS.onPositionRequestChanged(0)
@@ -140,7 +140,7 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         self.mdl_fingerA.onPositionRequestChanged(0)
         self.mdl_fingerB.onPositionRequestChanged(0)
         self.mdl_fingerC.onPositionRequestChanged(0)
-        self.mdl_fingerS.onPositionRequestChanged(255)
+        self.mdl_fingerS.onPositionRequestChanged(200)
         rospy.loginfo("SchnickSchnackSchnuckModel.setPaper")
 
     def setFountain(self):
