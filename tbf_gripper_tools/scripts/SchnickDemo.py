@@ -107,6 +107,10 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         # start movement
         self.onGoToChanged(1)
 
+        # result publisher
+        result_topic = rospy.get_param("result_topic", "/schnick_result")
+        self.result_publisher = rospy.Publisher(result_topic, String, queue_size=10)
+
     def setStone(self):
         """
         sets the equivalent of a stone form (all fingers closed)
@@ -157,22 +161,28 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
 
     def setPose(self):
         """
-        randomly set a hand pose
+        randomly set a hand pose and publish the result
         :return: -
         :rtype: None
         """
         decision = random.random()
+        result = ""
         if decision > 0.4:
             if decision > 0.7:
                 self.setStone()
+                result = "stone"
             else:
                 self.setScisscor()
+                result = "scissors"
         else:
             if decision > 0.1:
                 self.setPaper()
+                result = "paper"
             else:
                 self.setFountain()
+                result = "fountain"
         self.sendROSMessage()
+        self.result_publisher.publish(result)
         # rospy.sleep(3.)
 
 
@@ -266,7 +276,6 @@ class SchnickSchnackSchnuckController():
             if i == 2: self.hand.setPose()
             self.moveWait(UP_JS,t=t)
             self.moveWait(LOW_JS,t=t)
-
 
 
         rospy.sleep(2.)
