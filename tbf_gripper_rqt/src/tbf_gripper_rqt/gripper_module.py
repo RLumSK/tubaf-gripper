@@ -59,7 +59,7 @@ class WideGripper(Plugin):
         # Create QWidget
         self._widget = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'WideGripper.ui')
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'Gripper.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_main, self._widget, {'WideGripper': WideGripper})
         # Give QObjects reasonable names
@@ -69,6 +69,7 @@ class WideGripper(Plugin):
         # plugins at once. Also if you open multiple instances of your
         # plugin at once, these lines add number to make it easy to
         # tell from pane to pane.
+        self._widget.setWindowTitle("Wide Gripper Interface")
         if context.serial_number() > 1:
             self._widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
         # Add widget to the user interface
@@ -116,11 +117,10 @@ class WideGripperModel(RobotiqHandModel):
 
         self.rACT = 1
         self.rGLV = 1
-        self.atNewMOD = 2
         self.mdl_fingerA.rSP = 150
         self.mdl_fingerA.rFR = 200
 
-        self.sendROSMessage()
+        self.onMODChanged(2)
 
     def closeGripper(self):
         self.mdl_fingerA.rPR = 255
@@ -159,14 +159,160 @@ class WideGripperModel(RobotiqHandModel):
         # rospy.logwarn("hand_module.py@RobotiqHandModel.sendROSMessage(): msg="+str(msg))
         self.publisher.publish(msg)
 
+    def shutdown(self):
+        """
+        unregister publisher and subscriber and make sure everything is suspended
+        :return: -
+        :rtype: None
+        """
+        self.mdl_fingerA.shutdown()
+        self.publisher.unregister()
+        super.subscriber.unregister()
+
+
+class PinchGripper(Plugin):
+    def __init__(self, context):
+        super(PinchGripper, self).__init__(context)
+        # Give QObjects reasonable names
+        self.setObjectName('PinchGripper')
+
+        # Process standalone plugin command-line arguments
+        from argparse import ArgumentParser
+        parser = ArgumentParser()
+        # Add argument(s) to the parser.
+        parser.add_argument("-q", "--quiet", action="store_true",
+                            dest="quiet",
+                            help="Put plugin in silent mode")
+        args, unknowns = parser.parse_known_args(context.argv())
+        if not args.quiet:
+            print 'arguments: ', args
+            print 'unknowns: ', unknowns
+
+        # Create QWidget
+        self._widget = QWidget()
+        # Get path to UI file which should be in the "resource" folder of this package
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'Gripper.ui')
+        # Extend the widget with all attributes and children from UI file
+        loadUi(ui_file_main, self._widget, {'PinchGripper': PinchGripper})
+        # Give QObjects reasonable names
+        self._widget.setObjectName('PinchGripper')
+        # Show _widget.windowTitle on left-top of each plugin (when
+        # it's set in _widget). This is useful when you open multiple
+        # plugins at once. Also if you open multiple instances of your
+        # plugin at once, these lines add number to make it easy to
+        # tell from pane to pane.
+        self._widget.setWindowTitle("Pinch Gripper Interface")
+        if context.serial_number() > 1:
+            self._widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
+
+        # Add widget to the user interface
+        context.add_widget(self._widget)
+
+        # initilize model
+        self.model = PinchGripperModel()
+
+        # connect signal and slots
+        self._widget.btn_open.clicked.connect(self.model.openGripper)
+        self._widget.btn_close.clicked.connect(self.model.closeGripper)
+        self._widget.hsl_position.sliderMoved.connect(self.model.moveGripperTo)
+
+    def shutdown_plugin(self):
+        # self._widget.shutdown_all()
+        self.model.shutdown()
+        # TODO unregister all publishers here
+        pass
+
+    def save_settings(self, plugin_settings, instance_settings):
+        # TODO save intrinsic configuration, usually using:
+        # instance_settings.set_value(k, v)
+        pass
+
+    def restore_settings(self, plugin_settings, instance_settings):
+        # TODO restore intrinsic configuration, usually using:
+        # v = instance_settings.value(k)
+        pass
+
+        # def trigger_configuration(self):
+        # Comment in to signal that the plugin has a way to configure
+        # This will enable a setting button (gear icon) in each dock widget title bar
+        # Usually used to open a modal configuration dialog
+
+
 
 class PinchGripperModel(WideGripperModel):
     def __init__(self):
         super(PinchGripperModel, self).__init__()
-        self.atNewMOD = 1  # pinch mode
+        self.onMODChanged(1)  # pinch mode
+
+
+class BasicGripper(Plugin):
+    def __init__(self, context):
+        super(BasicGripper, self).__init__(context)
+        # Give QObjects reasonable names
+        self.setObjectName('BasicGripper')
+
+        # Process standalone plugin command-line arguments
+        from argparse import ArgumentParser
+        parser = ArgumentParser()
+        # Add argument(s) to the parser.
+        parser.add_argument("-q", "--quiet", action="store_true",
+                            dest="quiet",
+                            help="Put plugin in silent mode")
+        args, unknowns = parser.parse_known_args(context.argv())
+        if not args.quiet:
+            print 'arguments: ', args
+            print 'unknowns: ', unknowns
+
+        # Create QWidget
+        self._widget = QWidget()
+        # Get path to UI file which should be in the "resource" folder of this package
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'Gripper.ui')
+        # Extend the widget with all attributes and children from UI file
+        loadUi(ui_file_main, self._widget, {'BasicGripper': BasicGripper})
+        # Give QObjects reasonable names
+        self._widget.setObjectName('BasicGripper')
+        # Show _widget.windowTitle on left-top of each plugin (when
+        # it's set in _widget). This is useful when you open multiple
+        # plugins at once. Also if you open multiple instances of your
+        # plugin at once, these lines add number to make it easy to
+        # tell from pane to pane.
+        self._widget.setWindowTitle("Basic Gripper Interface")
+        if context.serial_number() > 1:
+            self._widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
+        # Add widget to the user interface
+        context.add_widget(self._widget)
+
+        # initilize model
+        self.model = BasicGripperModel()
+
+        # connect signal and slots
+        self._widget.btn_open.clicked.connect(self.model.openGripper)
+        self._widget.btn_close.clicked.connect(self.model.closeGripper)
+        self._widget.hsl_position.sliderMoved.connect(self.model.moveGripperTo)
+
+    def shutdown_plugin(self):
+        # self._widget.shutdown_all()
+        self.model.shutdown()
+        # TODO unregister all publishers here
+        pass
+
+    def save_settings(self, plugin_settings, instance_settings):
+        # TODO save intrinsic configuration, usually using:
+        # instance_settings.set_value(k, v)
+        pass
+
+    def restore_settings(self, plugin_settings, instance_settings):
+        # TODO restore intrinsic configuration, usually using:
+        # v = instance_settings.value(k)
+        pass
+
+        # def trigger_configuration(self):
+        # Comment in to signal that the plugin has a way to configure
+        # This will enable a setting button (gear icon) in each dock widget title bar
+        # Usually used to open a modal configuration dialog
 
 
 class BasicGripperModel(WideGripperModel):
     def __init__(self):
         super(BasicGripperModel, self).__init__()
-        self.atNewMOD = 0  # basic mode
+        self.onMODChanged(0)  # basic mode

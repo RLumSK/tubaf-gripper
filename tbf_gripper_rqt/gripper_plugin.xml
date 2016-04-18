@@ -1,4 +1,27 @@
 <library path="src">
+  <class name="RobotiqHand" type="tbf_gripper_rqt.hand_module.RobotiqHand" base_class_type="rqt_gui_py::Plugin">
+     <description>
+      A Python plugin to monitor and control the 3 finger gripper from Robotiq
+    </description>
+    <qtgui>
+      <!-- optional grouping... -->
+      <group>
+        <label>TUBAF</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins developed by the Mining-RoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+      </group>
+      <group>
+        <label>Hand</label>
+        <icon type="theme">applications-other</icon>
+        <statustip>A Python GUI plugin for monitoring and controlling the 3 finger gripper from Robotiq.</statustip>
+      </group>
+      <!-- end of optional grouping... -->
+      <label>Robotiq Hand Plugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>User interface to the 3 finger gripper from Robotiq</statustip>
+    </qtgui>
+  </class>
+
   <class name="WideGripper" type="tbf_gripper_rqt.gripper_module.WideGripper" base_class_type="rqt_gui_py::Plugin">
      <description>
       A Python plugin to monitor and control the 3 finger gripper from Robotiq in wide mode
@@ -8,7 +31,7 @@
       <group>
         <label>TUBAF</label>
         <icon type="theme">folder</icon>
-        <statustip>Plugins developed by the MiningRoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+        <statustip>Plugins developed by the Mining-RoX project at the TU Bergakademie Freiberg, Germany.</statustip>
       </group>
       <group>
         <label>Hand</label>
@@ -19,6 +42,52 @@
       <label>Wide Gripper Plugin</label>
       <icon type="theme">system-help</icon>
       <statustip>Simple user interface to the 3 finger gripper from Robotiq in wide mode</statustip>
+    </qtgui>
+  </class>
+
+  <class name="BasicGripper" type="tbf_gripper_rqt.gripper_module.BasicGripper" base_class_type="rqt_gui_py::Plugin">
+     <description>
+      A Python plugin to monitor and control the 3 finger gripper from Robotiq in basic mode
+    </description>
+    <qtgui>
+      <!-- optional grouping... -->
+      <group>
+        <label>TUBAF</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins developed by the Mining-RoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+      </group>
+      <group>
+        <label>Hand</label>
+        <icon type="theme">applications-other</icon>
+        <statustip>A Python GUI plugin for monitoring and controlling the 3 finger gripper from Robotiq in basic mode.</statustip>
+      </group>
+      <!-- end of optional grouping... -->
+      <label>Basic Gripper Plugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Simple user interface to the 3 finger gripper from Robotiq in basic mode</statustip>
+    </qtgui>
+  </class>
+
+  <class name="PinchGripper" type="tbf_gripper_rqt.gripper_module.PinchGripper" base_class_type="rqt_gui_py::Plugin">
+     <description>
+      A Python plugin to monitor and control the 3 finger gripper from Robotiq in pinch mode
+    </description>
+    <qtgui>
+      <!-- optional grouping... -->
+      <group>
+        <label>TUBAF</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins developed by the Mining-RoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+      </group>
+      <group>
+        <label>Hand</label>
+        <icon type="theme">applications-other</icon>
+        <statustip>A Python GUI plugin for monitoring and controlling the 3 finger gripper from Robotiq in pinch mode.</statustip>
+      </group>
+      <!-- end of optional grouping... -->
+      <label>Pinch Gripper Plugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Simple user interface to the 3 finger gripper from Robotiq in pinch mode</statustip>
     </qtgui>
   </class>
 </library>
