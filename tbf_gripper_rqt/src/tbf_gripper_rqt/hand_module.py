@@ -390,8 +390,9 @@ class RobotiqHandModel(QtCore.QObject):
         # unsubscribe from Topics etc in the shutdown_plugin method.
 
         #TODO: parameterize topics
-        self.subscriber = rospy.Subscriber("SModelRobotInput", inputMsg, self.onReceivedROSMessage)
-        self.publisher = rospy.Publisher('SModelRobotOutput', outputMsg, queue_size=10)
+
+        self.subscriber = rospy.Subscriber("/hand/SModelRobotInput", inputMsg, self.onReceivedROSMessage)
+        self.publisher = rospy.Publisher('/hand/SModelRobotOutput', outputMsg, queue_size=10)
 
     @QtCore.Slot(str)
     def onNewSubscriberTopic(self, topic):
