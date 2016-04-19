@@ -57,12 +57,12 @@ class DemoState(Enum):
         if state is DemoState.running:
             return "running"
         elif state is DemoState.initialized:
-            return "initialized"
+            return "initialized, ok to start"
         elif state is DemoState.pause :
             return "pause"
         elif state is DemoState.stop:
             return "stop"
         elif state is DemoState.error:
-            return "error"
+            return "error -- press start 2x fast to init -- make sure home pose is safe to reach!"
         else:
             return "undefined"

@@ -42,14 +42,18 @@ from sensor_msgs.msg import JointState
 from tbf_gripper_rqt.hand_module import RobotiqHandModel
 from tbf_gripper_tools.DemoStatus import *
 
-
 import numpy as np
+
+import thread
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
 UP_JS = [0.0, -45.0, -95, -150, -90, -39]
 LOW_JS = [0.0, -15.0, -115, -50, -90, -45]
 HOME_POS = [0.0, -90, 0, -90, 0, 0]
 
+class InterruptError(Exception):
+    def __init__(self, *args, **kwargs):
+        super(InterruptError, self).__init__(*args, **kwargs)
 
 def pos2str(pos):
     rad = np.deg2rad(pos)
@@ -194,39 +198,48 @@ class SchnickSchnackSchnuckController():
         self.joint_sub = rospy.Subscriber("/ur5/joint_states", JointState, self.onJs, queue_size=1)
 
         self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
-        self.isExecuting = True
         self.lasttime = time.time()
+        self.last_start = time.time()
 
         self.demo_monitor = DemoStatus("schnick")
         self.demo_monitor.set_status(DemoState.stop)
 
         # Hand
         self.hand = SchnickSchnackSchnuckHandModel()
-        rospy.sleep(2.)
-        self.hand.setPose()
 
         self.move_dur = 1.0
         self.cur_pos = np.zeros((6,))
+        self.exec_thread = None
+        rospy.sleep(0.5)
+
+        if rospy.get_param("~no_init",False):
+            rospy.logwarn("init skipped!")
+            self.demo_monitor.set_status(DemoState.error)
+        else:
+            self.run_as_process(SchnickSchnackSchnuckController.initialise)
 
         # Arm
-        # self.ur5_mover = TrajectoryExecutor.TrajectoryExecutor( '/ur5/pos_based_pos_traj_controller/follow_joint_trajectory',
-        #                                                         ="gripper_ur5_", state_topic="/ur5/joint_states")
-        # self.ur5_mover.move_home()
-        # self.move_down(5.0)
 
-        self.isExecuting = False
 
+    def initialise(self):
+        rospy.sleep(2.)
+        self.hand.setPose()
         rospy.sleep(0.5)
-        prg = HOME_PROGRAM.replace("\n","\t")
-        # for line in HOME_PROGRAM.strip().split('\n'):
-        #     self.program_pub.publish(line)
-        #     rospy.sleep(3.5)
-
-        self.moveWait(HOME_POS,v=45,a=20)
-        self.moveWait(LOW_JS,v=45,a=20)
-
+        self.moveWait(HOME_POS, v=45, a=20)
+        self.moveWait(LOW_JS, v=45, a=20)
         rospy.sleep(0.5)
         self.demo_monitor.set_status(DemoState.initialized)
+        self.exec_thread = None
+
+    def run_as_process(self, function):
+        """
+        @param function: the function to start
+        @param args: tuple of function args
+        """
+        # p = Process(target=function, args=(self,))
+        # p.start()
+        # self.exec_thread = p
+        self.exec_thread = thread.start_new_thread(function, (self,))
 
     def onJs(self,js):
         if time.time() - self.lasttime > 0.02:
@@ -246,41 +259,59 @@ class SchnickSchnackSchnuckController():
         if t is not None:
             prog += ", t=%f" % t
         prog += ")"
-        self.program_pub.publish(prog)
+        if self.exec_thread is not None:
+            self.program_pub.publish(prog)
+        else:
+            raise InterruptError("Thread interrupted")
         while True:
             dst = np.abs(np.subtract(pose,self.cur_pos))
             if np.max(dst) < goal_tolerance:
                 break
             rospy.sleep(0.02)
 
-    def execute(self, msg):
-        if self.isExecuting:
-            rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - action pending")
-            return
-        if not msg.data.startswith("start"):
-            rospy.loginfo("Not executing Schnick,Schnack,Schnuck Demo - received:" + msg.data)
-            self.demo_monitor.set_status(DemoState.error)
-            return
-        self.isExecuting = True
+    def perform_demo(self):
         self.demo_monitor.set_status(DemoState.running)
-
-        d = msg.data.split(" ")
-        t = 1.0
-        if len(d) > 1:
-            try:
-                t = float(d[1])
-            except ValueError:
-                pass
         self.hand.setPose()
         for i in range(3):
             if i == 2: self.hand.setPose()
-            self.moveWait(UP_JS,t=t)
-            self.moveWait(LOW_JS,t=t)
-
+            self.moveWait(UP_JS, t=0.5)
+            self.moveWait(LOW_JS, t=0.5)
 
         rospy.sleep(2.)
-        self.isExecuting = False
         self.demo_monitor.set_status(DemoState.pause)
+
+        self.exec_thread = None
+
+
+    def execute(self, msg):
+        if msg.data.lower().startswith("stop"):
+            self.program_pub.publish("stopj(6.3)")
+            if self.exec_thread is not None:
+                self.exec_thread = None
+            rospy.logwarn("stop received!, aborting trajectory execution!")
+            self.demo_monitor.set_status(DemoState.error)
+            return
+        if self.demo_monitor.get_status() in (DemoState.error, DemoState.unknown):
+            if msg.data.startswith("start"):
+                if time.time() - self.last_start < 2.0 and self.exec_thread is None:
+                    rospy.loginfo("got start twice within 2 secs, reinitialising...")
+                    self.run_as_process(SchnickSchnackSchnuckController.initialise)
+                    return
+                self.last_start = time.time()
+                self.demo_monitor.set_status(DemoState.unknown)
+                rospy.loginfo(
+                    "error state, start received...   Press start again within 2 secs to perform reinitialisation")
+            return
+
+        if msg.data.startswith("start"):
+            if self.exec_thread is None:
+                self.run_as_process(SchnickSchnackSchnuckController.perform_demo)
+                rospy.loginfo("starting demo...")
+                return
+            else:
+                rospy.logwarn("demo is already running, ignoring start command!")
+
+        rospy.loginfo("Not executing SchnickSchnackSchnuck demo - received:" + msg.data)
 
 
 def test_SchnickSchnackSchnuckHandModel():
@@ -295,6 +326,7 @@ def test_SchnickSchnackSchnuckHandModel():
     # For Testing
     while True:
         obj.setPose()
+        rospy.sleep(2.0)
 
 
 def test_SchnickSchnackSchnuckController():

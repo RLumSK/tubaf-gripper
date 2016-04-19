@@ -40,7 +40,6 @@ from sensor_msgs.msg import JointState
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
 from tbf_gripper_tools.DemoStatus import *
 import numpy as np
-from multiprocessing import Process
 import thread
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
@@ -100,8 +99,14 @@ class PickAndPlaceWlanDemo:
         self.last_start = time.time()
 
         self.demo_monitor = DemoStatus("pnp_demo")
+        self.exec_thread = None
+        rospy.sleep(0.5)
 
-        self.run_as_process(PickAndPlaceWlanDemo.initialise)
+        if rospy.get_param("~no_init", False):
+            rospy.logwarn("init skipped!")
+            self.demo_monitor.set_status(DemoState.error)
+        else:
+            self.run_as_process(PickAndPlaceWlanDemo.initialise)
 
     def run_as_process(self,function):
         """
