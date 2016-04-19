@@ -89,7 +89,7 @@ class PickAndPlaceWlanDemo:
         """
 
         # ROS Anbindung
-        self.sub = rospy.Subscriber("/pnpwlan_cmd", String, self.execute, queue_size=1)
+        self.sub = rospy.Subscriber("/pnp_demo_cmd", String, self.execute, queue_size=1)
 
         self.joint_sub = rospy.Subscriber("/ur5/joint_states", JointState, self.onJs, queue_size=1)
 
