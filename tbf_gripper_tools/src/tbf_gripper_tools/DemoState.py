@@ -40,6 +40,7 @@ class DemoState(Enum):
     """
     enumeration with demo states
     """
+    unknown = -1
     initialized = 0
     running = 1
     pause = 2
@@ -51,6 +52,8 @@ class DemoState(Enum):
     """
     @staticmethod
     def to_String(state):
+        if state is DemoState.unknown:
+            return "unknown"
         if state is DemoState.running:
             return "running"
         elif state is DemoState.initialized:
@@ -62,4 +65,4 @@ class DemoState(Enum):
         elif state is DemoState.error:
             return "error"
         else:
-            return "unknown"
+            return "undefined"

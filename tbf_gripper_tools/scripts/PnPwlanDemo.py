@@ -40,6 +40,8 @@ from sensor_msgs.msg import JointState
 from tbf_gripper_rqt.gripper_module import BasicGripperModel
 from tbf_gripper_tools.DemoStatus import *
 import numpy as np
+from multiprocessing import Process
+import thread
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
 HOME_POS = [0.0, -90, 0, -90, 0, 0]
@@ -52,11 +54,15 @@ WAYPOINTS = [
     # [  -2.28,  -6.98,   94.95,  -91.42, 84.44, 45]
 ]
 
+class InterruptError(Exception):
+    def __init__(self, *args, **kwargs):
+        super(InterruptError, self).__init__(*args, **kwargs)
+
+
 def pos2str(pos):
     rad = np.deg2rad(pos)
     rad = map(str, rad)
     return "[" + ", ".join(rad) + "]"
-
 
 # HOME_PROGRAM = \
 # """movej(%(homepos)s, a=%(a)f, v=%(v)f)
@@ -88,34 +94,23 @@ class PickAndPlaceWlanDemo:
         self.joint_sub = rospy.Subscriber("/ur5/joint_states", JointState, self.onJs, queue_size=1)
 
         self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
-        self.isExecuting = True
-        self.lasttime = time.time()
-
-        self.demo_monitor = DemoStatus("/pnp_demo")
-
-        # Hand
-        self.hand = BasicGripperModel()
-        self.hand.mdl_fingerA.rSP = 255
-        self.hand.mdl_fingerA.rFR = 255
-        self.hand.openGripper()
-
-
         self.move_dur = 1.0
         self.cur_pos = np.zeros((6,))
+        self.lasttime = time.time()
 
-        # Arm
-        self.isExecuting = False
-        self.demo_monitor.set_status(DemoState.initialized)
+        self.demo_monitor = DemoStatus("pnp_demo")
 
-        rospy.sleep(0.5)
-        # prg = HOME_PROGRAM.replace("\n","\t")
-        # for line in HOME_PROGRAM.strip().split('\n'):
-        #     self.program_pub.publish(line)
-        #     rospy.sleep(3.5)
+        self.run_as_process(PickAndPlaceWlanDemo.initialise)
 
-        self.move_wait(HOME_POS, v=45, a=20)
-        print "init done"
-        rospy.sleep(0.5)
+    def run_as_process(self,function):
+        """
+        @param function: the function to start
+        @param args: tuple of function args
+        """
+        # p = Process(target=function, args=(self,))
+        # p.start()
+        # self.exec_thread = p
+        self.exec_thread = thread.start_new_thread(function,(self,))
 
     def onJs(self, js):
         if time.time() - self.lasttime > 0.02:
@@ -128,6 +123,7 @@ class PickAndPlaceWlanDemo:
 
 
     def move_wait(self, pose, goal_tolerance=0.5, v=None, a=None, t=None, move_cmd="movej"):
+        rospy.loginfo("move and wait... %s",str(pose))
         prog = move_cmd+"(%s" % pos2str(pose)
         if a is not None:
             prog += ", a=%f" % np.deg2rad(a)
@@ -136,37 +132,24 @@ class PickAndPlaceWlanDemo:
         if t is not None:
             prog += ", t=%f" % t
         prog += ")"
-        self.program_pub.publish(prog)
+        if self.exec_thread is not None:
+            self.program_pub.publish(prog)
+        else:
+            raise InterruptError("Thread interrupted")
         while True:
             dst = np.abs(np.subtract(pose,self.cur_pos))
             if np.max(dst) < goal_tolerance:
                 break
             rospy.sleep(0.02)
 
-    def execute(self, msg):
-        """
-        pick and place and pick and place the WLAN station
-        :param msg: string message with any content, just to trigger the execution
-        :type msg: String
-        :return: -
-        :rtype: None
-        """
+    def perform_demo(self):
         spd = 20
-        if self.isExecuting:
-            rospy.loginfo("Not executing Pick and Place Demo - action pending")
-            self.demo_monitor.set_status(DemoState.stop)
-            return
-        if not msg.data.startswith("start"):
-            rospy.loginfo("Not executing Pick and Place Demo - received:" + msg.data)
-            self.demo_monitor.set_status(DemoState.error)
-            return
-        self.isExecuting = True
         self.demo_monitor.set_status(DemoState.running)
         # Move to Station on top of the Robot starting at HOME position
         self.move_wait(HOME_POS, v=45, a=20)
         self.hand.openGripper()
         self.move_wait(WAYPOINTS[0], v=spd)
-        self.move_wait(WAYPOINTS[1], t=2.4,  move_cmd="movel")
+        self.move_wait(WAYPOINTS[1], t=2.4, move_cmd="movel")
 
         # Grasp station
         self.hand.closeGripper()
@@ -182,6 +165,9 @@ class PickAndPlaceWlanDemo:
         # Move to HOME position
         self.move_wait(WAYPOINTS[3], move_cmd="movel")
         self.move_wait(HOME_POS, v=spd, a=20)
+
+        rospy.loginfo("arrived at home with station, waiting 5 secs")
+        rospy.sleep(5.0)
 
         # Grasp station again
         self.move_wait(WAYPOINTS[3], v=spd)
@@ -201,11 +187,75 @@ class PickAndPlaceWlanDemo:
         self.move_wait(HOME_POS, v=spd, a=20)
 
         self.demo_monitor.set_status(DemoState.stop)
-        self.isExecuting = False
+        self.exec_thread = None
+
+    def initialise(self):
+        rospy.loginfo("initialisation... moving to home pose and opening gripper")
+        rospy.sleep(1.0)
+        # Arm
+        rospy.loginfo("move home...")
+        self.move_wait(HOME_POS, v=45, a=20)
+
+        rospy.loginfo("arrived at home, opening gripper in 3 secs...")
+        # Hand
+        rospy.sleep(3.0)
+        self.hand = BasicGripperModel()
+        self.hand.mdl_fingerA.rSP = 255
+        self.hand.mdl_fingerA.rFR = 255
+        self.hand.openGripper()
+
+        rospy.sleep(1.5)
+        rospy.loginfo("init done")
+        self.demo_monitor.set_status(DemoState.initialized)
+        self.exec_thread = None
+
+    def execute(self, msg):
+        """
+        pick and place and pick and place the WLAN station
+        :param msg: string message with any content, just to trigger the execution
+        :type msg: String
+        :return: -
+        :rtype: None
+        """
+        if msg.data.lower().startswith("stop"):
+            self.program_pub.publish("stopj(6.3)")
+            if self.exec_thread is not None:
+                self.exec_thread = None
+            rospy.logwarn("stop received!, aborting trajectory execution!")
+            self.demo_monitor.set_status(DemoState.error)
+            return
+        if self.demo_monitor.get_status() in (DemoState.error, DemoState.unknown):
+            if msg.data.startswith("start"):
+                if time.time() - self.lasttime < 2.0 and self.exec_thread is None:
+                    rospy.loginfo("got start twice within 2 secs, reinitialising...")
+                    self.run_as_process(PickAndPlaceWlanDemo.initialise)
+                    return
+                self.lasttime = time.time()
+                self.demo_monitor.set_status(DemoState.unknown)
+                rospy.loginfo("error state, start received...   Press start again within 2 secs to perform reinitialisation")
+            return
+
+        if msg.data.startswith("start"):
+            if self.exec_thread is None:
+                self.run_as_process(PickAndPlaceWlanDemo.perform_demo)
+                rospy.loginfo("starting demo...")
+            else:
+                rospy.logwarn("demo is already running, ignoring start command!")
+
+
+        rospy.loginfo("Not executing Pick and Place Demo - received:" + msg.data)
+
 
 
 if __name__ == '__main__':
     print("Hello world")
-    rospy.init_node("Test_PnPwlanDemo")
+    rospy.init_node("PnPwlanDemo")
     obj = PickAndPlaceWlanDemo()
-    obj.execute(String("start"))
+    if (rospy.get_param("~autostart",True)):
+        rospy.loginfo("autostart is true, waiting for controller to initialise, then starting demo")
+        while not obj.demo_monitor.get_status() == DemoState.initialized:
+            time.sleep(1.0)
+        rospy.loginfo("autostarting demo")
+        obj.execute(String("start"))
+
+    rospy.spin()

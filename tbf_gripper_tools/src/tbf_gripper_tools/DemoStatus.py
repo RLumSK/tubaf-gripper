@@ -43,9 +43,10 @@ class DemoStatus(object):
         """
         Default constructor
         :param str_name: name of the demo to monitor
-        :type str_name: String
+        :type str_name: str
         """
         self.pub = rospy.Publisher("/"+str_name+'_status', String, queue_size=10)
+        self.state = DemoState.unknown
 
     def set_status(self, state):
         """
@@ -55,10 +56,14 @@ class DemoStatus(object):
         :return: -
         :rtype: None
         """
+        self.state = state
         if not rospy.is_shutdown():
             str_status = DemoState.to_String(state)
             rospy.loginfo(str_status)
             self.pub.publish(str_status)
+
+    def get_status(self):
+        return self.state
 
 if __name__ == '__main__':
     try:
