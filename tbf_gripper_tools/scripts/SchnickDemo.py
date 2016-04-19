@@ -48,7 +48,7 @@ import thread
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
 UP_JS = [0.0, -45.0, -95, -150, -90, -39]
-LOW_JS = [0.0, -15.0, -115, -50, -90, -45]
+LOW_JS = [0.0, -15.0, -115, -57, -90, -45]
 HOME_POS = [0.0, -90, 0, -90, 0, 0]
 
 class InterruptError(Exception):
