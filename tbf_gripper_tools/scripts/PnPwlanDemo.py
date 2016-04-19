@@ -97,6 +97,7 @@ class PickAndPlaceWlanDemo:
         self.move_dur = 1.0
         self.cur_pos = np.zeros((6,))
         self.lasttime = time.time()
+        self.last_start = time.time()
 
         self.demo_monitor = DemoStatus("pnp_demo")
 
@@ -226,11 +227,11 @@ class PickAndPlaceWlanDemo:
             return
         if self.demo_monitor.get_status() in (DemoState.error, DemoState.unknown):
             if msg.data.startswith("start"):
-                if time.time() - self.lasttime < 2.0 and self.exec_thread is None:
+                if time.time() - self.last_start < 2.0 and self.exec_thread is None:
                     rospy.loginfo("got start twice within 2 secs, reinitialising...")
                     self.run_as_process(PickAndPlaceWlanDemo.initialise)
                     return
-                self.lasttime = time.time()
+                self.last_start = time.time()
                 self.demo_monitor.set_status(DemoState.unknown)
                 rospy.loginfo("error state, start received...   Press start again within 2 secs to perform reinitialisation")
             return
