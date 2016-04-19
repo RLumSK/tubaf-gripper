@@ -163,9 +163,11 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         self.mdl_fingerS.onPositionRequestChanged(82)
         rospy.loginfo("SchnickSchnackSchnuckModel.setFountain")
 
-    def setPose(self):
+    def setPose(self, publish=True):
         """
         randomly set a hand pose and publish the result
+        :param publish: publish the result via ROS or not
+        :type publish: bool
         :return: -
         :rtype: None
         """
@@ -186,7 +188,8 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
                 self.setFountain()
                 result = "fountain"
         self.sendROSMessage()
-        self.result_publisher.publish(result)
+        if publish:
+            self.result_publisher.publish(result)
         # rospy.sleep(3.)
 
 
@@ -223,7 +226,7 @@ class SchnickSchnackSchnuckController():
 
     def initialise(self):
         rospy.sleep(2.)
-        self.hand.setPose()
+        self.hand.setPose(publish=False)
         rospy.sleep(0.5)
         self.moveWait(HOME_POS, v=45, a=20)
         self.moveWait(LOW_JS, v=45, a=20)
@@ -271,9 +274,10 @@ class SchnickSchnackSchnuckController():
 
     def perform_demo(self):
         self.demo_monitor.set_status(DemoState.running)
-        self.hand.setPose()
+        self.hand.setPose(publish=False)
         for i in range(3):
-            if i == 2: self.hand.setPose()
+            if i == 2:
+                self.hand.setPose(publish=True)
             self.moveWait(UP_JS, t=0.5)
             self.moveWait(LOW_JS, t=0.5)
 

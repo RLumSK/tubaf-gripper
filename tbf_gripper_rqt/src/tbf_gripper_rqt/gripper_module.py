@@ -238,7 +238,6 @@ class PinchGripper(Plugin):
         # Usually used to open a modal configuration dialog
 
 
-
 class PinchGripperModel(WideGripperModel):
     def __init__(self):
         super(PinchGripperModel, self).__init__()
