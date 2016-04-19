@@ -203,8 +203,8 @@ class PickAndPlaceWlanDemo:
         self.hand.mdl_fingerA.rSP = 255
         self.hand.mdl_fingerA.rFR = 255
         self.hand.openGripper()
-
-        rospy.sleep(1.5)
+        rospy.loginfo("wait 20s for the hand to initialise")
+        rospy.sleep(20.0)
         rospy.loginfo("init done")
         self.demo_monitor.set_status(DemoState.initialized)
         self.exec_thread = None
