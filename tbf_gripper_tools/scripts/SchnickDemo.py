@@ -256,13 +256,17 @@ class SchnickSchnackSchnuckController():
     def on_camImage(self,img):
         if self.pub_img:
             self.pub_img = False
+            rospy.loginfo("republish camera image")
             self.cam_pub.publish(img)
 
     def pub_result(self,res_str):
         img = self.result_img_msgs.get(res_str)
         self.pub_img = True
         if img:
+            rospy.loginfo("pub result %s",res_str)
             self.result_img_pub.publish(img)
+        else:
+            rospy.loginfo("no image loaded for %s",res_str)
 
     def initialise(self):
         rospy.sleep(2.)
