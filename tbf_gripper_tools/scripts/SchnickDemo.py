@@ -224,7 +224,7 @@ class SchnickSchnackSchnuckController():
                 img_path = os.path.join(image_dir, i + ".jpg")
                 if os.path.isfile(img_path):
                     cv_img = cv2.imread(img_path,cv2.CV_LOAD_IMAGE_UNCHANGED)
-                    self.result_img_msgs[i] = br.cv2_to_imgmsg(cv_img,encoding="passthrough")
+                    self.result_img_msgs[i] = br.cv2_to_imgmsg(cv_img,encoding="bgr8")
                     rospy.loginfo("loaded resultimage %s",img_path)
             self.result_img_pub = rospy.Publisher("schnick_result_img",Image,queue_size=1)
         else:
