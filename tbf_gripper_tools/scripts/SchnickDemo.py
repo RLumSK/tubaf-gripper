@@ -36,8 +36,12 @@ import sys
 
 import rospy
 import time
+import os
 from std_msgs.msg import String
 from sensor_msgs.msg import JointState
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+import cv2
 
 from tbf_gripper_rqt.hand_module import RobotiqHandModel
 from tbf_gripper_tools.DemoStatus import *
@@ -51,9 +55,11 @@ UP_JS = [0.0, -45.0, -95, -150, -90, -39]
 LOW_JS = [0.0, -15.0, -115, -57, -90, -45]
 HOME_POS = [0.0, -90, 0, -90, 0, 0]
 
+
 class InterruptError(Exception):
     def __init__(self, *args, **kwargs):
         super(InterruptError, self).__init__(*args, **kwargs)
+
 
 def pos2str(pos):
     rad = np.deg2rad(pos)
@@ -62,9 +68,9 @@ def pos2str(pos):
 
 
 HOME_PROGRAM = \
-"""movej(%(homepos)s, a=%(a)f, v=%(v)f)
-movej(%(lowpos)s, a=%(a)f, v=%(v)f)
-""" % {'homepos': pos2str(HOME_POS), 'lowpos': pos2str(LOW_JS),
+    """movej(%(homepos)s, a=%(a)f, v=%(v)f)
+    movej(%(lowpos)s, a=%(a)f, v=%(v)f)
+    """ % {'homepos': pos2str(HOME_POS), 'lowpos': pos2str(LOW_JS),
        'a': np.deg2rad(20), 'v': np.deg2rad(45)}
 
 
@@ -80,6 +86,7 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
     """
     model for the Schnick Schnack Schnuck demo, handels the different hand poses
     """
+
     def __init__(self):
         """
         default constructor - set parameter, starting hand
@@ -190,7 +197,8 @@ class SchnickSchnackSchnuckHandModel(RobotiqHandModel):
         self.sendROSMessage()
         if publish:
             self.result_publisher.publish(result)
-        # rospy.sleep(3.)
+            # rospy.sleep(3.)
+        return result
 
 
 class SchnickSchnackSchnuckController():
@@ -204,6 +212,28 @@ class SchnickSchnackSchnuckController():
         self.lasttime = time.time()
         self.last_start = time.time()
 
+        image_dir = rospy.get_param("~image_dir", None)
+        camera_topic = rospy.get_param("~cam_topic", None)
+
+        self.result_img_msgs = dict()
+
+        if image_dir:
+            br = CvBridge()
+            imgs = ("fountain", "paper", "scissors", "stone")
+            for i in imgs:
+                img_path = os.path.join(image_dir, i + ".jpg")
+                if os.path.isfile(img_path):
+                    cv_img = cv2.imread(img_path)
+                    self.result_img_msgs[i] = br.cv2_to_imgmsg(cv_img)
+            self.result_img_pub = rospy.Publisher("schnick_result_img",Image,queue_size=1)
+        else:
+            self.result_img_pub = None
+
+        self.pub_img = False
+        if camera_topic:
+            self.cam_pub = rospy.Publisher("schnick_cam_img",Image,queue_size=1)
+            self.cam_sub = rospy.Subscriber(camera_topic,Image,callback=self.on_camImage)
+
         self.demo_monitor = DemoStatus("schnick")
         self.demo_monitor.set_status(DemoState.stop)
 
@@ -215,14 +245,24 @@ class SchnickSchnackSchnuckController():
         self.exec_thread = None
         rospy.sleep(0.5)
 
-        if rospy.get_param("~no_init",False):
+        if rospy.get_param("~no_init", False):
             rospy.logwarn("init skipped!")
             self.demo_monitor.set_status(DemoState.error)
         else:
             self.run_as_process(SchnickSchnackSchnuckController.initialise)
 
-        # Arm
+            # Arm
 
+    def on_camImage(self,img):
+        if self.pub_img:
+            self.pub_img = False
+            self.cam_pub.publish(img)
+
+    def pub_result(self,res_str):
+        img = self.result_img_msgs.get(res_str)
+        self.pub_img = True
+        if img:
+            self.result_img_pub.publish(img)
 
     def initialise(self):
         rospy.sleep(2.)
@@ -244,7 +284,7 @@ class SchnickSchnackSchnuckController():
         # self.exec_thread = p
         self.exec_thread = thread.start_new_thread(function, (self,))
 
-    def onJs(self,js):
+    def onJs(self, js):
         if time.time() - self.lasttime > 0.02:
             pp = list(js.position)
             pp[0] = js.position[2]
@@ -253,7 +293,7 @@ class SchnickSchnackSchnuckController():
             self.cur_pos = np.rad2deg(pp)
             self.lasttime = time.time()
 
-    def moveWait(self,pose,goal_tolerance = 0.5,v=None,a=None,t=None):
+    def moveWait(self, pose, goal_tolerance=0.5, v=None, a=None, t=None):
         prog = "movej(%s" % pos2str(pose)
         if a is not None:
             prog += ", a=%f" % np.deg2rad(a)
@@ -267,7 +307,7 @@ class SchnickSchnackSchnuckController():
         else:
             raise InterruptError("Thread interrupted")
         while True:
-            dst = np.abs(np.subtract(pose,self.cur_pos))
+            dst = np.abs(np.subtract(pose, self.cur_pos))
             if np.max(dst) < goal_tolerance:
                 break
             rospy.sleep(0.02)
@@ -275,17 +315,17 @@ class SchnickSchnackSchnuckController():
     def perform_demo(self):
         self.demo_monitor.set_status(DemoState.running)
         self.hand.setPose(publish=False)
+        final_pose = ""
         for i in range(3):
             if i == 2:
-                self.hand.setPose(publish=True)
+                final_pose = self.hand.setPose(publish=True)
             self.moveWait(UP_JS, t=0.5)
             self.moveWait(LOW_JS, t=0.5)
 
-        rospy.sleep(2.)
+        rospy.sleep(1.5)
+        self.pub_result(final_pose)
         self.demo_monitor.set_status(DemoState.pause)
-
         self.exec_thread = None
-
 
     def execute(self, msg):
         if msg.data.lower().startswith("stop"):
