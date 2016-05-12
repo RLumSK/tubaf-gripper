@@ -44,7 +44,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class HandTcpInterface(object):
-    def __init__(self, server_ip='127.0.0.1', port=59995):
+    def __init__(self, server_ip='192.168.1.220', port=59995):
         # ROS
         rospy.init_node("hand_imod_interface", anonymous=True)
         # get parameter from ROS
@@ -169,8 +169,8 @@ class HandMappingController(HandTcpInterface):
 
 def main():
     print("Hello world")
-    #obj = HandTcpInterface(server_ip='127.0.0.1')
-    obj = HandMappingController()
+    obj = HandTcpInterface(server_ip='192.168.1.220')
+    #obj = HandMappingController()
     obj.run()
     # For Testing
     # while True:
