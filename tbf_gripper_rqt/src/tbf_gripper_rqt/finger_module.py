@@ -231,8 +231,10 @@ class RobotiqFingerModel(QtCore.QObject):
         self.subscriber = rospy.Subscriber(input_topic, inputMsg, self.onReceivedROSMessage)
         if self.parentModel is None:
             self.publisher = rospy.Publisher(joint_topic, outputMsg, queue_size=10)
+            rospy.loginfo("RobotiqFingerModel.__init__: publishing at: "+joint_topic)
         else:
             self.publisher = None
+            rospy.loginfo("RobotiqFingerModel.__init__: publishing at: -")
 
 
     @QtCore.Slot(int)
@@ -284,7 +286,7 @@ class RobotiqFingerModel(QtCore.QObject):
         @param msg: ROS message of the type 'SModelRobotInput'
         @return: None
         """
-        #rospy.logwarn("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(data))
+        rospy.loguinfo("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(data))
         self.dctActionAtReceive.get(self.strID)(msg)
         self.afterReceivedROSMessage()
 
@@ -293,7 +295,7 @@ class RobotiqFingerModel(QtCore.QObject):
         update the GUI, or other listening classes, via Qt-signals
         @return: None
         """
-        #rospy.logwarn("hand_module.py@RobotiqFingerModel.afterReceivedROSMessage(): sending signals to Qt")
+        rospy.loginfo("hand_module.py@RobotiqFingerModel.afterReceivedROSMessage(): sending signals to Qt")
         self.atNewPR[int].emit(self.gPR)
         self.atNewDT[str].emit(self.gDT)
         self.atNewPO[int].emit(self.gPO)

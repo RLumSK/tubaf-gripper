@@ -187,14 +187,15 @@ class RobotiqHand(Plugin):
     @QtCore.Slot(str)
     def onNewSubscriberTopic(self, topic_name):
         """
-    Pass the topic name in the line edit to the model and update the subscriber
+        Pass the topic name in the line edit to the model and update the subscriber
         :param topic_name: name of the new subscriber topic
         :type topic_name: QString
         :return: -
         :rtype: None
         """
-        rospy.loginfo(topic_name)
-
+        if type(topic_name) == int:
+            topic_name = str(self._cb_subTopic.currentText())
+        self.model.onNewSubscriberTopic(topic_name)
 
     @QtCore.Slot(int)
     def setCurrentPublisherTopic(self):
@@ -403,7 +404,11 @@ class RobotiqHandModel(QtCore.QObject):
         :return: None
         :rtype: -
         """
+        rospy.loginfo("RobotiqHandModel.onNewSubscriberTopic: new topic is "+topic)
         if topic == self.subscriber.name:
+            return
+        if topic == "":
+            rospy.logwarn("RobotiqHandModel.onNewSubscriberTopic: <empty>")
             return
         self.subscriber.unregister()
         self.subscriber = rospy.Subscriber(topic, inputMsg, self.onReceivedROSMessage)
@@ -432,7 +437,7 @@ class RobotiqHandModel(QtCore.QObject):
         @param obj: refers to rACT
         @return: None
         """
-        # rospy.logwarn("hand_module.py@RobotiqHandModel.onActivationChanged(): newValue="+str(obj)+" type:"+str(type(obj)))
+        rospy.loginfo("hand_module.py@RobotiqHandModel.onActivationChanged(): newValue="+str(obj)+" type:"+str(type(obj)))
         # Checkbox has 3 states (0=unchecked, 1=not specified, 2=checked)
         self.rACT = int(obj != 0)
         self.sendROSMessage()
@@ -543,7 +548,8 @@ class RobotiqHandModel(QtCore.QObject):
         msg.rPRS = self.mdl_fingerS.rPR
         msg.rSPS = self.mdl_fingerS.rSP
         msg.rFRS = self.mdl_fingerS.rFR
-        # rospy.logwarn("hand_module.py@RobotiqHandModel.sendROSMessage(): msg="+str(msg))
+        rospy.loginfo("hand_module.py@RobotiqHandModel.sendROSMessage(): \n msg="+str(msg))
+        rospy.loginfo("hand_module.py@RobotiqHandModel.sendROSMessage(): at topic="+str(self.publisher.name))
         self.publisher.publish(msg)
 
     def onReceivedROSMessage(self, data):

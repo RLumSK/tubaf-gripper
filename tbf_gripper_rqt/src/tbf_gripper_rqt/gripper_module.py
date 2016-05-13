@@ -156,7 +156,7 @@ class WideGripperModel(RobotiqHandModel):
         msg.rPRA = self.mdl_fingerA.rPR
         msg.rSPA = self.mdl_fingerA.rSP
         msg.rFRA = self.mdl_fingerA.rFR
-        # rospy.logwarn("hand_module.py@RobotiqHandModel.sendROSMessage(): msg="+str(msg))
+        rospy.loginfo("hand_module.py@RobotiqHandModel.sendROSMessage(): msg="+str(msg))
         self.publisher.publish(msg)
 
     def shutdown(self):
