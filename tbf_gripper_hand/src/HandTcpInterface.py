@@ -81,31 +81,31 @@ class HandTcpInterface(object):
                 data = self.s.recv(3)
                 if not data:
                     continue
-                rospy.logdebug("HandTcpInterface: received data - %s" % data)
+                rospy.logdebug("HandTcpInterface.run(): received data - %s" % data)
                 self.control(data)
                 rate.sleep()
         except Exception as ex:
-            rospy.logwarn("HandTcpInterface: received exception - %s" % ex)
+            rospy.logwarn("HandTcpInterface.run(): received exception - %s" % ex)
             while not self.try_connect(self.server_ip, self.port):
-                rospy.loginfo("Waiting for connection")
-            rospy.loginfo("Connected")
+                rospy.loginfo("HandTcpInterface.run(): Waiting for connection")
+            rospy.loginfo("HandTcpInterface.run(): Connected")
             self.run()
 
     def control(self, msg):
         if msg == "_o_":
-            rospy.loginfo("HandTcpInterface: open gripper")
+            rospy.loginfo("HandTcpInterface.control(): open gripper")
             self.gripper.openGripper()
         elif msg == "_c_":
-            rospy.loginfo("HandTcpInterface: close gripper")
+            rospy.loginfo("HandTcpInterface.control(): close gripper")
             self.gripper.closeGripper()
 
         else:
             as_number = int(msg)
             if as_number > -1 and as_number < 256:
-                rospy.loginfo("HandTcpInterface: set gripper to %s" % as_number)
+                rospy.loginfo("HandTcpInterface.control(): set gripper to %s" % as_number)
                 self.gripper.moveGripperTo(as_number)
             else:
-                rospy.logwarn("HandTcpInterface - unknown message receives: " + str(msg))
+                rospy.logwarn("HandTcpInterface.control(): unknown message received: " + str(msg))
 
 
 class HandMappingController(HandTcpInterface):
@@ -114,8 +114,8 @@ class HandMappingController(HandTcpInterface):
     if the hand is closed again.
     """
 
-    def __init__(self):
-        super(HandMappingController, self).__init__()
+    def __init__(self, server_ip='192.168.1.220'):
+        super(HandMappingController, self).__init__(server_ip=server_ip)
         # ROS is started in the parent class
         # hand is initilized in the parent class
 
@@ -137,7 +137,7 @@ class HandMappingController(HandTcpInterface):
             self.pause_odom_service.call()
             # Pause rtabmap
             if not  self.pause_rtab_service.call():
-                rospy.logerr("Can't call \"pause\" service")
+                rospy.logerr("HandMappingController.control(): Can't call \"pause\" service")
         elif msg == "_c_":
             # resume mapping after delay
             thread.start_new_thread(self.resume_mapping, ())
@@ -151,7 +151,7 @@ class HandMappingController(HandTcpInterface):
                 else:
                     self.pause_odom_service.call()
                     if not self.pause_rtab_service.call():
-                        rospy.logerr("Can't call \"pause\" service")
+                        rospy.logerr("HandMappingController.control(): Can't call \"pause\" service")
             else:
                 rospy.logwarn("HandMappingController - unknown message receives: " + str(msg))
 
@@ -169,15 +169,19 @@ class HandMappingController(HandTcpInterface):
 
 def main():
     print("Hello world")
-    obj = HandTcpInterface(server_ip='192.168.1.220')
-    #obj = HandMappingController()
+    try:
+        obj = HandTcpInterface(server_ip='192.168.1.220')
+    except Exception as ex:
+        rospy.logwarn("HandTcpInterface.main(): received exception - %s" % ex)
+        rospy.logwarn("HandTcpInterface.main(): using an alternative controller without rtabmap control")
+        obj = HandMappingController(server_ip='192.168.1.220')
     obj.run()
     # For Testing
-    # while True:
-    #     obj.control("_o_")
-    #     rospy.sleep(rospy.Duration(10))
-    #     obj.control("_c_")
-    #     rospy.sleep(rospy.Duration(10))
+    while True:
+        obj.control("_o_")
+        rospy.sleep(rospy.Duration(10))
+        obj.control("_c_")
+        rospy.sleep(rospy.Duration(10))
 
 
 if __name__ == '__main__':
