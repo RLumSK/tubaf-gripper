@@ -4,9 +4,7 @@ project(tbf_gripper_tools)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED
-    tbf_gripper_rqt
-)
+find_package(catkin REQUIRED)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures

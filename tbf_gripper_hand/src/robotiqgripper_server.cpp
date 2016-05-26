@@ -406,7 +406,7 @@ public:
   	}
   	this->lock = true;
   	this->msg_from_gripper = msg;
-    this->feedback_.hand_status = *(msg_from_gripper.get());
+	this->feedback_.hand_status = *msg;
   	this->lock = false;
   }
 
