@@ -437,7 +437,7 @@ public:
      * #result definition
      * robotiq_s_model_control/SModel_robot_input hand_status hand_status
      */
-    result_.hand_status = *(this->msg_from_gripper.get());
+	result_.hand_status =  *msg_from_gripper;
     result_.hand_info = RobotiqGripperAction::generateHandStatus();
     if(success)
     {
