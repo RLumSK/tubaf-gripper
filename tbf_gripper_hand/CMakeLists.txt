@@ -74,9 +74,15 @@ catkin_package(
 include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 add_executable(robotiqgripper_server src/robotiqgripper_server.cpp)
+add_executable(robotiqgripper_client src/robotiqgripper_client.cpp)
 
 target_link_libraries(
   robotiqgripper_server
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries( 
+  robotiqgripper_client
   ${catkin_LIBRARIES}
 )
 
@@ -85,3 +91,7 @@ add_dependencies(
   ${tbf_gripper_hand_EXPORTED_TARGETS}
 )
 
+add_dependencies(
+  robotiqgripper_client
+  ${tbf_gripper_hand_EXPORTED_TARGETS}
+)

@@ -16,6 +16,8 @@ private:
 	ros::Publisher gripper_pub;
 	ros::Subscriber gripper_sub;
 	bool lock = false;
+	bool working = false;
+
 
 	/**
 	 * parse the hand status to a string according to the manual
@@ -335,21 +337,19 @@ private:
 	/**
 	 * set the necessary bits in the gripper message to achieve the given goal
 	 */
-	void transcriptGoal(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal){
+	void transcriptGoal(){
 		this->msg_to_gripper.rGTO = 1;
-		this->msg_to_gripper.rMOD = RobotiqGripperAction::parseMode(goal->mode);
-		this->msg_to_gripper.rPRA = goal->position;
-		this->msg_to_gripper.rSPA = RobotiqGripperAction::calcSpeed(goal->speed);
-		this->msg_to_gripper.rFRA = RobotiqGripperAction::approximateForce(goal->force);
-
+		this->msg_to_gripper.rMOD = RobotiqGripperAction::parseMode(this->current_goal->mode);
+		this->msg_to_gripper.rPRA = this->current_goal->position;
+		this->msg_to_gripper.rSPA = RobotiqGripperAction::calcSpeed(this->current_goal->speed);
+		this->msg_to_gripper.rFRA = RobotiqGripperAction::approximateForce(this->current_goal->force);
 	}
 
 	/**
 	 * Determine whether the gripper completed its task or not
-	 * @param goal
 	 * @return true if the gripper is still running
 	 */
-	bool checkStatus(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal){
+	bool checkStatus(){
 		bool isRunning = this->msg_from_gripper->gSTA==0?true:false;	// Gripper in Motion
 		return isRunning;
 	}
@@ -374,6 +374,7 @@ protected:
   tbf_gripper_hand::RobotiqGripperFeedback feedback_;
   tbf_gripper_hand::RobotiqGripperResult result_;
   robotiq_s_model_control::SModel_robot_inputConstPtr msg_from_gripper;
+  tbf_gripper_hand::RobotiqGripperGoalConstPtr  current_goal;
   robotiq_s_model_control::SModel_robot_output msg_to_gripper;
 
 public:
@@ -382,20 +383,25 @@ public:
     as_(nh_, name, boost::bind(&RobotiqGripperAction::executeCB, this, _1), false),
     action_name_(name)
   {
+
+	ROS_INFO("RobotiqGripperAction: Action server starting.");
     as_.start();
     // TODO: read topic names from config file / parameter server
 
-    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_input>("robotiq_gripper_action_server", 5);
+    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_input>("robotiqgripper_server", 5);
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
     this->gripper_sub = nh_.subscribe("SModelRobotInput", 5, &RobotiqGripperAction::onNewGripperState, this);
 
     ros::Duration nap(0.5);
     nap.sleep();
+    this->msg_from_gripper = robotiq_s_model_control::SModel_robot_inputConstPtr(new robotiq_s_model_control::SModel_robot_input());
     this->msg_to_gripper = RobotiqGripperAction::initGripper();
+    ROS_INFO("RobotiqGripperAction: Action server started.");
   }
 
   ~RobotiqGripperAction(void)
   {
+	  ROS_INFO("RobotiqGripperAction: Action server shutting down.");
 	  this->gripper_pub.shutdown();
 	  this->gripper_sub.shutdown();
   }
@@ -405,6 +411,7 @@ public:
   		return;
   	}
   	this->lock = true;
+	ROS_INFO("RobotiqGripperAction.onNewGripperState: Received new message from gripper.");
   	this->msg_from_gripper = msg;
 	this->feedback_.hand_status = *msg;
   	this->lock = false;
@@ -412,6 +419,17 @@ public:
 
   void executeCB(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal)
   {
+	ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
+
+	if(as_.isActive()){
+		ROS_INFO("RobotiqGripperAction.executeCB: Aborting old goal and set new one");
+	    result_.hand_status = *(this->msg_from_gripper);
+	    result_.hand_info = RobotiqGripperAction::generateHandStatus();
+		as_.setAborted(result_);
+		this->current_goal = goal;
+		return;
+	}
+	this->current_goal = goal;
     // helper variables
     ros::Rate r(1);
     bool success = true;
@@ -424,11 +442,14 @@ public:
     // start executing the action
     bool isRunning = true;
 
-    this->transcriptGoal(goal);
+    this->transcriptGoal();
     this->gripper_pub.publish(this->msg_to_gripper);
     // feedback-loop
     while(isRunning){
-    	isRunning = this->checkStatus(goal);
+    	// In case we receive a new goal
+        this->transcriptGoal();
+        this->gripper_pub.publish(this->msg_to_gripper);
+    	isRunning = this->checkStatus();
     	as_.publishFeedback(feedback_);
     	r.sleep();
     }
@@ -451,10 +472,9 @@ public:
 
 };
 
-
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "robotiq_gripper_action_server");
+  ros::init(argc, argv, "robotiqgripper_action_server");
 
   RobotiqGripperAction action_server(ros::this_node::getName());
   ros::spin();
