@@ -90,7 +90,7 @@ private:
 	}
 
 	/**
-	 * calculate the value to be set to achieve a given speed
+     * @brief calculate the value to be set to achieve a given speed
 	 * @param speed speed in mm/s [22, 110]
 	 * @return value between 0-255 matching the given speed
 	 */
@@ -108,7 +108,7 @@ private:
 	}
 
 	/**
-	 * approximate the value to be set to achieve a given force (relation non-linear)
+     * @brief approximate the value to be set to achieve a given force (relation non-linear)
 	 * @param force force in N [15, 60]
 	 * @return value between 0-255 matching the given force
 	 */
@@ -125,6 +125,10 @@ private:
 		}
 	}
 
+    /**
+     * @brief Generates the hand status fom a SModel_robot_input Message
+     * @return String with a formated description of the current hand status
+     */
 	std::string generateHandStatus(){
 		const robotiq_s_model_control::SModel_robot_inputConstPtr msg = this->msg_from_gripper;
 		std::stringstream ss;
@@ -335,7 +339,7 @@ private:
 	}
 
 	/**
-	 * set the necessary bits in the gripper message to achieve the given goal
+     * @brief set the necessary bits in the gripper message to achieve the given goal
 	 */
 	void transcriptGoal(){
 		this->msg_to_gripper.rGTO = 1;
@@ -346,7 +350,7 @@ private:
 	}
 
 	/**
-	 * Determine whether the gripper completed its task or not
+     * @brief Determine whether the gripper completed its task or not
 	 * @return true if the gripper is still running
 	 */
 	bool checkStatus(){
@@ -355,7 +359,7 @@ private:
 	}
 
 	/**
-	 * Determine whether the gripper completed its task successful or not
+     * @brief Determine whether the gripper completed its task successful or not
 	 * @param goal
 	 * @return true if the gripper successful reached its goal
 	 */
@@ -376,6 +380,7 @@ protected:
   robotiq_s_model_control::SModel_robot_inputConstPtr msg_from_gripper;
   tbf_gripper_hand::RobotiqGripperGoalConstPtr  current_goal;
   robotiq_s_model_control::SModel_robot_output msg_to_gripper;
+  bool isRunning = false;
 
 public:
 
@@ -388,9 +393,9 @@ public:
     as_.start();
     // TODO: read topic names from config file / parameter server
 
-    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_input>("robotiqgripper_server", 5);
+    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>("/hand/SModelRobotOutput", 5);
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
-    this->gripper_sub = nh_.subscribe("SModelRobotInput", 5, &RobotiqGripperAction::onNewGripperState, this);
+    this->gripper_sub = nh_.subscribe("/hand/SModelRobotInput", 5, &RobotiqGripperAction::onNewGripperState, this);
 
     ros::Duration nap(0.5);
     nap.sleep();
@@ -411,7 +416,7 @@ public:
   		return;
   	}
   	this->lock = true;
-	ROS_INFO("RobotiqGripperAction.onNewGripperState: Received new message from gripper.");
+	ROS_DEBUG("RobotiqGripperAction.onNewGripperState: Received new message from gripper.");
   	this->msg_from_gripper = msg;
 	this->feedback_.hand_status = *msg;
   	this->lock = false;
@@ -421,7 +426,7 @@ public:
   {
 	ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
 
-	if(as_.isActive()){
+    if(this->isRunning){
 		ROS_INFO("RobotiqGripperAction.executeCB: Aborting old goal and set new one");
 	    result_.hand_status = *(this->msg_from_gripper);
 	    result_.hand_info = RobotiqGripperAction::generateHandStatus();
@@ -429,10 +434,12 @@ public:
 		this->current_goal = goal;
 		return;
 	}
+    this->isRunning = true;
 	this->current_goal = goal;
     // helper variables
     ros::Rate r(1);
     bool success = true;
+    ROS_INFO("RobotiqGripperAction.executeCB: 1");
 
     // feedback initialization
 	/*
@@ -440,17 +447,19 @@ public:
 	 * robotiq_s_model_control/SModel_robot_input hand_status
 	 */
     // start executing the action
-    bool isRunning = true;
-
     this->transcriptGoal();
     this->gripper_pub.publish(this->msg_to_gripper);
+    ROS_INFO("RobotiqGripperAction.executeCB: 2");
+
     // feedback-loop
-    while(isRunning){
+    while(this->isRunning){
     	// In case we receive a new goal
         this->transcriptGoal();
         this->gripper_pub.publish(this->msg_to_gripper);
     	isRunning = this->checkStatus();
     	as_.publishFeedback(feedback_);
+        ROS_INFO("RobotiqGripperAction.executeCB: 3");
+
     	r.sleep();
     }
 
@@ -458,6 +467,8 @@ public:
      * #result definition
      * robotiq_s_model_control/SModel_robot_input hand_status hand_status
      */
+    ROS_INFO("RobotiqGripperAction.executeCB: 4");
+
 	result_.hand_status =  *msg_from_gripper;
     result_.hand_info = RobotiqGripperAction::generateHandStatus();
     if(success)
@@ -467,6 +478,9 @@ public:
     else{
     	as_.setAborted(result_);
     }
+
+    ROS_INFO("RobotiqGripperAction.executeCB: 5");
+
   }
 
 
