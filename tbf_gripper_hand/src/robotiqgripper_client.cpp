@@ -4,6 +4,8 @@
 
 #include <tbf_gripper_hand/RobotiqGripperAction.h>
 
+#include <stdlib.h>
+
 using namespace tbf_gripper_hand;
 typedef actionlib::SimpleActionClient<RobotiqGripperAction> Client;
 
@@ -17,7 +19,7 @@ public:
         ROS_INFO("RobotiqActionClientNode(): Action server started, sending goal.");
     }
 
-    void start(int position, int speed=110, int force=111){
+    void start(int position, int speed=0, int force=111){
 		RobotiqGripperGoal goal;
         goal.mode = "basic";
         goal.position = position;
@@ -33,13 +35,14 @@ public:
 	void doneCallback(const actionlib::SimpleClientGoalState& state,  const RobotiqGripperResultConstPtr& result){
         ROS_INFO("Finished in state [%s]", state.toString().c_str());
 		ROS_INFO("Answer: %s", result->hand_info.c_str());
-        ros::shutdown();
+        //ros::shutdown();
+        ros::Duration(3).sleep();
+        this->start(rand() % 255 + 1);
     }
 
 	void feedbackCallback(const RobotiqGripperFeedbackConstPtr& feedback){
 //        ROS_INFO("Goal in state [%s]", state.toString().c_str());
-		ROS_INFO("Feedback: GTO = %i", feedback->hand_status.gGTO);
-        ros::shutdown();
+        ROS_INFO("Feedback: GTO = %i", feedback->hand_status.gGTO);
     }
 private:
     Client ac;
@@ -48,9 +51,10 @@ private:
 
 int main (int argc, char **argv)
 {
+  srand(0);
   ros::init(argc, argv, "test_robotiqgripper");
   RobotiqActionClientNode my_node;
-  my_node.start(255);
+  my_node.start(rand() % 255 + 1);
   ros::spin();
   return 0;
 }

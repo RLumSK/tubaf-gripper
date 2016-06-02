@@ -335,7 +335,7 @@ private:
 		}
 		ss << "\n";
 		ss << "Position information (request, actual) | current consumption:\n-------------------------------\n";
-		ss << "Finger A: " << boost::lexical_cast<uint8_t>(msg->gPRA) << ", " << boost::lexical_cast<uint8_t>(msg->gPOA) << "| " << boost::lexical_cast<uint8_t>(msg->gCUA) <<"\n";
+        ss << "Finger A: " << boost::lexical_cast<uint8_t>(msg->gPRA) << ", " << boost::lexical_cast<uint8_t>(msg->gPOA) << "| " << boost::lexical_cast<uint8_t>(msg->gCUA) <<"\n";
 		ss << "Finger B: " << boost::lexical_cast<uint8_t>(msg->gPRB) << ", " << boost::lexical_cast<uint8_t>(msg->gPOB) << "| " << boost::lexical_cast<uint8_t>(msg->gCUB) <<"\n";
 		ss << "Finger C: " << boost::lexical_cast<uint8_t>(msg->gPRC) << ", " << boost::lexical_cast<uint8_t>(msg->gPOC) << "| " << boost::lexical_cast<uint8_t>(msg->gCUC) <<"\n";
 		ss << "Scissor : " << boost::lexical_cast<uint8_t>(msg->gPRS) << ", " << boost::lexical_cast<uint8_t>(msg->gPOS) << "| " << boost::lexical_cast<uint8_t>(msg->gCUS) <<"\n";
@@ -360,7 +360,10 @@ private:
 	 * @return true if the gripper is still running
 	 */
 	bool checkStatus(){
-		bool isRunning = this->msg_from_gripper->gSTA==0?true:false;	// Gripper in Motion
+        if(this->msg_from_gripper->gGTO == 0){
+            return false;
+        }
+        bool isRunning = this->msg_from_gripper->gSTA==0?true:false;	// Gripper in Motion
 		return isRunning;
 	}
 
@@ -430,12 +433,12 @@ public:
 
   void executeCB(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal)
   {
-	ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
-    this->isRunning = true;
+    ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
 	this->current_goal = goal;
     // helper variables
     ros::Rate r(1);
     bool success = true;
+    this->isRunning = true;
 
     // feedback initialization
 	/*
