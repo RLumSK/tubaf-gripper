@@ -10,6 +10,12 @@
 #include <sstream>
 #include <string>
 
+inline const char * const BoolToString(bool b)
+{
+  return b ? "true" : "false";
+}
+
+
 class RobotiqGripperAction
 {
 private:
@@ -393,7 +399,7 @@ public:
     as_.start();
     // TODO: read topic names from config file / parameter server
 
-    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>("/hand/SModelRobotOutput", 5);
+    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>("SModelRobotOutput", 5);
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
     this->gripper_sub = nh_.subscribe("/hand/SModelRobotInput", 5, &RobotiqGripperAction::onNewGripperState, this);
 
@@ -425,21 +431,11 @@ public:
   void executeCB(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal)
   {
 	ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
-
-    if(this->isRunning){
-		ROS_INFO("RobotiqGripperAction.executeCB: Aborting old goal and set new one");
-	    result_.hand_status = *(this->msg_from_gripper);
-	    result_.hand_info = RobotiqGripperAction::generateHandStatus();
-		as_.setAborted(result_);
-		this->current_goal = goal;
-		return;
-	}
     this->isRunning = true;
 	this->current_goal = goal;
     // helper variables
     ros::Rate r(1);
     bool success = true;
-    ROS_INFO("RobotiqGripperAction.executeCB: 1");
 
     // feedback initialization
 	/*
@@ -449,28 +445,26 @@ public:
     // start executing the action
     this->transcriptGoal();
     this->gripper_pub.publish(this->msg_to_gripper);
-    ROS_INFO("RobotiqGripperAction.executeCB: 2");
-
     // feedback-loop
-    while(this->isRunning){
-    	// In case we receive a new goal
-        this->transcriptGoal();
-        this->gripper_pub.publish(this->msg_to_gripper);
+    while(this->isRunning && !as_.isPreemptRequested() && ros::ok()){
     	isRunning = this->checkStatus();
     	as_.publishFeedback(feedback_);
-        ROS_INFO("RobotiqGripperAction.executeCB: 3");
-
+        ROS_DEBUG("RobotiqGripperAction.executeCB: is running");
     	r.sleep();
     }
-
     /*
      * #result definition
      * robotiq_s_model_control/SModel_robot_input hand_status hand_status
      */
-    ROS_INFO("RobotiqGripperAction.executeCB: 4");
-
 	result_.hand_status =  *msg_from_gripper;
     result_.hand_info = RobotiqGripperAction::generateHandStatus();
+
+    if(as_.isPreemptRequested()){
+        ROS_INFO("RobotiqGripperAction.executeCB(): %s: Preempted", action_name_.c_str());
+        // set the action state to preempted
+        as_.setPreempted(result_);
+        return;
+    }
     if(success)
     {
     	as_.setSucceeded(result_);
@@ -478,9 +472,7 @@ public:
     else{
     	as_.setAborted(result_);
     }
-
-    ROS_INFO("RobotiqGripperAction.executeCB: 5");
-
+    ROS_INFO("RobotiqGripperAction.executeCB: successful achieved goal? %s", BoolToString(success));
   }
 
 
