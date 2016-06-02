@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
+
 #include <tbf_gripper_hand/RobotiqGripperAction.h>
 
 using namespace tbf_gripper_hand;
@@ -17,27 +18,27 @@ public:
     }
 
     void start(int position, int speed=110, int force=111){
-        RobotiqGripperActionGoal goal;
+		RobotiqGripperGoal goal;
         goal.mode = "basic";
         goal.position = position;
         goal.speed = speed;
         goal.force = force;
         ac.sendGoal(goal,
-                    boost::bind(&RobotiqActionClientNode::doneCallback, this, _1, _2),
+					boost::bind(&RobotiqActionClientNode::doneCallback, this, _1, _2),
                     Client::SimpleActiveCallback(),
-                    boost::bind(&RobotiqActionClientNode::feedbackCallback, this, _1, _2)
+					boost::bind(&RobotiqActionClientNode::feedbackCallback, this, _1)
                     );
     }
 
-    void doneCallback(const actionlib::SimpleClientGoalState& state, const RobotiqGripperActionResultPtr& result){
+	void doneCallback(const actionlib::SimpleClientGoalState& state,  const RobotiqGripperResultConstPtr& result){
         ROS_INFO("Finished in state [%s]", state.toString().c_str());
-        ROS_INFO("Answer: %s", result->result.hand_info.c_str());
+		ROS_INFO("Answer: %s", result->hand_info.c_str());
         ros::shutdown();
     }
 
-    void feedbackCallback(const actionlib::SimpleClientGoalState& state, const RobotiqGripperActionFeedbackPtr& feedback){
-        ROS_INFO("Goal in state [%s]", state.toString().c_str());
-        ROS_INFO("Answer: GTO = %i", feedback->feedback.hand_status.gGTO);
+	void feedbackCallback(const RobotiqGripperFeedbackConstPtr& feedback){
+//        ROS_INFO("Goal in state [%s]", state.toString().c_str());
+		ROS_INFO("Feedback: GTO = %i", feedback->hand_status.gGTO);
         ros::shutdown();
     }
 private:
