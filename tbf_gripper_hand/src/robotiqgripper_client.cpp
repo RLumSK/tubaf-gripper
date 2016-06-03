@@ -52,7 +52,7 @@ private:
 int main (int argc, char **argv)
 {
   srand(0);
-  ros::init(argc, argv, "test_robotiqgripper");
+  ros::init(argc, argv, "test_robotiqgripper", ros::init_options::AnonymousName);
   RobotiqActionClientNode my_node;
   my_node.start(rand() % 255 + 1);
   ros::spin();

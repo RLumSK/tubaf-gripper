@@ -333,12 +333,12 @@ private:
 			break;
 		default:;
 		}
-		ss << "\n";
+        ss << "\n";
 		ss << "Position information (request, actual) | current consumption:\n-------------------------------\n";
-        ss << "Finger A: " << boost::lexical_cast<uint8_t>(msg->gPRA) << ", " << boost::lexical_cast<uint8_t>(msg->gPOA) << "| " << boost::lexical_cast<uint8_t>(msg->gCUA) <<"\n";
-		ss << "Finger B: " << boost::lexical_cast<uint8_t>(msg->gPRB) << ", " << boost::lexical_cast<uint8_t>(msg->gPOB) << "| " << boost::lexical_cast<uint8_t>(msg->gCUB) <<"\n";
-		ss << "Finger C: " << boost::lexical_cast<uint8_t>(msg->gPRC) << ", " << boost::lexical_cast<uint8_t>(msg->gPOC) << "| " << boost::lexical_cast<uint8_t>(msg->gCUC) <<"\n";
-		ss << "Scissor : " << boost::lexical_cast<uint8_t>(msg->gPRS) << ", " << boost::lexical_cast<uint8_t>(msg->gPOS) << "| " << boost::lexical_cast<uint8_t>(msg->gCUS) <<"\n";
+        ss << "Finger A: " << unsigned(msg->gPRA) << ", " << unsigned(msg->gPOA) << "| " << unsigned(msg->gCUA) *0.1 <<" mA\n";
+        ss << "Finger B: " << unsigned(msg->gPRB) << ", " << unsigned(msg->gPOB) << "| " << unsigned(msg->gCUB) *0.1 <<" mA\n";
+        ss << "Finger C: " << unsigned(msg->gPRC) << ", " << unsigned(msg->gPOC) << "| " << unsigned(msg->gCUC) *0.1 <<" mA\n";
+        ss << "Scissor : " << unsigned(msg->gPRS) << ", " << unsigned(msg->gPOS) << "| " << unsigned(msg->gCUS) *0.1 <<" mA\n";
 		ss << "\n";
 
 		return ss.str();
@@ -400,11 +400,27 @@ public:
 
 	ROS_INFO("RobotiqGripperAction: Action server starting.");
     as_.start();
-    // TODO: read topic names from config file / parameter server
 
-    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>("SModelRobotOutput", 5);
+
+    std::string publisher_name = "SModelRobotOutput", subscriber_name = "SModelRobotInput";
+    /*
+    ros::master::V_TopicInfo master_topics;
+    ros::master::getTopics(master_topics);
+    for (ros::master::V_TopicInfo::iterator it = master_topics.begin() ; it != master_topics.end(); it++) {
+              const ros::master::TopicInfo& info = *it;
+              ROS_DEBUG_STREAM(info.datatype << " == robotiq_s_model_control/SModel_robot_intput? " << (info.datatype == "robotiq_s_model_control/SModel_robot_input"));
+              if(info.datatype == "robotiq_s_model_control/SModel_robot_input"){
+                  ROS_DEBUG_STREAM("Found: "<<info.name);
+                  subscriber_name = info.name;
+                  publisher_name = subscriber_name.substr(0, subscriber_name.find_last_of("/")) + "/SModelRobotOutput";
+                  break;
+              }
+    }
+    */
+    ROS_INFO_STREAM("RobotiqGripperAction: Subscribe to: " << subscriber_name << "\tPublish at: " << publisher_name);
+    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>(publisher_name, 5);
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
-	this->gripper_sub = nh_.subscribe("/hand/SModelRobotInput", 5, &RobotiqGripperActionServer::onNewGripperState, this);
+    this->gripper_sub = nh_.subscribe(subscriber_name, 5, &RobotiqGripperActionServer::onNewGripperState, this);
 
     ros::Duration nap(0.5);
     nap.sleep();
@@ -455,6 +471,7 @@ public:
         ROS_DEBUG("RobotiqGripperAction.executeCB: is running");
     	r.sleep();
     }
+    success = !this->isRunning;
     /*
      * #result definition
      * robotiq_s_model_control/SModel_robot_input hand_status hand_status
