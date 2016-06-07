@@ -1,0 +1,9 @@
+grasp_search_center: [0.0, 0.0, 0.0]
+gripper_approach_vector: [0.0, 0.0, 1.0]
+grasp_search_size_x: 18
+grasp_search_size_y: 30
+max_calculation_time: 50
+show_only_best_grasp: true
+base_frame_default: "gripper_camera_rgb_frame"
+gripper_width: 0.1
+input_pc_topic: "/gripper_camera/depth_registered/points"
