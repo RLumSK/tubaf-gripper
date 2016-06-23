@@ -1,0 +1,27 @@
+<muxify>
+  <!--
+  author: grehl
+
+  -->
+  <session name="grasping" mode="o" size="240x60"/>
+  <window name="master" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a">roscore</cmd>
+  </window>
+  <window name="server" directory="~">
+    <layout>
+      abc
+    </layout>
+    <cmd pane="a">roslaunch julius moveit.launch</cmd>
+    <cmd pane="b">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
+    <cmd pane="c">rosrun tbf_gripper_hand robotiqgripper_server</cmd>
+  </window>
+  <window name="app" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">rosrun tbf_gripper_autonomy controller.py</cmd>
+  </window>
+</muxify>

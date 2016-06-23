@@ -40,15 +40,28 @@ import sensor_msgs.msg
 from visualization_msgs.msg import *
 
 
+def get_param(key, def_value):
+    return rospy.get_param("~"+key, def_value)
+    look_up = rospy.search_param(key)
+    rospy.logdebug("get_param: "+key+" (%s)", type(look_up))
+    if look_up is None:
+        return def_value
+    else:
+        return rospy.get_param(look_up, def_value)
+
+
 class HAFClient(object):
 
     def __init__(self):
+        self.action_server_name = get_param("haf_server_name", "haf_server")
+        self.grasp_cbs = list()
+        self.nap = rospy.Duration(10.0)
 
         self.graspingcenter = geometry_msgs.msg.Point()
         self.graspingcenter.x = 0.0
         self.graspingcenter.y = 0.0
         self.graspingcenter.z = 0.0
-        tmp_graspingcenter = rospy.get_param("grasp_search_center")
+        tmp_graspingcenter = get_param("grasp_search_center", [0.0, 0.0, 0.0])
         if type(tmp_graspingcenter) == list and len(tmp_graspingcenter) == 3 and type(tmp_graspingcenter[0]) == float:
             self.graspingcenter.x = tmp_graspingcenter[0]
             self.graspingcenter.y = tmp_graspingcenter[1]
@@ -58,39 +71,52 @@ class HAFClient(object):
         self.approach_vector.x = 0.0
         self.approach_vector.y = 0.0
         self.approach_vector.z = 1.0
-        tmp_approach_vector = rospy.get_param("gripper_approach_vector")
+        tmp_approach_vector = get_param("gripper_approach_vector", [0.0, 0.0, 1.0])
         if type(tmp_approach_vector) == list and len(tmp_approach_vector) == 3 and type(tmp_approach_vector[0]) == float:
             self.approach_vector.x = tmp_approach_vector[0]
             self.approach_vector.y = tmp_approach_vector[1]
             self.approach_vector.z = tmp_approach_vector[2]
 
         # max limit_x 32-14 = 18, limit_y = 44-14 = 30
-        self.grasp_search_size_x = rospy.get_param("grasp_search_size_x", 18)
-        self.grasp_search_size_y = rospy.get_param("grasp_search_size_y", 30)
-        self.max_calculation_time = rospy.get_param("max_calculation_time", 50)
+        self.grasp_search_size_x = get_param("grasp_search_size_x", 18)
+        self.grasp_search_size_y = get_param("grasp_search_size_y", 30)
+        self.max_calculation_time = get_param("max_calculation_time", 50)
         self.grasp_calculation_time_max = rospy.Duration(self.max_calculation_time)
-        self.show_only_best_grasp = rospy.get_param("show_only_best_grasp", True)
-        self.base_frame_default = rospy.get_param("base_frame_default", "gripper_camera_rgb_frame")
-        self.gripper_opening_width = rospy.get_param("gripper_width", 0.1)
+        self.show_only_best_grasp = get_param("show_only_best_grasp", True)
+        self.base_frame_default = get_param("base_frame_default", "gripper_camera_rgb_frame")
+        self.gripper_opening_width = get_param("gripper_width", 0.1)
 
-        self.input_pc_topic = rospy.get_param("input_pc_topic", "/gripper_camera/depth_registered/points")
-        self.pc_sub = rospy.Subscriber(self.input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb, queue_size=10)
+        self.input_pc_topic = get_param("input_pc_topic", "/gripper_camera/depth_registered/points")
+        self.pc_sub = rospy.Subscriber(self.input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb,
+                                       queue_size=10)
 
         # services for setting parameters
-        self.srv_set_grasp_center = rospy.Service("/haf_grasping/set_grasp_center", haf_grasping.srv.GraspSearchCenter, self.set_grasp_center)
-        self.srv_set_grasp_search_area_size = rospy.Service("/haf_grasping/set_grasp_search_area_size", haf_grasping.srv.GraspSearchRectangleSize, self.set_grasp_search_area_size)
-        self.srv_srv_set_grasp_calculation_time_max = rospy.Service("/haf_grasping/set_grasp_calculation_time_max", haf_grasping.srv.GraspCalculationTimeMax, self.set_grasp_calculation_time_max)
-        self.srv_set_approach_vector = rospy.Service("/haf_grasping/set_approach_vector", haf_grasping.srv.GraspApproachVector, self.set_approach_vector)
-        self.srv_set_show_only_best_grasp = rospy.Service("/haf_grasping/set_show_only_best_grasp", haf_grasping.srv.ShowOnlyBestGrasp, self.set_show_only_best_grasp)
-        self.srv_set_gripper_width = rospy.Service("/haf_grasping/set_gripper_opening_width", haf_grasping.srv.GraspPreGripperOpeningWidth, self.set_gripper_width)
+        self.srv_set_grasp_center = rospy.Service("/haf_grasping/set_grasp_center",
+                                                  haf_grasping.srv.GraspSearchCenter,
+                                                  self.set_grasp_center)
+        self.srv_set_grasp_search_area_size = rospy.Service("/haf_grasping/set_grasp_search_area_size",
+                                                            haf_grasping.srv.GraspSearchRectangleSize,
+                                                            self.set_grasp_search_area_size)
+        self.srv_srv_set_grasp_calculation_time_max = rospy.Service("/haf_grasping/set_grasp_calculation_time_max",
+                                                                    haf_grasping.srv.GraspCalculationTimeMax,
+                                                                    self.set_grasp_calculation_time_max)
+        self.srv_set_approach_vector = rospy.Service("/haf_grasping/set_approach_vector",
+                                                     haf_grasping.srv.GraspApproachVector,
+                                                     self.set_approach_vector)
+        self.srv_set_show_only_best_grasp = rospy.Service("/haf_grasping/set_show_only_best_grasp",
+                                                          haf_grasping.srv.ShowOnlyBestGrasp,
+                                                          self.set_show_only_best_grasp)
+        self.srv_set_gripper_width = rospy.Service("/haf_grasping/set_gripper_opening_width",
+                                                   haf_grasping.srv.GraspPreGripperOpeningWidth,
+                                                   self.set_gripper_width)
 
         # debug tools
-        self.marker_pub = rospy.Publisher("visualization_marker", Marker, queue_size=1)
+        self.marker_pub = rospy.Publisher("grasp_point_marker", Marker, queue_size=1)
         self.marker = Marker()
         self.marker.header.frame_id = self.base_frame_default
         self.marker.ns = "grasp_points"
         self.marker.id = 1
-        self.marker.type = Marker.CUBE
+        self.marker.type = Marker.SPHERE
         self.marker.action = Marker.ADD
 
         self.marker.pose.position.x = 0
@@ -112,11 +138,12 @@ class HAFClient(object):
 
         self.marker.lifetime = rospy.Duration()
 
-#Service Callbacks
-
+    #Service Callbacks
     def get_grasp_cb(self, msg):
+        rospy.sleep(self.nap)
         rospy.loginfo("HAFClient.get_grasp_cb(): point cloud received")
-        ac = actionlib.SimpleActionClient("calc_grasppoints_svm_action_server", haf_grasping.msg.CalcGraspPointsServerAction)
+        ac = actionlib.SimpleActionClient(self.action_server_name,
+                                          haf_grasping.msg.CalcGraspPointsServerAction)
         rospy.loginfo("HAFClient.get_grasp_cb(): Waiting for action server to start.")
         ac.wait_for_server()
         rospy.loginfo("HAFClient.get_grasp_cb(): Action server started, sending goal.")
@@ -130,8 +157,10 @@ class HAFClient(object):
         goal.graspinput.max_calculation_time = self.grasp_calculation_time_max
         goal.graspinput.show_only_best_grasp = self.show_only_best_grasp
         goal.graspinput.gripper_opening_width = self.gripper_opening_width
+        goal.graspinput.goal_frame_id = self.base_frame_default# msg.header.frame_id
 
-        ac.send_goal(goal, done_cb=self.grasp_received_cb, active_cb=self.grasp_calculation_active_cb, feedback_cb=self.grasp_feedback_cb)
+        ac.send_goal(goal, done_cb=self.grasp_received_cb, active_cb=self.grasp_calculation_active_cb,
+                     feedback_cb=self.grasp_feedback_cb)
 
         finished_before_timeout = ac.wait_for_result(rospy.Duration(50.0))
 
@@ -145,11 +174,11 @@ class HAFClient(object):
 
     # Parameter Services Callbacks
     def set_grasp_center(self, request):
-        self.graspingcenter.x = request.graspserachcenter.x
-        self.graspingcenter.y = request.graspserachcenter.y
-        self.graspingcenter.z = request.graspserachcenter.z
+        self.graspingcenter.x = request.graspsearchcenter.x
+        self.graspingcenter.y = request.graspsearchcenter.y
+        self.graspingcenter.z = request.graspsearchcenter.z
         rospy.loginfo("HAFClient.set_grasp_center(): Set grasp search center to: x=%f, y=%f, z=%f",
-                      request.graspserachcenter.x, request.graspserachcenter.y, request.graspserachcenter.z)
+                      request.graspsearchcenter.x, request.graspsearchcenter.y, request.graspsearchcenter.z)
         result = haf_grasping.srv.GraspSearchCenterResponse()
         result.result = True
         rospy.loginfo("HAFClient.set_grasp_center(): sending back response: [%ld]", result.result)
@@ -201,14 +230,29 @@ class HAFClient(object):
         rospy.loginfo("HAFClient.set_gripper_width(): sending back response: [%d]", result.result)
         return result.result
 
+    # event managment
+    def add_grasp_cb_function(self, function):
+        self.grasp_cbs.append(function)
+
+    def remove_grasp_cb_function(self, function):
+        self.grasp_cbs.remove(function)
+
+    def purge_grasp_cb_functions(self):
+        self.grasp_cbs = list()
+
+
     # Grasp Calculation Action Server Callbacks
     def grasp_received_cb(self, state, result):
         rospy.loginfo("HAFClient.grasp_received_cb(): state = %d", state)
         rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.eval = %d", result.graspOutput.eval)
-        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.graspPoint1 = %s", result.graspOutput.graspPoint1)
-        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.graspPoint2 = %s", result.graspOutput.graspPoint2)
-        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.averagedGraspPoint = %s", result.graspOutput.averagedGraspPoint)
-        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.approachVector = %s", result.graspOutput.approachVector)
+        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.graspPoint1 = %s",
+                      result.graspOutput.graspPoint1)
+        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.graspPoint2 = %s",
+                      result.graspOutput.graspPoint2)
+        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.averagedGraspPoint = %s",
+                      result.graspOutput.averagedGraspPoint)
+        rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.approachVector = %s",
+                      result.graspOutput.approachVector)
         rospy.loginfo("HAFClient.grasp_received_cb(): result.graspOutput.roll = %f", result.graspOutput.roll)
         self.marker.header.stamp = rospy.Time.now()
         self.marker.id = 1
@@ -230,6 +274,10 @@ class HAFClient(object):
         self.marker.pose.position.z = result.graspOutput.averagedGraspPoint.z
         self.marker.color.b = 0.5
         self.marker_pub.publish(self.marker)
+
+        if state == actionlib.GoalStatus.SUCCEEDED:
+            for function in self.grasp_cbs:
+                function(result.graspOutput.averagedGraspPoint)
 
 
     def grasp_calculation_active_cb(self):

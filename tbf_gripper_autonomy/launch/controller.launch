@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <node name="tubaf_grasping" pkg="tbf_gripper_autonomy" type="controller.py" output="screen">
+    <param name="haf_server_name" value="haf_grasping/calc_grasppoints_action_server" />
+    <rosparam file="$(find tbf_gripper_autonomy)/config/std_params.yaml" command="load" />
+  </node>
+</launch>

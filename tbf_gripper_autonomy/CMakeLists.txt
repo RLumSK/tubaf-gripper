@@ -10,7 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     haf_grasping
 )
-
+catkin_python_setup()
 ###################################
 ## catkin specific configuration ##
 ###################################
