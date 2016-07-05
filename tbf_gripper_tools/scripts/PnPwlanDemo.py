@@ -48,10 +48,10 @@ HOME_POS = [0.0, -90, 0, -90, 0, 0]
 WAYPOINTS = {
     'home': HOME_POS,
     'top_up': [-176.36, -69.79,   2.09,   67.31, 87.44, 45],
-    'top_pickup': [-176.36, -96.82,  69.03,   27.41, 87.77, 45],
+    'top_pickup': [-176.36, -97.02,  69.87,   26.82, 87.77, 45],
     'top_up2': [-174.67, -90.60,  50.88,   35.38, 87.62, 45],
     'front_up': [  -2.48, -79.31,  38.12,   36.86, 85.16, 45],
-    'front_place': [  -2.3,  -7.8,   95.65,  -91.32, 84.42, 45],
+    # 'front_place': [  -2.3,  -7.8,   95.65,  -91.32, 84.42, 45],
     'front_pickup': [  -2.3,  -6.15,   94.22,  -91.52, 84.42, 45],
 
 }
@@ -176,7 +176,8 @@ class PickAndPlaceWlanDemo:
 
         # Set station
         self.move_wait(WAYPOINTS['front_up'], v=spd)
-        self.move_wait(WAYPOINTS['front_place'], move_cmd="movel")
+        # self.move_wait(WAYPOINTS['front_place'], move_cmd="movel")
+        self.move_wait(WAYPOINTS['front_pickup'], move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
 
