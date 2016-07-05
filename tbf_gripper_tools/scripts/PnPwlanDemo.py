@@ -44,14 +44,26 @@ import thread
 
 # [Base, Shoulder, Elbow, Wrist 1, Wrist 2, Wrist 3]
 HOME_POS = [0.0, -90, 0, -90, 0, 0]
-WAYPOINTS = [
-    [-176.36, -69.79,   2.09,   67.31, 87.44, 45],
-    [-176.36, -96.82,  69.03,   27.41, 87.77, 45],
-    [-174.67, -90.60,  50.88,   35.38, 87.62, 45],
-    [  -2.48, -79.31,  38.12,   36.86, 85.16, 45],
-    [  -2.3,  -6.15,   94.22,  -91.52, 84.42, 45]
-    # [  -2.28,  -6.98,   94.95,  -91.42, 84.44, 45]
-]
+
+WAYPOINTS = {
+    'home': HOME_POS,
+    'top_up': [-176.36, -69.79,   2.09,   67.31, 87.44, 45],
+    'top_pickup': [-176.36, -96.82,  69.03,   27.41, 87.77, 45],
+    'top_up2': [-174.67, -90.60,  50.88,   35.38, 87.62, 45],
+    'front_up': [  -2.48, -79.31,  38.12,   36.86, 85.16, 45],
+    'front_place': [  -2.3,  -7.8,   95.65,  -91.32, 84.42, 45],
+    'front_pickup': [  -2.3,  -6.15,   94.22,  -91.52, 84.42, 45],
+
+}
+
+# WAYPOINTS = [
+#     [-176.36, -69.79,   2.09,   67.31, 87.44, 45],
+#     [-176.36, -96.82,  69.03,   27.41, 87.77, 45],
+#     [-174.67, -90.60,  50.88,   35.38, 87.62, 45],
+#     [  -2.48, -79.31,  38.12,   36.86, 85.16, 45],
+#     [  -2.3,  -6.15,   94.22,  -91.52, 84.42, 45]
+#     # [  -2.28,  -6.98,   94.95,  -91.42, 84.44, 45]
+# ]
 
 class InterruptError(Exception):
     def __init__(self, *args, **kwargs):
@@ -152,45 +164,45 @@ class PickAndPlaceWlanDemo:
         spd = 20
         self.demo_monitor.set_status(DemoState.running)
         # Move to Station on top of the Robot starting at HOME position
-        self.move_wait(HOME_POS, v=45, a=20)
+        self.move_wait(WAYPOINTS['home'], v=45, a=20)
         self.hand.openGripper()
-        self.move_wait(WAYPOINTS[0], v=spd)
-        self.move_wait(WAYPOINTS[1], t=2.4, move_cmd="movel")
+        self.move_wait(WAYPOINTS['top_up'], v=spd)
+        self.move_wait(WAYPOINTS['top_pickup'], t=2.4, move_cmd="movel")
 
         # Grasp station
         self.hand.closeGripper()
         rospy.sleep(2.)
-        self.move_wait(WAYPOINTS[2], t=1.6, move_cmd="movel")
+        self.move_wait(WAYPOINTS['top_up2'], t=1.6, move_cmd="movel")
 
         # Set station
-        self.move_wait(WAYPOINTS[3], v=spd)
-        self.move_wait(WAYPOINTS[4], move_cmd="movel")
+        self.move_wait(WAYPOINTS['front_up'], v=spd)
+        self.move_wait(WAYPOINTS['front_place'], move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
 
         # Move to HOME position
-        self.move_wait(WAYPOINTS[3], move_cmd="movel")
-        self.move_wait(HOME_POS, v=spd, a=20)
+        self.move_wait(WAYPOINTS['front_up'], move_cmd="movel")
+        self.move_wait(WAYPOINTS['home'], v=spd, a=20)
 
         rospy.loginfo("arrived at home with station, waiting 5 secs")
         rospy.sleep(5.0)
 
         # Grasp station again
-        self.move_wait(WAYPOINTS[3], v=spd)
-        self.move_wait(WAYPOINTS[4], move_cmd="movel")
+        self.move_wait(WAYPOINTS['front_up'], v=spd)
+        self.move_wait(WAYPOINTS['front_pickup'], move_cmd="movel")
         self.hand.closeGripper()
         rospy.sleep(2.)
 
         # Set station on top of the robot
-        self.move_wait(WAYPOINTS[3], move_cmd="movel")
-        self.move_wait(WAYPOINTS[2], v=spd)
-        self.move_wait(WAYPOINTS[1], move_cmd="movel")
+        self.move_wait(WAYPOINTS['front_up'], move_cmd="movel")
+        self.move_wait(WAYPOINTS['top_up2'], v=spd)
+        self.move_wait(WAYPOINTS['top_pickup'], move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
 
         # Back to HOME position
-        self.move_wait(WAYPOINTS[0], t=2.4, move_cmd="movel")
-        self.move_wait(HOME_POS, v=spd, a=20)
+        self.move_wait(WAYPOINTS['top_up'], t=2.4, move_cmd="movel")
+        self.move_wait(WAYPOINTS['home'], v=spd, a=20)
 
         self.demo_monitor.set_status(DemoState.stop)
         self.exec_thread = None
