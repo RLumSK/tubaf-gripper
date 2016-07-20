@@ -29,10 +29,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
+import tf.transformations
+
 
 import moveit_msgs.msg
 import geometry_msgs.msg
 import shape_msgs.msg
+import std_msgs.msg
 
 import grasping.haf_client
 import grasping.hand
@@ -43,7 +46,7 @@ class Controller(object):
 
     def __init__(self):
         self.haf_client = grasping.haf_client.HAFClient()
-        self.haf_client.add_grasp_cb_function(self.onGraspPointCallback)
+        self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
 
         self.moveit_controller = grasping.arm.MoveItWrapper()
 
@@ -68,10 +71,8 @@ class Controller(object):
         self.wlan_box.object.primitive_poses.append(pose)
         self.wlan_box.object.operation = self.wlan_box.object.ADD
 
-
-    def onGraspPointCallback(self, point):
-        # TODO: decide which point is worth grasping
-        self.haf_client.remove_grasp_cb_function(self.onGraspPointCallback)
+    def onGraspSearchCallback(self, point, orientation, approach=[0,0,1], quality=-22):
+        self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
         self.hand_controller.openHand()
 
         # clear octomap at grasp point
@@ -81,14 +82,19 @@ class Controller(object):
         pl_scene = moveit_msgs.msg.PlanningScene()
         obj = moveit_msgs.msg.CollisionObject()
         obj.id = "box_0"
-        obj.header = point.header
+        obj.header = "TODO"
         obj.operation = obj.REMOVE
         rospy.loginfo("Controller.onGraspPointCallback(): Attaching the object to the hand and removing it from the world.")
         pl_scene.world.collision_objects.append(obj)
         pl_scene.robot_state.attached_collision_objects.append(obj)
 
-
         # plan path towards the object
+        grasp_pose = geometry_msgs.msg.PoseStamped()
+        grasp_pose.header = std_msgs.msg.Header()
+
+        grasp_pose.pose = geometry_msgs.msg.Pose()  # 'position' geometry_msgs/Point, 'orientation'geometry_msgs/Quaternion
+        grasp_pose.pose.position = point
+        grasp_pose.pose.orientation = self.calc_orientation_from_gp()
 
         # may wait for approval
 
@@ -99,6 +105,7 @@ class Controller(object):
 
         # lift grasped object
 
+    def calc_orientation_from_gp(self, point, roll, ):
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_controller", anonymous=False)
