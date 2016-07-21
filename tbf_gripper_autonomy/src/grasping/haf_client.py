@@ -273,30 +273,39 @@ class HAFClient(object):
         #HAFClient.logresult(state, result)
         if self.evaluate_grasp_result(result):
             del self.marker_array.markers[:]
-            as_vector = [result.graspOutput.approachVector.x, result.graspOutput.approachVector.y,
-                         result.graspOutput.approachVector.z]
+            approach_vec = [result.graspOutput.approachVector.x, result.graspOutput.approachVector.y,
+                            result.graspOutput.approachVector.z]
+            position_vec = [result.graspOutput.averagedGraspPoint.x, result.graspOutput.averagedGraspPoint.y,
+                            result.graspOutput.averagedGraspPoint.z]
 
-            # phi = angle_between(as_vector, [1,0,0])
-            # orientation1 = tf.transformations.quaternion_matrix(phi, [1,0,0])
-            orientation = tf.transformations.quaternion_about_axis(-1*result.graspOutput.roll, as_vector)
+            orientation = tf.transformations.quaternion_about_axis(-1*result.graspOutput.roll, approach_vec)
             quaternion = geometry_msgs.msg.Quaternion(*orientation)
+
+            norm_approach = [element / tf.transformations.vector_norm(approach_vec) for element in approach_vec]
+            gripper_offset = 0.1
 
             hdr = std_msgs.msg.Header()
             hdr.stamp = rospy.Time.now()
             hdr.frame_id = result.graspOutput.header.frame_id
 
+            grasp_pose = geometry_msgs.msg.PoseStamped(header=hdr)
+            grasp_pose.pose.position.x = position_vec[0] + norm_approach[0] * gripper_offset
+            grasp_pose.pose.position.y = position_vec[1] + norm_approach[1] * gripper_offset
+            grasp_pose.pose.position.z = position_vec[2] + norm_approach[2] * gripper_offset
+            grasp_pose.pose.orientation = quaternion
+
+            # visualize marker for debugging and development
             m1 = Marker(header=hdr, id=0)
             m2 = Marker(header=hdr, id=1)
             m3 = Marker(header=hdr, id=2)
-            [m1, m2] = generate_grasp_marker((result.graspOutput.averagedGraspPoint.x,
-                                              result.graspOutput.averagedGraspPoint.y,
-                                              result.graspOutput.averagedGraspPoint.z), orientation, m1, m2)
-            # visualize marker for debugging and development
+            [m1, m2] = generate_grasp_marker((grasp_pose.pose.position.x,
+                                              grasp_pose.pose.position.y,
+                                              grasp_pose.pose.position.z), orientation, m1, m2)
+
             self.marker_array.markers.append(m1)
             self.marker_array.markers.append(m2)
 
-            m3.pose.position = result.graspOutput.averagedGraspPoint
-            m3.pose.orientation = quaternion
+            m3.pose = grasp_pose.pose
             m3.color.r = 0.
             m3.color.g = 0.
             m3.color.b = 1.
@@ -306,20 +315,17 @@ class HAFClient(object):
             self.marker_array.markers.append(m3)
             self.marker_array_pub.publish(self.marker_array)
 
-            o2 = tf.transformations.quaternion_about_axis(-numpy.pi/2.0, [0, 0, 1])
+            o2 = tf.transformations.quaternion_about_axis(numpy.pi/2.0, [0, 1, 0])
             self.marker.pose = m3.pose
-            print type(o2)
-            print type(orientation)
-            print tf.transformations.quaternion_multiply(o2, orientation)
-
-            self.marker.pose.orientation = geometry_msgs.msg.Quaternion(*tf.transformations.quaternion_multiply(o2, orientation))
+            self.marker.pose.orientation = geometry_msgs.msg.Quaternion(
+                *tf.transformations.quaternion_multiply(o2, orientation))
             self.marker.header = m3.header
             self.marker_pub.publish(self.marker)
 
 
             if state == actionlib.GoalStatus.SUCCEEDED:
-                # for function in self.grasp_cbs:
-                #     function(pose, quality=result.graspOutput.eval)
+                for function in self.grasp_cbs:
+                    function(grasp_pose, quality=result.graspOutput.eval)
                 pass
 
 
