@@ -41,6 +41,8 @@ import grasping.haf_client
 import grasping.hand
 import grasping.arm
 
+import tf.transformations as tfs
+
 class Controller(object):
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
 
@@ -57,21 +59,16 @@ class Controller(object):
         self.tf_listener = tf.TransformListener()
 
         self.haf_client.register_pc_callback()
+        rospy.loginfo("controller.py: Controller(): finished initialization")
 
-    def onGraspSearchCallback(self, grasp_pose, quality=-22):
+    def onGraspSearchCallback(self, grasp_pose):
+        rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose: %s", grasp_pose)
         self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
         self.hand_controller.openHand()
 
         # clear octomap at grasp point
 
         # calculate first pose towards the grasp_pose (TCP traverses a straight line from here)
-        approach_vector = rospy.get_param("gripper_approach_vector")
-        norm_av = [element/tf.transformations.vector_norm(approach_vector) for element in approach_vector]
-        offset = 0.5
-        first_pose = geometry_msgs.msg.Pose(orientation=grasp_pose.pose.orientation)
-        first_pose.position.x = grasp_pose.pose.x - offset * norm_av[0]
-        first_pose.position.y = grasp_pose.pose.y - offset * norm_av[1]
-        first_pose.position.y = grasp_pose.pose.z - offset * norm_av[2]
         # from urdf file:
         # <joint name="${name}_tool_connection" type="fixed">
         #     <parent link="${name}_ur5_ee_link"/>
@@ -79,14 +76,21 @@ class Controller(object):
         #     <origin xyz="0.0535 0 0" rpy="0 -0.75049157835 -1.57"/>
         # </joint>
         grasp_detection_frame = rospy.get_param("grasp_detection_frame", "gripper_camera_rgb_frame")
+        approach_vector = rospy.get_param("gripper_approach_vector")
         now = rospy.Time.now()
         self.tf_listener.waitForTransform(grasp_detection_frame, self.end_effector_link, now, rospy.Duration(4))
-        (trans, rot) = self.tf_listener.lookupTransform(grasp_detection_frame, self.end_effector_link, now)
-        first_pose = trans*first_pose
-        first_pose = rot*first_pose
+        norm_av = [element/tfs.vector_norm(approach_vector) for element in approach_vector]
+        offset = 0.5
+        print grasp_pose
+        grasp_pose.pose.position.x -= offset * norm_av[0]
+        grasp_pose.pose.position.y -= offset * norm_av[1]
+        grasp_pose.pose.position.y -= offset * norm_av[2]
+        print grasp_pose
+        first_pose = self.tf_listener.transformPose(self.end_effector_link, grasp_pose)
+        print first_pose
 
         # plan path towards the object
-        self.moveit_controller.plan_to_pose(first_pose, end_effector_link=self.end_effector_link)
+        self.moveit_controller.plan_to_pose(first_pose)
 
         # may wait for approval
         rospy.sleep(5)

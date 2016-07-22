@@ -133,10 +133,13 @@ class HAFClient(object):
         self.marker.color.b = 0.1
         self.marker.color.a = 0.75
 
+        self.rate = rospy.Rate(10)
+
     def register_pc_callback(self):
         input_pc_topic = get_param("input_pc_topic", self.input_pc_topic)
         self.pc_sub = rospy.Subscriber(input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb,
                                        queue_size=1)
+        self.rate = rospy.Rate(1)
 
     def unregister_pc_callback(self):
         self.pc_sub.unregister()
@@ -175,7 +178,7 @@ class HAFClient(object):
             rospy.loginfo("HAFClient.get_grasp_cb(): Action finished: %s", state)
         else:
             rospy.loginfo("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
-        rate.sleep()
+        self.rate.sleep()
 
     # Parameter Services Callbacks
     def set_grasp_center(self, request):
@@ -326,7 +329,7 @@ class HAFClient(object):
             if state == actionlib.GoalStatus.SUCCEEDED:
                 for function in self.grasp_cbs:
                     rospy.loginfo("haf_client.py:HAFClient.grasp_received_cb(): passing poses")
-                    function(grasp_pose, quality=result.graspOutput.eval)
+                    function(grasp_pose)
                 pass
 
 
@@ -380,5 +383,5 @@ if __name__ == '__main__':
     rospy.init_node("tubaf_haf_client", anonymous=False)
     obj = HAFClient()
     obj.register_pc_callback()
-    rate = rospy.Rate(1)
+
     rospy.spin()

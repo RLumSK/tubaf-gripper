@@ -69,8 +69,8 @@ class MoveItWrapper(object):
 
         self.plan = None
 
-    def plan_to_pose(self, pose):
-        self.group.set_pose_target(pose, end_effector_link="/gripper_ur5_ee_link") # TODO
+    def plan_to_pose(self, pose_stamped):
+        self.group.set_pose_target(pose_stamped)
         self.plan = self.group.plan()
 
         #display plan
