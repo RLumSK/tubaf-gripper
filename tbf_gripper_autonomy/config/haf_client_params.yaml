@@ -1,5 +1,4 @@
-# parameter for the server and client alike
-# grasp planing (haf)
+haf_server_name: "/haf_server"
 grasp_search_center: [0.8, 0.0 , -0.05]
 gripper_approach_vector: [-1.0, 0.0, 0.0]
 grasp_search_size_x: 50
@@ -9,9 +8,6 @@ show_only_best_grasp: true
 base_frame_default: "gripper_camera_rgb_frame"
 gripper_width: 1
 input_pc_topic: "/gripper_camera/depth_registered/points"
-haf_server_name: "/haf_server"
-# arm
-planned_path_publisher: "move_group/display_planned_path"
-group_name: "UR5"
-# controller
-grasp_detection_frame: "gripper_camera_rgb_frame"
+
+grasp_quality_threshold: 50.0
+grasp_search_timeout: 10.0

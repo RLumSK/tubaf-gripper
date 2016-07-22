@@ -55,7 +55,7 @@ def get_param(key, def_value):
 class HAFClient(object):
 
     def __init__(self):
-        self.action_server_name = get_param("haf_server_name", "haf_server")
+        self.action_server_name = get_param("haf_server_name", "/haf_server")
         self.grasp_cbs = list()
 
         self.graspingcenter = geometry_msgs.msg.Point()
@@ -138,9 +138,11 @@ class HAFClient(object):
         self.pc_sub = rospy.Subscriber(input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb,
                                        queue_size=1)
 
+    def unregister_pc_callback(self):
+        self.pc_sub.unregister()
+
     #Service Callbacks
     def get_grasp_cb(self, msg):
-        # self.pc_sub.unregister()
         rospy.loginfo("HAFClient.get_grasp_cb(): point cloud received")
         ac = actionlib.SimpleActionClient(self.action_server_name,
                                           haf_grasping.msg.CalcGraspPointsServerAction)
@@ -323,6 +325,7 @@ class HAFClient(object):
 
             if state == actionlib.GoalStatus.SUCCEEDED:
                 for function in self.grasp_cbs:
+                    rospy.loginfo("haf_client.py:HAFClient.grasp_received_cb(): passing poses")
                     function(grasp_pose, quality=result.graspOutput.eval)
                 pass
 

@@ -1,5 +1,6 @@
 <launch>
   <node name="tbf_gripper_autonomy_controller" pkg="tbf_gripper_autonomy" type="controller.py" respawn="false" output="screen">
     <rosparam command="load" file="$(find julius_moveit)/config/kinematics.yaml"/>
+    <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/controller_params.yaml"/>
   </node>
 </launch>

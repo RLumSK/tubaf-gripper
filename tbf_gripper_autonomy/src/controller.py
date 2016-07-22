@@ -45,6 +45,8 @@ class Controller(object):
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
 
     def __init__(self):
+        self.end_effector_link = rospy.get_param("end_effector_link", "/gripper_ur5_ee_link")
+
         self.haf_client = grasping.haf_client.HAFClient()
         self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
 
@@ -53,6 +55,8 @@ class Controller(object):
         self.hand_controller = grasping.hand.HandController()
 
         self.tf_listener = tf.TransformListener()
+
+        self.haf_client.register_pc_callback()
 
     def onGraspSearchCallback(self, grasp_pose, quality=-22):
         self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
@@ -76,14 +80,13 @@ class Controller(object):
         # </joint>
         grasp_detection_frame = rospy.get_param("grasp_detection_frame", "gripper_camera_rgb_frame")
         now = rospy.Time.now()
-        self.tf_listener.waitForTransform(grasp_detection_frame, "/gripper_ur5_ee_link", now, rospy.Duration(4))
-        (trans, rot) = self.tf_listener.lookupTransform(grasp_detection_frame, "/gripper_ur5_ee_link", now)
+        self.tf_listener.waitForTransform(grasp_detection_frame, self.end_effector_link, now, rospy.Duration(4))
+        (trans, rot) = self.tf_listener.lookupTransform(grasp_detection_frame, self.end_effector_link, now)
         first_pose = trans*first_pose
         first_pose = rot*first_pose
 
         # plan path towards the object
-        self.group.set_pose_target(first_pose)
-        plan1 = self.group.plan()
+        self.moveit_controller.plan_to_pose(first_pose, end_effector_link=self.end_effector_link)
 
         # may wait for approval
         rospy.sleep(5)
@@ -91,8 +94,7 @@ class Controller(object):
         # execute plan
         execute_plan = False
         if execute_plan:
-            self.group.go(wait=True)
-            self.group.clear_pose_targets()
+            self.moveit_controller.move_to_pose()
 
         # grasp object
         self.hand_controller.closeHand()

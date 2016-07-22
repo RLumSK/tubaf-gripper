@@ -56,22 +56,21 @@ class MoveItWrapper(object):
                 rospy.set_param(n+"/UR5", params)
                 anon_node = n
 
-        print rospy.get_param(anon_node)
-
-        group_name = rospy.get_param("group_name", "ur5_manipulator")
+        group_name = rospy.get_param("group_name", "UR5")  # name in the kinematics.yaml NOT SRDF
         planned_path_publisher = rospy.get_param("planned_path_publisher", "/move_group/display_planned_path")
 
         self.scene = moveit_commander.PlanningSceneInterface()
         self.commander = moveit_commander.RobotCommander()  # controller of the robot (arm)
-        self.group = moveit_commander.MoveGroupCommander("UR5")
-        self.display_trajectory_publisher = rospy.Publisher(planned_path_publisher, moveit_msgs.msg.DisplayTrajectory)
+        self.group = moveit_commander.MoveGroupCommander(group_name)
+        self.display_trajectory_publisher = rospy.Publisher(planned_path_publisher, moveit_msgs.msg.DisplayTrajectory,
+                                                            queue_size=1)
         # RVIZ has to initilize
         rospy.sleep(1)
 
         self.plan = None
 
     def plan_to_pose(self, pose):
-        self.group.set_pose_target(pose, end_effector_link="/gripper_ur5/wrist3_link") # TODO
+        self.group.set_pose_target(pose, end_effector_link="/gripper_ur5_ee_link") # TODO
         self.plan = self.group.plan()
 
         #display plan
@@ -79,6 +78,7 @@ class MoveItWrapper(object):
         display_trajectory.trajectory_start = self.commander.get_current_state()
         display_trajectory.trajectory.append(self.plan)
         self.display_trajectory_publisher.publish(display_trajectory)
+        return self.plan
 
     def move_to_pose(self):
         self.group.go(wait=True)

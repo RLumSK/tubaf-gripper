@@ -17,6 +17,6 @@
       ab
     </layout>
     <!--<cmd pane="a">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>-->
-    <cmd pane="b">rosrun tbf_gripper_autonomy controller.py</cmd>
+    <cmd pane="b">roslaunch tbf_gripper_autonomy controller.launch</cmd>
   </window>
 </muxify>

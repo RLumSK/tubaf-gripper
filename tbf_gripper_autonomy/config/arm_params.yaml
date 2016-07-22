@@ -1,0 +1,2 @@
+planned_path_publisher: "move_group/display_planned_path"
+group_name: "UR5"
