@@ -1,2 +1,3 @@
 grasp_detection_frame: "gripper_camera_rgb_frame"
 group_name: "UR5"
+gripper_approach_vector: [-1.0, 0.0, 0.0]

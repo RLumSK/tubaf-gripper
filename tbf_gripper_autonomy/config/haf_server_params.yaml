@@ -1,8 +1,8 @@
-#grasp_search_center: [0.8, 0.0 , -0.05]
-#gripper_approach_vector: [-1.0, 0.0, 0.0]
-#grasp_search_size_x: 50
-#grasp_search_size_y: 50
-#max_calculation_time: 40
-#show_only_best_grasp: true
-#base_frame_default: "gripper_camera_rgb_frame"
-#gripper_width: 1
+grasp_search_center: [0.8, 0.0 , -0.05]
+gripper_approach_vector: [-1.0, 0.0, 0.0]
+grasp_search_size_x: 50
+grasp_search_size_y: 50
+max_calculation_time: 40
+show_only_best_grasp: true
+base_frame_default: "gripper_camera_rgb_frame"
+gripper_width: 1
