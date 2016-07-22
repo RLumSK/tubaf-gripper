@@ -29,8 +29,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
-import tf.transformations
-
+import tf
+import moveit_commander
 
 import moveit_msgs.msg
 import geometry_msgs.msg
@@ -52,60 +52,53 @@ class Controller(object):
 
         self.hand_controller = grasping.hand.HandController()
 
-        # Advertise the required topic
-        self.planning_scene_diff_publisher = rospy.Publisher("planning_scene", moveit_msgs.msg.PlanningScene, queue_size=1)
+        self.tf_listener = tf.TransformListener()
 
-        # Define the attached object message
-        self.wlan_box = moveit_msgs.msg.AttachedCollisionObject()
-        self.wlan_box.link_name = "wlan_box_link"
-        self.wlan_box.object.header.frame_id = "tbd"
-        self.wlan_box.object.id = "wlan_box_0"
-        pose = geometry_msgs.msg.Pose()
-        pose.orientation.w = 1.0
-        primitive = shape_msgs.msg.SolidPrimitive
-        primitive.type = primitive.BOX
-        primitive.dimensions[0] = 1.0
-        primitive.dimensions[2] = 1.0
-        primitive.dimensions[3] = 1.0
-        self.wlan_box.object.primitives.append(primitive)
-        self.wlan_box.object.primitive_poses.append(pose)
-        self.wlan_box.object.operation = self.wlan_box.object.ADD
-
-    def onGraspSearchCallback(self, point, orientation, approach=[0,0,1], quality=-22):
+    def onGraspSearchCallback(self, grasp_pose, quality=-22):
         self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
         self.hand_controller.openHand()
 
         # clear octomap at grasp point
 
-        # Add an object into the environment
-        rospy.loginfo("Controller.onGraspPointCallback(): Adding the object into the world at the location: %s", point)
-        pl_scene = moveit_msgs.msg.PlanningScene()
-        obj = moveit_msgs.msg.CollisionObject()
-        obj.id = "box_0"
-        obj.header = "TODO"
-        obj.operation = obj.REMOVE
-        rospy.loginfo("Controller.onGraspPointCallback(): Attaching the object to the hand and removing it from the world.")
-        pl_scene.world.collision_objects.append(obj)
-        pl_scene.robot_state.attached_collision_objects.append(obj)
+        # calculate first pose towards the grasp_pose (TCP traverses a straight line from here)
+        approach_vector = rospy.get_param("gripper_approach_vector")
+        norm_av = [element/tf.transformations.vector_norm(approach_vector) for element in approach_vector]
+        offset = 0.5
+        first_pose = geometry_msgs.msg.Pose(orientation=grasp_pose.pose.orientation)
+        first_pose.position.x = grasp_pose.pose.x - offset * norm_av[0]
+        first_pose.position.y = grasp_pose.pose.y - offset * norm_av[1]
+        first_pose.position.y = grasp_pose.pose.z - offset * norm_av[2]
+        # from urdf file:
+        # <joint name="${name}_tool_connection" type="fixed">
+        #     <parent link="${name}_ur5_ee_link"/>
+        #     <child link="${name}_robotiq_palm"/>
+        #     <origin xyz="0.0535 0 0" rpy="0 -0.75049157835 -1.57"/>
+        # </joint>
+        grasp_detection_frame = rospy.get_param("grasp_detection_frame", "gripper_camera_rgb_frame")
+        now = rospy.Time.now()
+        self.tf_listener.waitForTransform(grasp_detection_frame, "/gripper_ur5_ee_link", now, rospy.Duration(4))
+        (trans, rot) = self.tf_listener.lookupTransform(grasp_detection_frame, "/gripper_ur5_ee_link", now)
+        first_pose = trans*first_pose
+        first_pose = rot*first_pose
 
         # plan path towards the object
-        grasp_pose = geometry_msgs.msg.PoseStamped()
-        grasp_pose.header = std_msgs.msg.Header()
-
-        grasp_pose.pose = geometry_msgs.msg.Pose()  # 'position' geometry_msgs/Point, 'orientation'geometry_msgs/Quaternion
-        grasp_pose.pose.position = point
-        grasp_pose.pose.orientation = self.calc_orientation_from_gp()
+        self.group.set_pose_target(first_pose)
+        plan1 = self.group.plan()
 
         # may wait for approval
+        rospy.sleep(5)
 
         # execute plan
+        execute_plan = False
+        if execute_plan:
+            self.group.go(wait=True)
+            self.group.clear_pose_targets()
 
         # grasp object
         self.hand_controller.closeHand()
 
         # lift grasped object
 
-    def calc_orientation_from_gp(self, point, roll, ):
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_controller", anonymous=False)

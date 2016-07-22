@@ -34,19 +34,39 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
+import rosnode
 
 class MoveItWrapper(object):
 # see: http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html
     def __init__(self):
+        # args2 = sys.argv
+
+        # args2.append("_arm_prefix:=gripper_ur5_")
+        # we have to load the arm_prefix from our urdf file into the namespace of an anonymous node started
+        # by moveit_commander. Therefore we get all the nodes previous and after its start and select the
+        # 'move_group_commander_wrappers_' and pass the parameter into its namespace.
+        nodes1 = set(rosnode.get_node_names())
         moveit_commander.roscpp_initialize(sys.argv)
-        group_name = rospy.get_param("group_name", "ur5")
+        nodes2 = set(rosnode.get_node_names())
+
+        anon_node = ""
+        params = rospy.get_param("/tbf_gripper_autonomy_controller/UR5")
+        for n in nodes2 - nodes1:
+            if n.startswith("/move_group_commander_wrappers_"):
+                rospy.set_param(n+"/UR5", params)
+                anon_node = n
+
+        print rospy.get_param(anon_node)
+
+        group_name = rospy.get_param("group_name", "ur5_manipulator")
         planned_path_publisher = rospy.get_param("planned_path_publisher", "/move_group/display_planned_path")
 
-        self.commander = moveit_commander.RobotCommander() # controller of the robot (arm)
         self.scene = moveit_commander.PlanningSceneInterface()
-        self.group = moveit_commander.MoveGroupCommander(group_name)
+        self.commander = moveit_commander.RobotCommander()  # controller of the robot (arm)
+        self.group = moveit_commander.MoveGroupCommander("UR5")
         self.display_trajectory_publisher = rospy.Publisher(planned_path_publisher, moveit_msgs.msg.DisplayTrajectory)
         # RVIZ has to initilize
+        rospy.sleep(1)
 
         self.plan = None
 

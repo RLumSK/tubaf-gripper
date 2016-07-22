@@ -4,24 +4,19 @@
 
   -->
   <session name="grasping" mode="o" size="240x60"/>
-  <window name="master" directory="~">
-    <layout>
-      a
-    </layout>
-    <cmd pane="a">roscore</cmd>
-  </window>
-  <window name="server" directory="~">
+  <window name="moveit_and_hand" directory="~">
     <layout>
       abc
     </layout>
     <cmd pane="a">roslaunch julius moveit.launch</cmd>
-    <cmd pane="b">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
+    <cmd pane="b">roslaunch julius ur5_modern_plain_driver.launch robot_ip:="192.168.1.150"</cmd>
     <cmd pane="c">rosrun tbf_gripper_hand robotiqgripper_server</cmd>
   </window>
   <window name="app" directory="~">
     <layout>
       ab
     </layout>
-    <cmd pane="a">rosrun tbf_gripper_autonomy controller.py</cmd>
+    <!--<cmd pane="a">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>-->
+    <cmd pane="b">rosrun tbf_gripper_autonomy controller.py</cmd>
   </window>
 </muxify>

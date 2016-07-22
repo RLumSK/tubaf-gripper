@@ -297,7 +297,7 @@ class HAFClient(object):
             # visualize marker for debugging and development
             m1 = Marker(header=hdr, id=0)
             m2 = Marker(header=hdr, id=1)
-            m3 = Marker(header=hdr, id=2)
+            m3 = Marker(header=hdr, id=2, scale=geometry_msgs.msg.Vector3(0.1, 0.01, 0.005))
             [m1, m2] = generate_grasp_marker((grasp_pose.pose.position.x,
                                               grasp_pose.pose.position.y,
                                               grasp_pose.pose.position.z), orientation, m1, m2)
@@ -310,7 +310,6 @@ class HAFClient(object):
             m3.color.g = 0.
             m3.color.b = 1.
             m3.color.a = 1.
-            m3.scale = geometry_msgs.msg.Vector3(0.1, 0.01, 0.005)
 
             self.marker_array.markers.append(m3)
             self.marker_array_pub.publish(self.marker_array)
@@ -321,7 +320,6 @@ class HAFClient(object):
                 *tf.transformations.quaternion_multiply(o2, orientation))
             self.marker.header = m3.header
             self.marker_pub.publish(self.marker)
-
 
             if state == actionlib.GoalStatus.SUCCEEDED:
                 for function in self.grasp_cbs:
@@ -374,25 +372,10 @@ def generate_grasp_marker(p, o, m1, m2):
 
     return [m1, m2]
 
-# see: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python/13849249#13849249
-import numpy as np
-def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
-    return vector / np.linalg.norm(vector)
-
-def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'
-    """
-    v1_u = unit_vector(v1)
-    v2_u = unit_vector(v2)
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_haf_client", anonymous=False)
     obj = HAFClient()
     obj.register_pc_callback()
     rate = rospy.Rate(1)
-    # while not rospy.is_shutdown():
-    #     obj.register_pc_callback()
-    #     rate.sleep()
     rospy.spin()
