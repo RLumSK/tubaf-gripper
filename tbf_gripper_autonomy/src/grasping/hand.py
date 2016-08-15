@@ -35,8 +35,10 @@ import tbf_gripper_hand.msg
 class HandController():
 
     def __init__(self):
-        server_name = rospy.get_param("hand_server_name", "robotiqgripper_action_server")
+        server_name = rospy.get_param("~hand_server_name", "robotiqgripper_action_server")
+        # rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
         self.ac = actionlib.SimpleActionClient(server_name, tbf_gripper_hand.msg.RobotiqGripperAction)
+        rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
         self.ac.wait_for_server()
         self.action_pending = False
 
@@ -57,7 +59,10 @@ class HandController():
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):
-        self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
+        # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
+        self.ac.send_goal(goal)
+        self.ac.wait_for_result()
+        self.action_pending = False;
 
     def openHand(self):
         if self.action_pending:
@@ -76,7 +81,32 @@ class HandController():
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):
-        self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
+        # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
+        self.ac.send_goal(goal)
+        self.ac.wait_for_result()
+        self.action_pending = False;
+
+    def restHand(self):
+        if self.action_pending:
+            rospy.loginfo("HandController.openHand(): Action pending - abort")
+            return
+        goal = tbf_gripper_hand.msg.RobotiqGripperGoal()
+        # goal definition
+        # string mode
+        # int32 position
+        # int32 speed
+        # int32 force
+        goal.mode = "Basic"
+        goal.position = 100
+        goal.speed = 50
+        goal.force = 0
+
+        self.action_pending = True
+        #  goal, done_cb = None, active_cb = None, feedback_cb = None):
+        # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
+        self.ac.send_goal(goal)
+        self.ac.wait_for_result()
+        self.action_pending = False;
 
     # action server callbacks
 

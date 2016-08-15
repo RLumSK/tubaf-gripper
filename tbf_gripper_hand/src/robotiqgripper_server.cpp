@@ -380,6 +380,7 @@ private:
 protected:
 
   ros::NodeHandle nh_;
+  ros::NodeHandle p_nh;
   // NodeHandle instance must be created before this line. Otherwise strange error may occur.
   actionlib::SimpleActionServer<tbf_gripper_hand::RobotiqGripperAction> as_;
   std::string action_name_;
@@ -394,6 +395,7 @@ protected:
 public:
 
   RobotiqGripperActionServer(std::string name) :
+    p_nh("~"), /* init private node handle*/
 	as_(nh_, name, boost::bind(&RobotiqGripperActionServer::executeCB, this, _1), false),
     action_name_(name)
   {
@@ -401,8 +403,9 @@ public:
 	ROS_INFO("RobotiqGripperAction: Action server starting.");
     as_.start();
 
-
     std::string publisher_name = "SModelRobotOutput", subscriber_name = "SModelRobotInput";
+    p_nh.param<std::string>("publisher_name", publisher_name, "/SModelRobotOutput");
+    p_nh.param<std::string>("subscriber_name", subscriber_name, "/SModelRobotInput");
     /*
     ros::master::V_TopicInfo master_topics;
     ros::master::getTopics(master_topics);

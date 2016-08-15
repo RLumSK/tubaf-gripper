@@ -79,15 +79,15 @@ class HAFClient(object):
             self.approach_vector.z = tmp_approach_vector[2]
 
         # max limit_x 32-14 = 18, limit_y = 44-14 = 30
-        self.grasp_search_size_x = get_param("grasp_search_size_x", 18)
-        self.grasp_search_size_y = get_param("grasp_search_size_y", 30)
-        self.max_calculation_time = get_param("max_calculation_time", 50)
+        self.grasp_search_size_x = get_param("~grasp_search_size_x", 18)
+        self.grasp_search_size_y = get_param("g~rasp_search_size_y", 30)
+        self.max_calculation_time = get_param("~max_calculation_time", 50)
         self.grasp_calculation_time_max = rospy.Duration(self.max_calculation_time)
-        self.show_only_best_grasp = get_param("show_only_best_grasp", True)
-        self.base_frame_default = get_param("base_frame_default", "gripper_camera_rgb_frame")
-        self.gripper_opening_width = get_param("gripper_width", 0.1)
+        self.show_only_best_grasp = get_param("~show_only_best_grasp", True)
+        self.base_frame_default = get_param("~base_frame_default", "gripper_camera_rgb_frame")
+        self.gripper_opening_width = get_param("~gripper_width", 0.1)
 
-        self.input_pc_topic = get_param("input_pc_topic", "/gripper_camera/depth_registered/points")
+        self.input_pc_topic = get_param("~input_pc_topic", "/gripper_camera/depth_registered/points")
         self.pc_sub = None
 
         # services for setting parameters
@@ -110,8 +110,11 @@ class HAFClient(object):
                                                    haf_grasping.srv.GraspPreGripperOpeningWidth,
                                                    self.set_gripper_width)
 
-        self.grasp_quality_threshold = get_param("grasp_quality_threshold", 50)  # worst [-20, 99] best
-        self.grasp_search_timeout = get_param("grasp_search_timeout", 50.0)
+        self.grasp_quality_threshold = get_param("~grasp_quality_threshold", 50)  # worst [-20, 99] best
+        self.grasp_search_timeout = get_param("~grasp_search_timeout", 50.0)
+
+        self.ac_haf = actionlib.SimpleActionClient(self.action_server_name,
+                                                   haf_grasping.msg.CalcGraspPointsServerAction)
 
         # debug tools
         self.marker_array = MarkerArray()
@@ -120,9 +123,10 @@ class HAFClient(object):
         self.marker = Marker()
         self.marker_pub = rospy.Publisher("grasp_marker", Marker, queue_size=1)
 
-        self.marker.id = 4
+        self.marker.id = 1
         self.marker.type = Marker.MESH_RESOURCE
         self.marker.mesh_resource = "package://robotiq_s_model_visualization/meshes/s-model_articulated/visual/full_hand.stl"
+        self.marker_frame_id = "/gripper_robotiq_palm"
 
         self.marker.scale.x = 1.
         self.marker.scale.y = 1.
@@ -136,10 +140,11 @@ class HAFClient(object):
         self.rate = rospy.Rate(10)
 
     def register_pc_callback(self):
-        input_pc_topic = get_param("input_pc_topic", self.input_pc_topic)
-        self.pc_sub = rospy.Subscriber(input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb,
+        self.input_pc_topic = get_param("~input_pc_topic", self.input_pc_topic)
+        self.pc_sub = rospy.Subscriber(self.input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb,
                                        queue_size=1)
         self.rate = rospy.Rate(1)
+        rospy.loginfo("HAFClient.register_pc_callback(): subscribed to pointcloud topic: %s", self.input_pc_topic)
 
     def unregister_pc_callback(self):
         self.pc_sub.unregister()
@@ -147,11 +152,9 @@ class HAFClient(object):
     #Service Callbacks
     def get_grasp_cb(self, msg):
         rospy.loginfo("HAFClient.get_grasp_cb(): point cloud received")
-        ac = actionlib.SimpleActionClient(self.action_server_name,
-                                          haf_grasping.msg.CalcGraspPointsServerAction)
-        rospy.loginfo("HAFClient.get_grasp_cb(): Waiting for action server to start.")
-        ac.wait_for_server()
-        rospy.loginfo("HAFClient.get_grasp_cb(): Action server started, sending goal.")
+        #rospy.loginfo("HAFClient.get_grasp_cb(): Waiting for action server to start.")
+        self.ac_haf.wait_for_server()
+        #rospy.loginfo("HAFClient.get_grasp_cb(): Action server started, sending goal.")
         goal = haf_grasping.msg.CalcGraspPointsServerGoal()
 
         goal.graspinput.input_pc = msg
@@ -164,18 +167,18 @@ class HAFClient(object):
         goal.graspinput.gripper_opening_width = self.gripper_opening_width
         goal.graspinput.goal_frame_id = self.base_frame_default# msg.header.frame_id
 
-        ac.send_goal(goal, done_cb=self.grasp_received_cb, active_cb=self.grasp_calculation_active_cb,
-                     feedback_cb=self.grasp_feedback_cb)
+        self.ac_haf.send_goal(goal, done_cb=self.grasp_received_cb)
 
-        finished_before_timeout = ac.wait_for_result(rospy.Duration(self.grasp_search_timeout))
+        finished_before_timeout = self.ac_haf.wait_for_result(rospy.Duration(self.grasp_search_timeout))
 
         if finished_before_timeout:
-            state = ac.get_state()
-            result = ac.get_result()
-            # rospy.loginfo("HAFClient.get_grasp_cb(): Result: %s", result)
+            state = self.ac_haf.get_state()
+            result = self.ac_haf.get_result()
             if result.graspOutput.eval <= -20:
                 rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point")
-            rospy.loginfo("HAFClient.get_grasp_cb(): Action finished: %s", state)
+            else:
+                rospy.loginfo("HAFClient.get_grasp_cb(): Result: %s", result)
+            #rospy.loginfo("HAFClient.get_grasp_cb(): Action finished: %s", state)
         else:
             rospy.loginfo("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
         self.rate.sleep()
@@ -280,6 +283,7 @@ class HAFClient(object):
             del self.marker_array.markers[:]
             approach_vec = [result.graspOutput.approachVector.x, result.graspOutput.approachVector.y,
                             result.graspOutput.approachVector.z]
+            # rospy.loginfo("HAFClient.grasp_received_cb(): approach_vec: %s", approach_vec)
             position_vec = [result.graspOutput.averagedGraspPoint.x, result.graspOutput.averagedGraspPoint.y,
                             result.graspOutput.averagedGraspPoint.z]
 
@@ -300,15 +304,15 @@ class HAFClient(object):
             grasp_pose.pose.orientation = quaternion
 
             # visualize marker for debugging and development
-            m1 = Marker(header=hdr, id=0)
-            m2 = Marker(header=hdr, id=1)
+            # m1 = Marker(header=hdr, id=0)
+            # m2 = Marker(header=hdr, id=1)
             m3 = Marker(header=hdr, id=2, scale=geometry_msgs.msg.Vector3(0.1, 0.01, 0.005))
-            [m1, m2] = generate_grasp_marker((grasp_pose.pose.position.x,
-                                              grasp_pose.pose.position.y,
-                                              grasp_pose.pose.position.z), orientation, m1, m2)
-
-            self.marker_array.markers.append(m1)
-            self.marker_array.markers.append(m2)
+            # [m1, m2] = generate_grasp_marker((grasp_pose.pose.position.x,
+            #                                   grasp_pose.pose.position.y,
+            #                                   grasp_pose.pose.position.z), orientation, m1, m2)
+            #
+            # self.marker_array.markers.append(m1)
+            # self.marker_array.markers.append(m2)
 
             m3.pose = grasp_pose.pose
             m3.color.r = 0.
@@ -316,13 +320,14 @@ class HAFClient(object):
             m3.color.b = 1.
             m3.color.a = 1.
 
-            self.marker_array.markers.append(m3)
-            self.marker_array_pub.publish(self.marker_array)
+            # self.marker_array.markers.append(m3)
+            # self.marker_array_pub.publish(self.marker_array)
 
-            o2 = tf.transformations.quaternion_about_axis(numpy.pi/2.0, [0, 1, 0])
+            o2 = tf.transformations.quaternion_about_axis(-1.0*numpy.pi/2.0, [0, 0, 1])
+
             self.marker.pose = m3.pose
             self.marker.pose.orientation = geometry_msgs.msg.Quaternion(
-                *tf.transformations.quaternion_multiply(o2, orientation))
+                *tf.transformations.quaternion_multiply(orientation, o2))
             self.marker.header = m3.header
             self.marker_pub.publish(self.marker)
 
@@ -332,13 +337,12 @@ class HAFClient(object):
                     function(grasp_pose)
                 pass
 
-
     def grasp_calculation_active_cb(self):
         rospy.loginfo("HAFClient.grasp_calculation_active_cb(): alive")
 
     def grasp_feedback_cb(self, feedback):
-        # rospy.loginfo("HAFClient.grasp_feedback_cb(): feedback = %s", feedback.feedback)
-        pass
+        rospy.loginfo("HAFClient.grasp_feedback_cb(): feedback[%s] = %s", type(feedback), feedback)
+
     def changeMarker(self, feedback):
         rospy.loginfo("HAFClient.changeMarker(): marker changed")
 

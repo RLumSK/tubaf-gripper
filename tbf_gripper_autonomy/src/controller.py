@@ -30,18 +30,14 @@
 
 import rospy
 import tf
-import moveit_commander
-
-import moveit_msgs.msg
-import geometry_msgs.msg
-import shape_msgs.msg
-import std_msgs.msg
 
 import grasping.haf_client
 import grasping.hand
 import grasping.arm
 
 import tf.transformations as tfs
+
+from visualization_msgs.msg import *
 
 class Controller(object):
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
@@ -50,20 +46,43 @@ class Controller(object):
         self.end_effector_link = rospy.get_param("end_effector_link", "/gripper_ur5_ee_link")
 
         self.haf_client = grasping.haf_client.HAFClient()
+        rospy.loginfo("controller.py: Controller(): initilized HAF client")
+
         self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
 
         self.moveit_controller = grasping.arm.MoveItWrapper()
+        rospy.loginfo("controller.py: Controller(): initilized arm")
 
         self.hand_controller = grasping.hand.HandController()
+        rospy.loginfo("controller.py: Controller(): initilized hand")
 
         self.tf_listener = tf.TransformListener()
 
         self.haf_client.register_pc_callback()
+
+        # Debugging & Development tools
+        self.marker = Marker()
+        self.marker_pub = rospy.Publisher("cntrl_marker", Marker, queue_size=1)
+
+        self.marker.id = 1
+        self.marker.ns = "controller"
+        self.marker.action = Marker.ADD
+        self.marker.type = Marker.MESH_RESOURCE
+        self.marker.mesh_resource = "package://robotiq_s_model_visualization/meshes/s-model_articulated/visual/full_hand.stl"
+        self.marker.scale.x = 1.
+        self.marker.scale.y = 1.
+        self.marker.scale.z = 1.
+        self.marker.color.r = 0.1
+        self.marker.color.g = 0.5
+        self.marker.color.b = 0.5
+        self.marker.color.a = 1.0
+        self.marker_frame_id = "/gripper_robotiq_palm"
+
         rospy.loginfo("controller.py: Controller(): finished initialization")
 
     def onGraspSearchCallback(self, grasp_pose):
-        rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose: %s", grasp_pose)
-        self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
+        rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
+        # self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
         self.hand_controller.openHand()
 
         # clear octomap at grasp point
@@ -75,35 +94,49 @@ class Controller(object):
         #     <child link="${name}_robotiq_palm"/>
         #     <origin xyz="0.0535 0 0" rpy="0 -0.75049157835 -1.57"/>
         # </joint>
-        grasp_detection_frame = rospy.get_param("grasp_detection_frame", "gripper_camera_rgb_frame")
+        grasp_detection_frame = grasp_pose.header.frame_id
         approach_vector = rospy.get_param("gripper_approach_vector")
         now = rospy.Time.now()
+        # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): approach_vector = %s", approach_vector)
         self.tf_listener.waitForTransform(grasp_detection_frame, self.end_effector_link, now, rospy.Duration(4))
         norm_av = [element/tfs.vector_norm(approach_vector) for element in approach_vector]
-        offset = 0.5
-        print grasp_pose
-        grasp_pose.pose.position.x -= offset * norm_av[0]
-        grasp_pose.pose.position.y -= offset * norm_av[1]
-        grasp_pose.pose.position.y -= offset * norm_av[2]
-        print grasp_pose
+        # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): norm_av = %s", norm_av)
+        offset = 0.25
+        grasp_pose.pose.position.x += offset * norm_av[0]
+        grasp_pose.pose.position.y += offset * norm_av[1]
+        grasp_pose.pose.position.y += offset * norm_av[2]
+        # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): grasp_pose = %s", grasp_pose)
         first_pose = self.tf_listener.transformPose(self.end_effector_link, grasp_pose)
-        print first_pose
+        # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): first_pose = %s", first_pose)
+
+        # DEBUG
+        self.marker.header = first_pose.header
+        self.marker.pose = first_pose.pose
+        rospy.loginfo("Controller.onGraspSearchCallback(): publishing marker")
+        self.marker_pub.publish(self.marker)
+        # DEBUG END
 
         # plan path towards the object
-        self.moveit_controller.plan_to_pose(first_pose)
-
+        if not self.moveit_controller.plan_to_pose(first_pose):
+            # no plan calculated
+            rospy.loginfo("Controller.onGraspSearchCallback(): couldn't calculate a plan, trying with next pose")
+            return
+        rospy.loginfo("Controller.onGraspSearchCallback(): sleeping while waiting for approval")
         # may wait for approval
         rospy.sleep(5)
 
         # execute plan
-        execute_plan = False
+        execute_plan = True
         if execute_plan:
+            rospy.loginfo("Controller.onGraspSearchCallback(): Execution")
             self.moveit_controller.move_to_pose()
 
         # grasp object
+        rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
         self.hand_controller.closeHand()
 
         # lift grasped object
+        rospy.loginfo("Controller.onGraspSearchCallback(): END")
 
 
 if __name__ == '__main__':

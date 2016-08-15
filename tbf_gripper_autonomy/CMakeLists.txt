@@ -6,11 +6,14 @@ project(tbf_gripper_autonomy)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
     rospy
+    roscpp
     geometry_msgs
     sensor_msgs
     haf_grasping
+    ur_kinematics
 )
 catkin_python_setup()
+
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -23,9 +26,15 @@ catkin_python_setup()
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES tbf_gripper_autonomy
-#  CATKIN_DEPENDS other_catkin_pkg
+  CATKIN_DEPENDS
+    ur_kinematics
 #  DEPENDS system_lib
 )
+
+include_directories(include ${catkin_INCLUDE_DIRS})
+add_executable(test_ik src/test/test_ik.cpp)
+target_link_libraries(test_ik ${catkin_LIBRARIES})
+add_dependencies(test_ik ur_kinematics)
 
 catkin_install_python(PROGRAMS scripts/run_client.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

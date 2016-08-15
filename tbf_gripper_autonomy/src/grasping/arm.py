@@ -49,15 +49,13 @@ class MoveItWrapper(object):
         moveit_commander.roscpp_initialize(sys.argv)
         nodes2 = set(rosnode.get_node_names())
 
-        anon_node = ""
-        params = rospy.get_param("/tbf_gripper_autonomy_controller/UR5")
+        params = rospy.get_param("/tbf_gripper_autonomy_controller/kinematics")
         for n in nodes2 - nodes1:
             if n.startswith("/move_group_commander_wrappers_"):
-                rospy.set_param(n+"/UR5", params)
-                anon_node = n
+                rospy.set_param(n+"/", params)
 
-        group_name = rospy.get_param("group_name", "UR5")  # name in the kinematics.yaml NOT SRDF
-        planned_path_publisher = rospy.get_param("planned_path_publisher", "/move_group/display_planned_path")
+        group_name = rospy.get_param("~group_name", "UR5")  # name in the kinematics.yaml NOT SRDF
+        planned_path_publisher = rospy.get_param("~planned_path_publisher", "/move_group/display_planned_path")
 
         self.scene = moveit_commander.PlanningSceneInterface()
         self.commander = moveit_commander.RobotCommander()  # controller of the robot (arm)
@@ -66,25 +64,109 @@ class MoveItWrapper(object):
                                                             queue_size=1)
         # RVIZ has to initilize
         rospy.sleep(1)
-
         self.plan = None
+        self.group.set_planner_id(rospy.get_param("~planner", "KPIECEkConfigDefault"))
+        self.group.set_goal_position_tolerance(rospy.get_param("~goal_position_tolerance", 0.01))
+        self.group.set_goal_orientation_tolerance(rospy.get_param("~goal_orientation_tolerance", 0.01))
+        self.group.set_goal_joint_tolerance(rospy.get_param("~goal_joint_tolerance", 0.01))
+        self.group.set_goal_tolerance(rospy.get_param("~goal_tolerance", 0.01))
+        self.group.set_planning_time(rospy.get_param("~planning_time", 30))
+        self.group.set_num_planning_attempts(rospy.get_param("~planning_attempts", 100))
+        # [minX, minY, minZ, maxX, maxY, maxZ]
+        self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
+        # Some information
+        rospy.loginfo("--- RobotCommander Info ---")
+        rospy.loginfo("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
+        rospy.loginfo("MoveItWrapper(): Robot Groups: %s", self.commander.get_group_names())
+        rospy.loginfo("MoveItWrapper(): Robot Group: %s", self.commander.get_group(group_name))
+        rospy.loginfo("MoveItWrapper(): Planning Frame: %s", self.commander.get_planning_frame())
+        rospy.loginfo("--- MoveGroupCommander Info ---")
+        rospy.loginfo("MoveItWrapper(): group_name: %s", group_name)
+        rospy.loginfo("MoveItWrapper(): group_ee: %s", self.group.get_end_effector_link())
+        # rospy.loginfo("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
+        rospy.loginfo("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
+        rospy.loginfo("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
+        rospy.loginfo("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s", self.group.get_goal_tolerance())
+        rospy.loginfo("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
 
     def plan_to_pose(self, pose_stamped):
-        self.group.set_pose_target(pose_stamped)
-        self.plan = self.group.plan()
+        self.group.clear_pose_targets()
+        # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - commander: %s", self.commander.get_current_state())
+        # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - group: %s", self.group.get_current_joint_values())
 
-        #display plan
+        ## http://docs.ros.org/jade/api/moveit_commander/html/classmoveit__commander_1_1move__group_1_1MoveGroupCommander.html#a55db2d061bbf73d05b9a06df7f31ea39
+        self.group.set_start_state(self.commander.get_current_state())
+        self.group.set_joint_value_target(pose_stamped)
+        self.plan = self.group.plan()
+        if not self.plan.joint_trajectory.points:
+
+            rospy.loginfo("MoveItWrapper.plan_to_pose(): No plan calculated to pose: \n %s", pose_stamped)
+            rospy.loginfo("MoveItWrapper.plan_to_pose() current state - commander: %s",
+                          self.commander.get_current_state())
+            rospy.loginfo("MoveItWrapper.plan_to_pose(): plan (not successful)\n %s", self.plan)
+            return None
+        rospy.loginfo("MoveItWrapper.plan_to_pose(): That's the plan \n %s", self.plan.joint_trajectory)
+        rospy.loginfo("MoveItWrapper.plan_to_pose(): Waiting while RVIZ displays ...")
+        rospy.sleep(5)
         display_trajectory = moveit_msgs.msg.DisplayTrajectory()
         display_trajectory.trajectory_start = self.commander.get_current_state()
         display_trajectory.trajectory.append(self.plan)
         self.display_trajectory_publisher.publish(display_trajectory)
+        rospy.loginfo("MoveItWrapper.plan_to_pose(): Waiting while RVIZ displays (again) ...")
+        rospy.sleep(5)
+
         return self.plan
 
     def move_to_pose(self):
         self.group.go(wait=True)
+
+    def convert_robot_state_for_group(self, msg):
+        joint_states = msg.joint_state
+        # rospy.loginfo("MoveItWrapper.convert_robot_state_for_group():joint_states  %s", joint_states)
+        # rospy.loginfo("MoveItWrapper.convert_robot_state_for_group():self.group.get_active_joints()  %s", self.group.get_active_joints())
+
+        positions = []
+        velocities = []
+        efforts = []
+        for name in self.group.get_active_joints():
+            idx = joint_states.name.index(name)
+            positions.append(joint_states.position[idx])
+            # velocities.append(joint_states.velocity[idx])
+            # efforts.append(joint_states.effort[idx])
+
+        group_start_state_msg = msg
+        group_start_state_msg.joint_state.name = self.group.get_active_joints()
+        group_start_state_msg.joint_state.position = positions
+        group_start_state_msg.joint_state.velocity = velocities
+        group_start_state_msg.joint_state.effort = efforts
+
+        # rospy.loginfo("MoveItWrapper.convert_robot_state_for_group():group_start_state_msg  %s", group_start_state_msg)
+
+        return group_start_state_msg
 
 #TODO
 class CartesianPlaner(object):
 
     def __init__(self):
         pass
+
+
+if __name__ == '__main__':
+    rospy.init_node("tubaf_grasping_arm", anonymous=False)
+    wrapper = MoveItWrapper()
+    wrapper.group.set_start_state_to_current_state();
+    rospy.sleep(1.0)
+    rospy.loginfo("@main current state: %s", wrapper.group.get_current_joint_values())
+
+    pose_st = geometry_msgs.msg.PoseStamped()
+    pose_st.header.frame_id = "/gripper_ur5_ee_link"
+    pose_st.pose.position.x = 0.331500108757
+    pose_st.pose.position.y = 4.63908395643e-07
+    pose_st.pose.position.z = 0.078629522774
+    pose_st.pose.orientation.x = 0.706717513364
+    pose_st.pose.orientation.y = 0.707280545264
+    pose_st.pose.orientation.z = 0.0123358400388
+    pose_st.pose.orientation.w = -0.0123455921317
+
+    wrapper.plan_to_pose(pose_st)
+    rospy.spin()
