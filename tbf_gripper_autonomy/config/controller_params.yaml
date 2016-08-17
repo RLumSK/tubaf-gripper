@@ -2,3 +2,5 @@ grasp_detection_frame: "gripper_camera_rgb_frame"
 group_name: "UR5"
 gripper_approach_vector: [-1.0, 0.0, 0.0]
 hand_server_name: "/hand/hand_action_server"
+end_effector_link: "/gripper_ur5_ee_link"
+gripper_link: "/gripper_robotiq_palm"

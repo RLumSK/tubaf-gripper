@@ -55,14 +55,14 @@ def get_param(key, def_value):
 class HAFClient(object):
 
     def __init__(self):
-        self.action_server_name = get_param("haf_server_name", "/haf_server")
+        self.action_server_name = get_param("~haf_server_name", "/haf_server")
         self.grasp_cbs = list()
 
         self.graspingcenter = geometry_msgs.msg.Point()
         self.graspingcenter.x = 0.0
         self.graspingcenter.y = 0.0
         self.graspingcenter.z = 0.0
-        tmp_graspingcenter = get_param("grasp_search_center", [0.0, 0.0, 0.0])
+        tmp_graspingcenter = get_param("~grasp_search_center", [0.0, 0.0, 0.0])
         if type(tmp_graspingcenter) == list and len(tmp_graspingcenter) == 3 and type(tmp_graspingcenter[0]) == float:
             self.graspingcenter.x = tmp_graspingcenter[0]
             self.graspingcenter.y = tmp_graspingcenter[1]
@@ -72,7 +72,7 @@ class HAFClient(object):
         self.approach_vector.x = 0.0
         self.approach_vector.y = 0.0
         self.approach_vector.z = 1.0
-        tmp_approach_vector = get_param("gripper_approach_vector", [0.0, 0.0, 1.0])
+        tmp_approach_vector = get_param("~gripper_approach_vector", [0.0, 0.0, 1.0])
         if type(tmp_approach_vector) == list and len(tmp_approach_vector) == 3 and type(tmp_approach_vector[0]) == float:
             self.approach_vector.x = tmp_approach_vector[0]
             self.approach_vector.y = tmp_approach_vector[1]
@@ -80,7 +80,7 @@ class HAFClient(object):
 
         # max limit_x 32-14 = 18, limit_y = 44-14 = 30
         self.grasp_search_size_x = get_param("~grasp_search_size_x", 18)
-        self.grasp_search_size_y = get_param("g~rasp_search_size_y", 30)
+        self.grasp_search_size_y = get_param("~grasp_search_size_y", 30)
         self.max_calculation_time = get_param("~max_calculation_time", 50)
         self.grasp_calculation_time_max = rospy.Duration(self.max_calculation_time)
         self.show_only_best_grasp = get_param("~show_only_best_grasp", True)
@@ -172,12 +172,12 @@ class HAFClient(object):
         finished_before_timeout = self.ac_haf.wait_for_result(rospy.Duration(self.grasp_search_timeout))
 
         if finished_before_timeout:
-            state = self.ac_haf.get_state()
+            # state = self.ac_haf.get_state()
             result = self.ac_haf.get_result()
             if result.graspOutput.eval <= -20:
                 rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point")
             else:
-                rospy.loginfo("HAFClient.get_grasp_cb(): Result: %s", result)
+                rospy.loginfo("HAFClient.get_grasp_cb(): Found grasp point") #  Result: %s", result)
             #rospy.loginfo("HAFClient.get_grasp_cb(): Action finished: %s", state)
         else:
             rospy.loginfo("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
@@ -304,16 +304,7 @@ class HAFClient(object):
             grasp_pose.pose.orientation = quaternion
 
             # visualize marker for debugging and development
-            # m1 = Marker(header=hdr, id=0)
-            # m2 = Marker(header=hdr, id=1)
             m3 = Marker(header=hdr, id=2, scale=geometry_msgs.msg.Vector3(0.1, 0.01, 0.005))
-            # [m1, m2] = generate_grasp_marker((grasp_pose.pose.position.x,
-            #                                   grasp_pose.pose.position.y,
-            #                                   grasp_pose.pose.position.z), orientation, m1, m2)
-            #
-            # self.marker_array.markers.append(m1)
-            # self.marker_array.markers.append(m2)
-
             m3.pose = grasp_pose.pose
             m3.color.r = 0.
             m3.color.g = 0.
