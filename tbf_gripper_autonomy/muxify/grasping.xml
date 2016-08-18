@@ -10,7 +10,7 @@
       cd
     </layout>
     <cmd pane="a">roslaunch julius robotiq_hand.launch</cmd>
-    <cmd pane="b">roslaunch tbf_gripper_autonomy hand.launch</cmd>
+    <cmd pane="b">sleep 1;roslaunch tbf_gripper_autonomy hand.launch</cmd>
     <cmd pane="c">roslaunch julius xtion_gripper.launch</cmd>
     <cmd pane="d">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
   </window>
@@ -18,7 +18,7 @@
     <layout>
       ab
     </layout>
-    <cmd pane="a">roslaunch julius ur5_modern_ros_control.launch</cmd>
+    <cmd pane="a">roslaunch julius ur5_modern_plain_driver.launch</cmd>
     <cmd pane="b">roslaunch julius moveit.launch</cmd>
   </window>
   <window name="controller" directory="~">
