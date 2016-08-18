@@ -144,8 +144,7 @@ class Controller(object):
         # box_pose = self.calc_box_pose(target_pose)
         # box_name = "one_box"
         # self.moveit_controller.attach_box(box_name, pose=target_pose, size=(0.4, 0.07, 0.25))
-
-        self.hand_controller.openHand()
+        self.hand_controller.restHand()
         origin = self.moveit_controller.get_current_joints()
         offset = 0.2  # 20 cm
         hover_pose = self.calc_pose_over_grasp_pose(grasp_pose, offset)
@@ -163,7 +162,7 @@ class Controller(object):
             else:
                 rospy.sleep(0.5)
                 rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Try to move towards hover pose again")
-
+        self.hand_controller.openHand()
         # may wait for approval
         # raw_input("Press any key to continue ...")
         if not self.moveit_controller.plan_to_pose(grasp_pose):
