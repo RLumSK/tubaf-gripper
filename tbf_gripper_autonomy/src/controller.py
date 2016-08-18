@@ -98,7 +98,7 @@ class Controller(object):
         return pose
 
     def convert_grasp_pose(self, grasp_pose):
-        ret_pose = grasp_pose
+        ret_pose = geometry_msgs.msg.PoseStamped(grasp_pose)
         now = rospy.Time.now()
         self.tf_listener.waitForTransform(self.gripper_link, self.end_effector_link, now, rospy.Duration(4))
         (t, quat_r) = self.tf_listener.lookupTransform(source_frame=self.gripper_link, target_frame=self.end_effector_link,
@@ -124,7 +124,7 @@ class Controller(object):
         return ret_pose
 
     def calc_pose_over_grasp_pose(self, pose, offset):
-        ret_pose = pose
+        ret_pose = geometry_msgs.msg.PoseStamped(pose)
         ret_pose.pose.position.x -= offset
         return ret_pose
 
