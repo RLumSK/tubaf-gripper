@@ -322,6 +322,8 @@ class HAFClient(object):
             self.marker.header = m3.header
             self.marker_pub.publish(self.marker)
 
+            grasp_pose.pose = self.marker.pose
+
             if state == actionlib.GoalStatus.SUCCEEDED:
                 for function in self.grasp_cbs:
                     rospy.loginfo("haf_client.py:HAFClient.grasp_received_cb(): passing poses")

@@ -66,25 +66,25 @@ class MoveItWrapper(object):
         self.group.set_goal_orientation_tolerance(rospy.get_param("~goal_orientation_tolerance", 0.001))
         self.group.set_goal_joint_tolerance(rospy.get_param("~goal_joint_tolerance", 0.001))
         self.group.set_goal_tolerance(rospy.get_param("~goal_tolerance", 0.001))
-        # self.group.set_planning_time(rospy.get_param("~planning_time", 30))
-        # self.group.set_num_planning_attempts(rospy.get_param("~planning_attempts", 100))
+        self.group.set_planning_time(rospy.get_param("~planning_time", 30))
+        self.group.set_num_planning_attempts(rospy.get_param("~planning_attempts", 100))
         # [minX, minY, minZ, maxX, maxY, maxZ]
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
         # Some information
-        rospy.loginfo("--- RobotCommander Info ---")
-        rospy.loginfo("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
-        rospy.loginfo("MoveItWrapper(): Robot Groups: %s", self.commander.get_group_names())
-        rospy.loginfo("MoveItWrapper(): Robot Group: %s", self.commander.get_group(group_name))
-        rospy.loginfo("MoveItWrapper(): Planning Frame: %s", self.commander.get_planning_frame())
-        rospy.loginfo("--- MoveGroupCommander Info ---")
-        rospy.loginfo("MoveItWrapper(): group_name: %s", group_name)
-        rospy.loginfo("MoveItWrapper(): group_ee: %s", self.group.get_end_effector_link())
-        # rospy.loginfo("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
-        rospy.loginfo("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
-        rospy.loginfo("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
-        rospy.loginfo("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s", self.group.get_goal_tolerance())
-        rospy.loginfo("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
+        rospy.logdebug("--- RobotCommander Info ---")
+        rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
+        rospy.logdebug("MoveItWrapper(): Robot Groups: %s", self.commander.get_group_names())
+        rospy.logdebug("MoveItWrapper(): Robot Group: %s", self.commander.get_group(group_name))
+        rospy.logdebug("MoveItWrapper(): Planning Frame: %s", self.commander.get_planning_frame())
+        rospy.logdebug("--- MoveGroupCommander Info ---")
+        rospy.logdebug("MoveItWrapper(): group_name: %s", group_name)
+        rospy.logdebug("MoveItWrapper(): group_ee: %s", self.group.get_end_effector_link())
+        # rospy.logdebug("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
+        rospy.logdebug("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
+        rospy.logdebug("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
+        rospy.logdebug("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s", self.group.get_goal_tolerance())
+        rospy.logdebug("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
 
     def plan_to_pose(self, pose_stamped):
         rospy.loginfo("MoveItWrapper.plan_to_pose(): begin planning")
@@ -100,7 +100,7 @@ class MoveItWrapper(object):
             # rospy.loginfo("MoveItWrapper.plan_to_pose(): No plan calculated to pose: \n %s", pose_stamped)
             # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - commander: %s",
             #               self.commander.get_current_state())
-            rospy.loginfo("MoveItWrapper.plan_to_pose(): plan (not successful)\n %s", self.plan)
+            # rospy.loginfo("MoveItWrapper.plan_to_pose(): plan (not successful)\n %s", self.plan)
             return None
         # rospy.loginfo("--Joint Trajectory---")
         # rospy.loginfo("%s", self.plan.joint_trajectory)
@@ -135,7 +135,7 @@ class MoveItWrapper(object):
         return self.commander.get_current_state()
 
     def move_to_pose(self):
-        self.group.go(wait=True)
+        return self.group.go(wait=True)
 
     def convert_robot_state_for_group(self, msg):
         joint_states = msg.joint_state

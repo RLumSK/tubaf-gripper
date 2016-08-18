@@ -4,10 +4,10 @@ planning_frame: "/gripper_ur5_base_link"
 planning_time: 10
 planning_attempts: 100
 goal_tolerance: 0.01
-goal_position_tolerance: 0.1
-goal_orientation_tolerance: 0.1
-goal_joint_tolerance: 0.1
-planner: "RRTConnectkConfigDefault"  # for parameter see the ompl_planning.yaml at julius_moveit
+goal_position_tolerance: 0.01
+goal_orientation_tolerance: 0.01
+goal_joint_tolerance: 0.01
+planner: "RRTstarkConfigDefault"  # for parameter see the ompl_planning.yaml at julius_moveit
 # SBLkConfigDefault
 # ESTkConfigDefault
 # LBKPIECEkConfigDefault
