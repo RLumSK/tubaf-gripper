@@ -120,7 +120,7 @@ class Controller(object):
         quat_tp = tf.transformations.quaternion_multiply(quat_tp, quat_45_rot)
         ret_pose.pose.orientation = geometry_msgs.msg.Quaternion(*quat_tp)
 
-        ret_pose.pose.position.x -= 0.07  # offset so the gripper doesn't collide
+        ret_pose.pose.position.x -= 0.10  # offset so the gripper doesn't collide
         return ret_pose
 
     def onGraspSearchCallback(self, grasp_pose):
