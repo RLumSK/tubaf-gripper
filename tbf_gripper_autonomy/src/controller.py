@@ -165,7 +165,10 @@ class Controller(object):
 
         # may wait for approval
         # raw_input("Press any key to continue ...")
-
+        if not self.moveit_controller.plan_to_pose(grasp_pose):
+            rospy.loginfo("Controller.onGraspSearchCallback(): couldn't calculate a plan, trying with next pose")
+            self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
+            return
         executed = False
         rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moving towards grasp pose ")
         while not rospy.is_shutdown() and not executed:
