@@ -45,7 +45,7 @@ class Controller(object):
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
 
     def __init__(self):
-        self.end_effector_link = rospy.get_param("end_effector_link", "gripper_ur5_ee_link")
+        self.end_effector_link = rospy.get_param("end_effector_link", "gripper_robotiq_palm")
         self.gripper_link = rospy.get_param("gripper_link", "gripper_robotiq_palm")
 
         self.haf_client = grasping.haf_client.HAFClient()
@@ -70,7 +70,7 @@ class Controller(object):
 
         # Debugging & Development tools
         self.marker = Marker()
-        self.marker_pub = rospy.Publisher("cntrl_marker", Marker, queue_size=1)
+        self.marker_pub = rospy.Publisher("/cntrl_marker", Marker, queue_size=1)
 
         self.marker.id = 1
         self.marker.ns = "controller"
@@ -84,7 +84,7 @@ class Controller(object):
         self.marker.color.g = 0.5
         self.marker.color.b = 0.5
         self.marker.color.a = 1.0
-        # self.marker_frame_id = self.gripper_link
+        self.marker_frame_id = self.end_effector_link
 
         rospy.loginfo("controller.py: Controller(): finished initialization")
 
@@ -100,85 +100,45 @@ class Controller(object):
 
     def convert_grasp_pose(self, grasp_pose):
         ret_pose = copy.deepcopy(grasp_pose)
+        ret_pose.header.frame_id = self.end_effector_link
         now = rospy.Time.now()
-        self.tf_listener.waitForTransform(self.gripper_link, self.end_effector_link, now, rospy.Duration(4))
-        (t, quat_r) = self.tf_listener.lookupTransform(source_frame=self.gripper_link, target_frame=self.end_effector_link,
-                                                  time=now)
-        # rospy.loginfo("controller.py: Controller.convert_grasp_pose(): translation: %s", t)
-        # rospy.loginfo("controller.py: Controller.convert_grasp_pose(): rotation: %s", quat_r)
 
-        ret_pose.pose.position.x += t[0]
-        ret_pose.pose.position.y += t[1]
-        ret_pose.pose.position.z += t[2]
+        self.tf_listener.waitForTransform(grasp_pose.header.frame_id, ret_pose.header.frame_id, now, rospy.Duration(4))
+        ret_pose = self.tf_listener.transformPose(ret_pose.header.frame_id, ps=grasp_pose)
+        ret_pose.pose.position.y -= 0.08
 
-        quat_gp = (grasp_pose.pose.orientation.x, grasp_pose.pose.orientation.y, grasp_pose.pose.orientation.z,
-             grasp_pose.pose.orientation.w)
-        quat_45_rot = tf.transformations.quaternion_about_axis(numpy.pi / 4.0, [1, 0, 0])
-        quat_tp = quat_gp
-        quat_90_z = tf.transformations.quaternion_about_axis(numpy.pi / 2.0, [0, 0, 1])
-        # quat_tp = tf.transformations.quaternion_multiply(quat_tp, quat_r)
-        quat_tp = tf.transformations.quaternion_multiply(quat_tp, quat_90_z)
-        quat_tp = tf.transformations.quaternion_multiply(quat_tp, quat_45_rot)
-        ret_pose.pose.orientation = geometry_msgs.msg.Quaternion(*quat_tp)
-
-        ret_pose.pose.position.x -= 0.12  # offset so the gripper doesn't collide
-        return ret_pose
-
-    def calc_pose_over_grasp_pose(self, pose, offset):
-        ret_pose = copy.deepcopy(pose)
-        ret_pose.pose.position.x -= offset
         return ret_pose
 
     def onGraspSearchCallback(self, grasp_pose):
-
+        ## Pausing Recognition
         executed = False
         rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
-        self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
+        # self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
+        # self.haf_client.unregister_pc_callback()
 
+        ## Calculating Target and Passing Pose
         target_pose = self.convert_grasp_pose(grasp_pose)
-        self.marker.pose = target_pose.pose
         self.marker.header = target_pose.header
+        self.marker.pose = target_pose.pose
         self.marker_pub.publish(self.marker)
+        # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): publishing marker: %s", self.marker)
+        # rospy.sleep(0.5)
 
         # set an object at grasp point that can collide with the end_effector
         # box_pose = self.calc_box_pose(target_pose)
         # box_name = "one_box"
         # self.moveit_controller.attach_box(box_name, pose=target_pose, size=(0.4, 0.07, 0.25))
-        self.hand_controller.restHand()
-        origin = self.moveit_controller.get_current_joints()
-        offset = 0.2  # 20 cm
-        hover_pose = self.calc_pose_over_grasp_pose(grasp_pose, offset)
-
-        if not self.moveit_controller.plan_to_pose(hover_pose):
-            rospy.loginfo("Controller.onGraspSearchCallback(): couldn't calculate a plan, trying with next pose")
-            self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
-            return
-        rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moving towards hover pose ")
-        while not rospy.is_shutdown() and not executed:
-            executed = self.moveit_controller.move_to_pose()
-            if executed:
-                rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moved to hover pose ")
-                rospy.sleep(3.0)  # wait while the gripper moves towards the pose
-            else:
-                rospy.sleep(0.5)
-                rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Try to move towards hover pose again")
         self.hand_controller.openHand()
-        # may wait for approval
-        # raw_input("Press any key to continue ...")
-        if not self.moveit_controller.plan_to_pose(grasp_pose):
-            rospy.loginfo("Controller.onGraspSearchCallback(): couldn't calculate a plan, trying with next pose")
-            self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
-            return
-        executed = False
-        rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moving towards grasp pose ")
-        while not rospy.is_shutdown() and not executed:
-            executed = self.moveit_controller.move_to_pose()
-            if executed:
-                rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moved to grasp pose ")
-                rospy.sleep(3.0)  # wait while the gripper moves towards the pose
-            else:
-                rospy.sleep(0.5)
-                rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Try to move towards grasp pose again")
+        origin = self.moveit_controller.get_current_joints()
+
+        # Move to Target
+        hover_pose = copy.deepcopy(target_pose)
+        hover_pose.pose.position.y -= 0.15
+        rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
+        self.move_to_pose(hover_pose, origin)
+        rospy.sleep(5.0)
+        rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
+        self.move_to_pose(target_pose, origin)
 
         # grasp object
         rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
@@ -187,29 +147,55 @@ class Controller(object):
 
         # lift grasped object
         # plan path towards origin
-        if not self.moveit_controller.plan_to_joints(origin):
-            # no plan calculated
-            rospy.loginfo("Controller.onGraspSearchCallback(): couldn't calculate to origin")
-            return
-        rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moving towards origin")
-        # raw_input("Press any key to continue ...")
-        executed = False
-        while not rospy.is_shutdown() and not executed:
-            executed = self.moveit_controller.move_to_pose()
-            if executed:
-                rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Moved to origin ")
-                rospy.sleep(3.0)  # wait while the gripper moves towards the pose
-            else:
-                rospy.sleep(0.5)
-                rospy.loginfo("Controller.onGraspSearchCallback(): Execution: Try to move towards origin again")
+        self.move_to_origin(origin)
 
         self.hand_controller.openHand()
         rospy.sleep(5.0)  # sleep so the hand can open
 
         # self.moveit_controller.remove_attached_object(box_name)
         rospy.loginfo("Controller.onGraspSearchCallback(): END")
+        self.haf_client.register_pc_callback()
         self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
 
+    def move_to_origin(self, origin):
+        # plan path towards origin
+        if not self.moveit_controller.plan_to_joints(origin):
+            # no plan calculated
+            rospy.loginfo("Controller.move_to_origin(): couldn't calculate to origin")
+            return
+        rospy.loginfo("Controller.move_to_origin(): Execution: Moving towards origin")
+        # raw_input("Press any key to continue ...")
+        executed = False
+        while not rospy.is_shutdown() and not executed:
+            executed = self.moveit_controller.move_to_pose()
+            if executed:
+                rospy.loginfo("Controller.move_to_origin(): Execution: Moved to origin ")
+                rospy.sleep(3.0)  # wait while the gripper moves towards the pose
+            else:
+                rospy.sleep(0.5)
+                rospy.loginfo("Controller.move_to_origin(): Execution: Try to move towards origin again")
+
+    def move_to_pose(self, pose, origin):
+        ## Planing
+        rospy.loginfo("Controller.move_to_pose(): planning")
+        if not self.moveit_controller.plan_to_pose(pose):
+            rospy.loginfo("Controller.move_to_pose(): couldn't calculate a plan")
+            self.move_to_origin(origin)
+            self.haf_client.register_pc_callback()
+            self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
+            return
+
+        ## Executing
+        executed = False
+        rospy.loginfo("Controller.move_to_pose(): Execution: Moving towards pose ")
+        while not rospy.is_shutdown() and not executed:
+            executed = self.moveit_controller.move_to_pose()
+            if executed:
+                rospy.loginfo("Controller.move_to_pose(): Execution: Moved to pose ")
+                rospy.sleep(3.0)  # wait while the gripper moves towards the pose
+            else:
+                rospy.sleep(0.5)
+                rospy.loginfo("Controller.move_to_pose(): Execution: Try to move grasp pose again")
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_controller", anonymous=False)

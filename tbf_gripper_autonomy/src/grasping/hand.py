@@ -41,6 +41,7 @@ class HandController():
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
         self.ac.wait_for_server()
         self.action_pending = False
+        self.closeHand()
 
     def closeHand(self):
         if self.action_pending:

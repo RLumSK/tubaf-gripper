@@ -124,13 +124,17 @@ class HAFClient(object):
         self.marker_pub = rospy.Publisher("grasp_marker", Marker, queue_size=1)
 
         self.marker.id = 1
-        self.marker.type = Marker.MESH_RESOURCE
-        self.marker.mesh_resource = "package://robotiq_s_model_visualization/meshes/s-model_articulated/visual/full_hand.stl"
+        self.marker.type = Marker.ARROW
+        # self.marker.type = Marker.MESH_RESOURCE
+        # self.marker.mesh_resource = "package://robotiq_s_model_visualization/meshes/s-model_articulated/visual/full_hand.stl"
         self.marker_frame_id = "/gripper_robotiq_palm"
 
-        self.marker.scale.x = 1.
-        self.marker.scale.y = 1.
-        self.marker.scale.z = 1.
+        self.marker.scale.x = 0.15
+        self.marker.scale.y = 0.06
+        self.marker.scale.z = 0.03
+        # self.marker.scale.x = 1.
+        # self.marker.scale.y = 1.
+        # self.marker.scale.z = 1.
 
         self.marker.color.r = 0.1
         self.marker.color.g = 0.1
@@ -314,15 +318,13 @@ class HAFClient(object):
             # self.marker_array.markers.append(m3)
             # self.marker_array_pub.publish(self.marker_array)
 
-            o2 = tf.transformations.quaternion_about_axis(-1.0*numpy.pi/2.0, [0, 0, 1])
+            # o2 = tf.transformations.quaternion_about_axis(-1.0*numpy.pi/2.0, [0, 0, 1])
 
             self.marker.pose = m3.pose
-            self.marker.pose.orientation = geometry_msgs.msg.Quaternion(
-                *tf.transformations.quaternion_multiply(orientation, o2))
+            # self.marker.pose.orientation = geometry_msgs.msg.Quaternion(
+            #     *tf.transformations.quaternion_multiply(orientation, o2))
             self.marker.header = m3.header
             self.marker_pub.publish(self.marker)
-
-            grasp_pose.pose = self.marker.pose
 
             if state == actionlib.GoalStatus.SUCCEEDED:
                 for function in self.grasp_cbs:

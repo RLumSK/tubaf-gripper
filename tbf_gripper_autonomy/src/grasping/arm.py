@@ -68,6 +68,8 @@ class MoveItWrapper(object):
         self.group.set_goal_tolerance(rospy.get_param("~goal_tolerance", 0.001))
         self.group.set_planning_time(rospy.get_param("~planning_time", 30))
         self.group.set_num_planning_attempts(rospy.get_param("~planning_attempts", 100))
+        self.group.allow_looking(rospy.get_param("~allow_looking", False))
+        self.group.allow_replanning(rospy.get_param("~allow_replanning", False))
         # [minX, minY, minZ, maxX, maxY, maxZ]
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
@@ -131,10 +133,19 @@ class MoveItWrapper(object):
         rospy.loginfo("MoveItWrapper.plan_to_joints(): end planning successful")
         return self.plan
 
+    def plan_cartesian(self, waypoints):
+        # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html#cartesian-paths
+        self.group.clear_pose_targets()
+        waypoints.insert(0, self.group.get_current_pose().pose)
+        (aPlan, fraction) = self.group.compute_cartesian_path(waypoints=waypoints, eef_step=0.01, jump_threshold=0.0)
+        self.plan = aPlan
+        return self.plan
+
     def get_current_joints(self):
         return self.commander.get_current_state()
 
     def move_to_pose(self):
+        raw_input("Press any key to continue ...")
         return self.group.go(wait=True)
 
     def convert_robot_state_for_group(self, msg):
