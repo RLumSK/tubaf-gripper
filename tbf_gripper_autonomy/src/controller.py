@@ -133,7 +133,7 @@ class Controller(object):
         hover_pose.pose.position.x -= 0.24  # double finger length
         rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
         self.move_to_pose(hover_pose, origin)
-        return
+
         rospy.sleep(5.0)
         rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
         self.move_to_pose(target_pose, origin)
