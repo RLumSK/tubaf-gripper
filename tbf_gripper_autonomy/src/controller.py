@@ -45,8 +45,7 @@ class Controller(object):
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
 
     def __init__(self):
-        self.end_effector_link = rospy.get_param("end_effector_link", "gripper_robotiq_palm")
-        self.gripper_link = rospy.get_param("gripper_link", "gripper_robotiq_palm")
+        self.end_effector_link = rospy.get_param("end_effector_link", "gripper_robotiq_palm_planning")
 
         self.haf_client = grasping.haf_client.HAFClient()
         rospy.loginfo("controller.py: Controller(): initilized HAF client")
@@ -105,16 +104,14 @@ class Controller(object):
 
         self.tf_listener.waitForTransform(grasp_pose.header.frame_id, ret_pose.header.frame_id, now, rospy.Duration(4))
         ret_pose = self.tf_listener.transformPose(ret_pose.header.frame_id, ps=grasp_pose)
-        ret_pose.pose.position.y -= 0.08
-
+        ret_pose.pose.position.x -= 0.08
         return ret_pose
 
     def onGraspSearchCallback(self, grasp_pose):
         ## Pausing Recognition
-        executed = False
         rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
-        # self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
-        # self.haf_client.unregister_pc_callback()
+        self.haf_client.remove_grasp_cb_function(self.onGraspSearchCallback)
+        self.haf_client.unregister_pc_callback()
 
         ## Calculating Target and Passing Pose
         target_pose = self.convert_grasp_pose(grasp_pose)
@@ -133,7 +130,7 @@ class Controller(object):
 
         # Move to Target
         hover_pose = copy.deepcopy(target_pose)
-        hover_pose.pose.position.y -= 0.15
+        hover_pose.pose.position.x -= 0.15
         rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
         self.move_to_pose(hover_pose, origin)
         rospy.sleep(5.0)
