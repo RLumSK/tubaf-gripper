@@ -1,4 +1,4 @@
-grasp_search_center: [0.9, 0.0 , -0.05]
+#grasp_search_center: [0.9, 0.0 , -0.05]
 gripper_approach_vector: [-1.0, 0.0, 0.0]
 grasp_search_size_x: 50
 grasp_search_size_y: 50

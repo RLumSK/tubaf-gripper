@@ -103,7 +103,7 @@ class MoveItWrapper(object):
             # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - commander: %s",
             #               self.commander.get_current_state())
             # rospy.loginfo("MoveItWrapper.plan_to_pose(): plan (not successful)\n %s", self.plan)
-            return None
+            return False
         # rospy.loginfo("--Joint Trajectory---")
         # rospy.loginfo("%s", self.plan.joint_trajectory)
         # rospy.loginfo("---------------------")
@@ -113,7 +113,7 @@ class MoveItWrapper(object):
         display_trajectory.trajectory.append(self.plan)
         self.display_trajectory_publisher.publish(display_trajectory)
         rospy.loginfo("MoveItWrapper.plan_to_pose(): end planning successful")
-        return self.plan
+        return self.plan is not None
 
     def plan_to_joints(self, rbt_state_msg):
         rospy.loginfo("MoveItWrapper.plan_to_joints(): start planning")
@@ -131,7 +131,7 @@ class MoveItWrapper(object):
         display_trajectory.trajectory.append(self.plan)
         self.display_trajectory_publisher.publish(display_trajectory)
         rospy.loginfo("MoveItWrapper.plan_to_joints(): end planning successful")
-        return self.plan
+        return self.plan is not None
 
     def plan_cartesian(self, waypoints):
         # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html#cartesian-paths
@@ -139,14 +139,18 @@ class MoveItWrapper(object):
         waypoints.insert(0, self.group.get_current_pose().pose)
         (aPlan, fraction) = self.group.compute_cartesian_path(waypoints=waypoints, eef_step=0.01, jump_threshold=0.0)
         self.plan = aPlan
-        return self.plan
+        return self.plan is not None
 
     def get_current_joints(self):
         return self.commander.get_current_state()
 
     def move_to_pose(self):
-        raw_input("Press any key to continue ...")
-        return self.group.go(wait=True)
+        rospy.loginfo("MoveItWrapper.move_to_pose(): Plan:\n%s", self.plan)
+        answer = raw_input("Continue? (y/n) ...")
+        if answer == 'y':
+            return self.group.go(wait=True)
+        else:
+            return False
 
     def convert_robot_state_for_group(self, msg):
         joint_states = msg.joint_state

@@ -86,6 +86,7 @@ class HAFClient(object):
         self.show_only_best_grasp = get_param("~show_only_best_grasp", True)
         self.base_frame_default = get_param("~base_frame_default", "gripper_camera_rgb_frame")
         self.gripper_opening_width = get_param("~gripper_width", 0.1)
+        self.grasp_offset = get_param("~grasp_offset", 0.01)
 
         self.input_pc_topic = get_param("~input_pc_topic", "/gripper_camera/depth_registered/points")
         self.pc_sub = None
@@ -291,7 +292,7 @@ class HAFClient(object):
             position_vec = [result.graspOutput.averagedGraspPoint.x, result.graspOutput.averagedGraspPoint.y,
                             result.graspOutput.averagedGraspPoint.z]
 
-            orientation = tf.transformations.quaternion_about_axis(-1*result.graspOutput.roll, approach_vec)
+            orientation = tf.transformations.quaternion_about_axis(1*result.graspOutput.roll+numpy.pi/2.0, approach_vec)
             quaternion = geometry_msgs.msg.Quaternion(*orientation)
 
             norm_approach = [element / tf.transformations.vector_norm(approach_vec) for element in approach_vec]
@@ -302,9 +303,9 @@ class HAFClient(object):
             hdr.frame_id = result.graspOutput.header.frame_id
 
             grasp_pose = geometry_msgs.msg.PoseStamped(header=hdr)
-            grasp_pose.pose.position.x = position_vec[0] + norm_approach[0] * gripper_offset
-            grasp_pose.pose.position.y = position_vec[1] + norm_approach[1] * gripper_offset
-            grasp_pose.pose.position.z = position_vec[2] + norm_approach[2] * gripper_offset
+            grasp_pose.pose.position.x = position_vec[0] + norm_approach[0] * self.grasp_offset
+            grasp_pose.pose.position.y = position_vec[1] + norm_approach[1] * self.grasp_offset
+            grasp_pose.pose.position.z = position_vec[2] + norm_approach[2] * self.grasp_offset
             grasp_pose.pose.orientation = quaternion
 
             # visualize marker for debugging and development

@@ -104,7 +104,6 @@ class Controller(object):
 
         self.tf_listener.waitForTransform(grasp_pose.header.frame_id, ret_pose.header.frame_id, now, rospy.Duration(4))
         ret_pose = self.tf_listener.transformPose(ret_pose.header.frame_id, ps=grasp_pose)
-        ret_pose.pose.position.x -= 0.08
         return ret_pose
 
     def onGraspSearchCallback(self, grasp_pose):
@@ -126,13 +125,15 @@ class Controller(object):
         # box_name = "one_box"
         # self.moveit_controller.attach_box(box_name, pose=target_pose, size=(0.4, 0.07, 0.25))
         self.hand_controller.openHand()
+        rospy.sleep(1.0)
         origin = self.moveit_controller.get_current_joints()
 
         # Move to Target
         hover_pose = copy.deepcopy(target_pose)
-        hover_pose.pose.position.x -= 0.15
+        hover_pose.pose.position.x -= 0.24  # double finger length
         rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
         self.move_to_pose(hover_pose, origin)
+        return
         rospy.sleep(5.0)
         rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
         self.move_to_pose(target_pose, origin)
@@ -177,11 +178,11 @@ class Controller(object):
         rospy.loginfo("Controller.move_to_pose(): planning")
         if not self.moveit_controller.plan_to_pose(pose):
             rospy.loginfo("Controller.move_to_pose(): couldn't calculate a plan")
-            self.move_to_origin(origin)
+            if origin is not None:
+                self.move_to_origin(origin)
             self.haf_client.register_pc_callback()
             self.haf_client.add_grasp_cb_function(self.onGraspSearchCallback)
             return
-
         ## Executing
         executed = False
         rospy.loginfo("Controller.move_to_pose(): Execution: Moving towards pose ")
