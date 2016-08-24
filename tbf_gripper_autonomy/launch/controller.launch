@@ -4,5 +4,6 @@
     <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/controller_params.yaml"/>
     <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/haf_client_params.yaml"/>
     <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
+    <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
   </node>
 </launch>

@@ -39,6 +39,7 @@ class HandController():
         # rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
         self.ac = actionlib.SimpleActionClient(server_name, tbf_gripper_hand.msg.RobotiqGripperAction)
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
+        self.hand_mode = rospy.get_param("~hand_mode", "Basic")
         self.ac.wait_for_server()
         self.action_pending = False
         self.closeHand()
@@ -53,7 +54,7 @@ class HandController():
         # int32 position
         # int32 speed
         # int32 force
-        goal.mode = "Basic"
+        goal.mode = self.hand_mode
         goal.position = 240
         goal.speed = 50
         goal.force = 200
@@ -75,7 +76,7 @@ class HandController():
         # int32 position
         # int32 speed
         # int32 force
-        goal.mode = "Basic"
+        goal.mode = self.hand_mode
         goal.position = 0
         goal.speed = 50
         goal.force = 200
@@ -97,7 +98,7 @@ class HandController():
         # int32 position
         # int32 speed
         # int32 force
-        goal.mode = "Basic"
+        goal.mode = self.hand_mode
         goal.position = 100
         goal.speed = 50
         goal.force = 0

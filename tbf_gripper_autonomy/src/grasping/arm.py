@@ -73,6 +73,7 @@ class MoveItWrapper(object):
         # [minX, minY, minZ, maxX, maxY, maxZ]
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
+
         # Some information
         rospy.logdebug("--- RobotCommander Info ---")
         rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
@@ -96,6 +97,7 @@ class MoveItWrapper(object):
 
         ## http://docs.ros.org/jade/api/moveit_commander/html/classmoveit__commander_1_1move__group_1_1MoveGroupCommander.html#a55db2d061bbf73d05b9a06df7f31ea39
         self.group.set_start_state(self.commander.get_current_state())
+        # rospy.loginfo("MoveItWrapper.plan_to_pose() pose_stamped: %s", pose_stamped)
         self.group.set_joint_value_target(pose_stamped)
         self.plan = self.group.plan()
         if not self.plan.joint_trajectory.points:
@@ -107,7 +109,6 @@ class MoveItWrapper(object):
         # rospy.loginfo("--Joint Trajectory---")
         # rospy.loginfo("%s", self.plan.joint_trajectory)
         # rospy.loginfo("---------------------")
-        rospy.sleep(5)
         display_trajectory = moveit_msgs.msg.DisplayTrajectory()
         display_trajectory.trajectory_start = self.commander.get_current_state()
         display_trajectory.trajectory.append(self.plan)
@@ -124,7 +125,6 @@ class MoveItWrapper(object):
         self.group.set_joint_value_target(dct_joint_states)
         # rospy.loginfo("MoveItWrapper.plan_to_joints(): plan to:\n %s", dct_joint_states)
         self.plan = self.group.plan()
-        rospy.sleep(5)
         # rospy.loginfo("MoveItWrapper.plan_to_joints(): That's the plan \n %s", self.plan.joint_trajectory)
         display_trajectory = moveit_msgs.msg.DisplayTrajectory()
         display_trajectory.trajectory_start = self.commander.get_current_state()
@@ -145,8 +145,8 @@ class MoveItWrapper(object):
         return self.commander.get_current_state()
 
     def move_to_pose(self):
-        rospy.loginfo("MoveItWrapper.move_to_pose(): Plan:\n%s", self.plan)
-        answer = raw_input("Continue? (y/n) ...")
+        # rospy.loginfo("MoveItWrapper.move_to_pose(): Plan:\n%s", self.plan)
+        answer = raw_input("MoveItWrapper: Move to given pose? (y/n) ...")
         if answer == 'y':
             return self.group.go(wait=True)
         else:

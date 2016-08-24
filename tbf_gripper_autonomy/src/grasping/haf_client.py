@@ -32,7 +32,7 @@ import os
 import rospy
 import actionlib
 import tf.transformations
-import numpy
+import copy
 
 import geometry_msgs.msg
 import haf_grasping.msg
@@ -156,7 +156,7 @@ class HAFClient(object):
 
     #Service Callbacks
     def get_grasp_cb(self, msg):
-        rospy.loginfo("HAFClient.get_grasp_cb(): point cloud received")
+        # rospy.loginfo("HAFClient.get_grasp_cb(): point cloud received")
         #rospy.loginfo("HAFClient.get_grasp_cb(): Waiting for action server to start.")
         self.ac_haf.wait_for_server()
         #rospy.loginfo("HAFClient.get_grasp_cb(): Action server started, sending goal.")
@@ -172,7 +172,8 @@ class HAFClient(object):
         goal.graspinput.gripper_opening_width = self.gripper_opening_width
         goal.graspinput.goal_frame_id = self.base_frame_default# msg.header.frame_id
 
-        self.ac_haf.send_goal(goal, done_cb=self.grasp_received_cb)
+        self.ac_haf.send_goal(goal, done_cb=self.grasp_received_cb, active_cb=self.grasp_calculation_active_cb,
+                              feedback_cb=self.grasp_feedback_cb)
 
         finished_before_timeout = self.ac_haf.wait_for_result(rospy.Duration(self.grasp_search_timeout))
 
@@ -181,11 +182,11 @@ class HAFClient(object):
             result = self.ac_haf.get_result()
             if result.graspOutput.eval <= -20:
                 rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point")
-            else:
-                rospy.loginfo("HAFClient.get_grasp_cb(): Found grasp point") #  Result: %s", result)
+            # else:
+                # rospy.loginfo("HAFClient.get_grasp_cb(): Found grasp point") #  Result: %s", result)
             #rospy.loginfo("HAFClient.get_grasp_cb(): Action finished: %s", state)
-        else:
-            rospy.loginfo("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
+        # else:
+            # rospy.loginfo("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
         self.rate.sleep()
 
     # Parameter Services Callbacks
@@ -283,7 +284,7 @@ class HAFClient(object):
 
     # Grasp Calculation Action Server Callbacks
     def grasp_received_cb(self, state, result):
-        #HAFClient.logresult(state, result)
+        # HAFClient.logresult(state, result)
         if self.evaluate_grasp_result(result):
             del self.marker_array.markers[:]
             approach_vec = [result.graspOutput.approachVector.x, result.graspOutput.approachVector.y,
@@ -292,11 +293,10 @@ class HAFClient(object):
             position_vec = [result.graspOutput.averagedGraspPoint.x, result.graspOutput.averagedGraspPoint.y,
                             result.graspOutput.averagedGraspPoint.z]
 
-            orientation = tf.transformations.quaternion_about_axis(1*result.graspOutput.roll+numpy.pi/2.0, approach_vec)
+            orientation = tf.transformations.quaternion_about_axis(1*result.graspOutput.roll, approach_vec) # +numpy.pi/4.0
             quaternion = geometry_msgs.msg.Quaternion(*orientation)
 
             norm_approach = [element / tf.transformations.vector_norm(approach_vec) for element in approach_vec]
-            gripper_offset = 0.1
 
             hdr = std_msgs.msg.Header()
             hdr.stamp = rospy.Time.now()
@@ -309,8 +309,11 @@ class HAFClient(object):
             grasp_pose.pose.orientation = quaternion
 
             # visualize marker for debugging and development
-            m3 = Marker(header=hdr, id=2, scale=geometry_msgs.msg.Vector3(0.1, 0.01, 0.005))
-            m3.pose = grasp_pose.pose
+            m3 = Marker(header=hdr, id=2, scale=geometry_msgs.msg.Vector3(0.05, 0.01, 0.005))
+            m3.pose = copy.deepcopy(grasp_pose.pose)
+            m3.pose.position.x = position_vec[0]
+            m3.pose.position.y = position_vec[1]
+            m3.pose.position.z = position_vec[2]
             m3.color.r = 0.
             m3.color.g = 0.
             m3.color.b = 1.
@@ -329,15 +332,17 @@ class HAFClient(object):
 
             if state == actionlib.GoalStatus.SUCCEEDED:
                 for function in self.grasp_cbs:
-                    rospy.loginfo("haf_client.py:HAFClient.grasp_received_cb(): passing poses")
+                    # rospy.loginfo("haf_client.py:HAFClient.grasp_received_cb(): passing poses")
                     function(grasp_pose)
                 pass
 
     def grasp_calculation_active_cb(self):
-        rospy.loginfo("HAFClient.grasp_calculation_active_cb(): alive")
+        # rospy.loginfo("HAFClient.grasp_calculation_active_cb(): alive")
+        pass
 
     def grasp_feedback_cb(self, feedback):
-        rospy.loginfo("HAFClient.grasp_feedback_cb(): feedback[%s] = %s", type(feedback), feedback)
+        # rospy.loginfo("HAFClient.grasp_feedback_cb(): feedback[%s] = %s", type(feedback), feedback)
+        pass
 
     def changeMarker(self, feedback):
         rospy.loginfo("HAFClient.changeMarker(): marker changed")
