@@ -295,7 +295,7 @@ class HAFClient(object):
         # result.graspOutput: 55     0.07 0.08 0.158921   0.07 0.02 0.158921     0 0 1     0.07 0.05 0.158921 90
         #                      |      |     |    |          |    |      |        | | |      |     |     |      |
         #                     val gp1(x,    y,   z)     gp2(x,   y,     z )   av(x,y,z) gcp(x,    y,    z)    roll
-        self.grasp_quality_threshold = get_param("grasp_quality_threshold", self.grasp_quality_threshold)  # worst [-20, 99] best
+        self.grasp_quality_threshold = rospy.get_param("~grasp_quality_threshold", self.grasp_quality_threshold)  # worst [-20, 99] best
         if result.graspOutput.eval >= self.grasp_quality_threshold:
             return True
         else:
