@@ -1,0 +1,23 @@
+<launch>
+  <arg name="default_marker_size" default="0.05"/>
+  <arg name="max_new_marker_error" default="0.08"/>
+  <arg name="max_track_error" default="0.2"/>
+
+  <arg name="cam_image_topic" default="/camera/depth_registered/points"/>
+  <arg name="cam_info_topic" default="/camera/rgb/camera_info"/>
+  <arg name="output_frame" default="/camera_link"/>
+
+  <node name="ar_track_alvar" pkg="ar_track_alvar" type="dynamicIndividualMarkers" respawn="false" output="screen">
+    <param name="default_marker_size" value="$(arg default_marker_size)"/>
+    <param name="max_new_marker_error" value="$(arg max_new_marker_error)"/>
+    <param name="max_track_error" value="$(arg max_track_error)"/>
+    <param name="cam_image_topic" value="$(arg cam_image_topic)"/>
+    <param name="cam_info_topic" value="$(arg cam_info_topic)"/>
+    <param name="output_frame" value="$(arg output_frame)"/>
+    <rosparam>
+      marker_sizes:
+        id_20: 0.1
+        id_22: 0.07
+    </rosparam>
+  </node>
+</launch>

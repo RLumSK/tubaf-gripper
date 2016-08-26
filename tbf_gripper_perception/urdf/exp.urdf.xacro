@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="norose">
+  <property name="M_PI" value="3.1415926535897931"/>
+
+  <link name="base_link">
+  </link>
+
+  <xacro:include filename="$(find tubaf_common)/urdf/sensors/xtion_pro_live.urdf.xacro"/>
+
+  <!--add left xtion relative to the pre-mount-link-->
+  <xtion_camera name="camera" parent="base_link"
+                xyz="0  0  0.1" rpy="0 0 0"/>
+
+
+</robot>
