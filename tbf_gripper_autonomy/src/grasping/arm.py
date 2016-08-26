@@ -120,7 +120,11 @@ class MoveItWrapper(object):
         ## http://docs.ros.org/jade/api/moveit_commander/html/classmoveit__commander_1_1move__group_1_1MoveGroupCommander.html#a55db2d061bbf73d05b9a06df7f31ea39
         self.group.set_start_state(self.commander.get_current_state())
         rospy.logdebug("MoveItWrapper.plan_to_pose() pose_stamped: %s", pose_stamped)
-        self.group.set_joint_value_target(pose_stamped)
+        try:
+            self.group.set_joint_value_target(pose_stamped)
+        except:
+            rospy.logerr("MoveItWrapper.plan_to_pose(): No plan calculated as given pose couldn't be set as target")
+            return False
         self.plan = self.group.plan()
         if not self.plan.joint_trajectory.points:
             rospy.logdebug("MoveItWrapper.plan_to_pose(): No plan calculated to pose: \n %s", pose_stamped)
