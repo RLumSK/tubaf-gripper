@@ -40,11 +40,25 @@ import grasping.arm
 
 from visualization_msgs.msg import *
 
+"""@package grasping
+This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
+camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
+then manages to grasp the object by making use of MoveIt! and a HandController.
+@author: Steve Grehl
+"""
+
 
 class Controller(object):
+    """
+    Controller that handles a grasping/ pick up task. It does so by using a haf_graspin-Client, MoveIt-Wrapper and
+    HandController. their functionalies are utilized to solve the grasping task.
+    """
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
 
     def __init__(self):
+        """
+        Default constructor that loads parameter from the parameter server, register callbacks and publisher
+        """
         self.end_effector_link = rospy.get_param("end_effector_link", "gripper_robotiq_palm_planning")
 
         self.haf_client = grasping.haf_client.HAFClient()
@@ -66,10 +80,16 @@ class Controller(object):
         self.marker_id = 1
         self.marker_pub = rospy.Publisher("/cntrl_marker", Marker, queue_size=1)
 
-
         rospy.loginfo("controller.py: Controller(): finished initialization")
 
     def convert_grasp_pose(self, grasp_pose):
+        """
+        Converts a given pose from the camera to the end-effector frame, used for planing in MoveIt!
+        :param grasp_pose: pose of the object to grasp in camera_frame
+        :type grasp_pose: PoseStamped
+        :return: grasping pose in end-effector frame (last element of the kinematic chain)
+        :rtype: PoseStamped
+        """
         ret_pose = copy.deepcopy(grasp_pose)
         ret_pose.header.frame_id = "base_link"
         now = rospy.Time.now()
@@ -79,6 +99,13 @@ class Controller(object):
         return ret_pose
 
     def show_marker(self, pose_stamped):
+        """
+        Visualize a marker at the given pose in rviz by publishing
+        :param pose_stamped: pose where the marker should be published
+        :type pose_stamped: PoseStamped
+        :return: -
+        :rtype: -
+        """
         a_marker = Marker()
         a_marker.header = pose_stamped.header
         a_marker.pose = pose_stamped.pose
@@ -96,7 +123,14 @@ class Controller(object):
         self.marker_pub.publish(a_marker)
 
     def grasp_at_pose(self, grasp_pose):
-        # Pausing Recognition
+        """
+        Callback function for a given grasp pose - Here is the logic and schedule stored, the main functionality is here
+        :param grasp_pose: pose for the gripper in order to grasp the object
+        :type grasp_pose: PoseStamped
+        :return: -
+        :rtype: -
+        """
+        # Pausing Recognition?
         # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
         self.haf_client.remove_grasp_cb_function(self.grasp_at_pose)
         self.haf_client.unregister_pc_callback()
@@ -153,9 +187,16 @@ class Controller(object):
                 hand_closed = False
             else:
                  rospy.sleep(3.0)  # sleep so the hand can open
-
+        self.hand_controller.restHand()
 
     def move_to_origin(self, origin):
+        """
+        Move the arm to the given joint set, that is assumed to be the origin of the gripper
+        :param origin: joints
+        :type origin: JointState
+        :return: -
+        :rtype: -
+        """
         # plan path towards origin
         if not self.moveit_controller.plan_to_joints(origin):
             # no plan calculated
@@ -174,6 +215,15 @@ class Controller(object):
                 rospy.loginfo("Controller.move_to_origin(): Execution: Try to move towards origin again")
 
     def move_to_pose(self, pose, origin):
+        """
+        Move the arm to a given pose, if any error occurs or no plan can be found hold the origin for recovery
+        :param pose: desired pose of the end-effector (defined by the group in the srdf)
+        :type pose: PoseStamped
+        :param origin: joint states of the origin
+        :type origin: JointState
+        :return: return if the pose could be reached within the tolerances (after execution)
+        :rtype: Boolean
+        """
         # Planing
         rospy.loginfo("Controller.move_to_pose(): planning")
         while not self.moveit_controller.plan_to_pose(pose):

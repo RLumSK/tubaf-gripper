@@ -35,9 +35,25 @@ import moveit_msgs.msg
 import geometry_msgs.msg
 import rosnode
 
+"""@package grasping
+This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
+camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
+then manages to grasp the object by making use of MoveIt! and a HandController.
+@author: Steve Grehl
+"""
+
+
 class MoveItWrapper(object):
-# see: http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html
+    """
+    This class wrappes the MoveIt! functionalities for a real world robot. An impression how the functions can be called
+    is given at this website:
+    http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html
+    """
     def __init__(self):
+        """
+        Default constructor - Start all what MoveIt needs (PlanningScene, RobotCommander, MoveGroupCommander) using the
+        parameters from the parameter server
+        """
         # we have to load the arm_prefix from our urdf file into the namespace of an anonymous node started
         # by moveit_commander. Therefore we get all the nodes previous and after its start and select the
         # 'move_group_commander_wrappers_' and pass the parameter into its namespace.
@@ -73,7 +89,6 @@ class MoveItWrapper(object):
         # [minX, minY, minZ, maxX, maxY, maxZ]
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
-
         # Some information
         rospy.logdebug("--- RobotCommander Info ---")
         rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
@@ -83,49 +98,64 @@ class MoveItWrapper(object):
         rospy.logdebug("--- MoveGroupCommander Info ---")
         rospy.logdebug("MoveItWrapper(): group_name: %s", group_name)
         rospy.logdebug("MoveItWrapper(): group_ee: %s", self.group.get_end_effector_link())
-        # rospy.logdebug("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
+        rospy.logdebug("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
         rospy.logdebug("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
         rospy.logdebug("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
         rospy.logdebug("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s", self.group.get_goal_tolerance())
         rospy.logdebug("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
 
     def plan_to_pose(self, pose_stamped):
+        """
+        Plan the movement to a given pose starting at the current joints
+        :param pose_stamped: target pose for the end effector
+        :type pose_stamped: PoseStamped
+        :return: return if a plan could be calculated successful
+        :rtype: Boolean
+        """
         rospy.loginfo("MoveItWrapper.plan_to_pose(): begin planning")
         self.group.clear_pose_targets()
-        # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - commander: %s", self.commander.get_current_state())
-        # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - group: %s", self.group.get_current_joint_values())
+        rospy.logdebug("MoveItWrapper.plan_to_pose() current state - commander: %s", self.commander.get_current_state())
+        rospy.logdebug("MoveItWrapper.plan_to_pose() current state - group: %s", self.group.get_current_joint_values())
 
         ## http://docs.ros.org/jade/api/moveit_commander/html/classmoveit__commander_1_1move__group_1_1MoveGroupCommander.html#a55db2d061bbf73d05b9a06df7f31ea39
         self.group.set_start_state(self.commander.get_current_state())
-        # rospy.loginfo("MoveItWrapper.plan_to_pose() pose_stamped: %s", pose_stamped)
+        rospy.logdebug("MoveItWrapper.plan_to_pose() pose_stamped: %s", pose_stamped)
         self.group.set_joint_value_target(pose_stamped)
         self.plan = self.group.plan()
         if not self.plan.joint_trajectory.points:
-            # rospy.loginfo("MoveItWrapper.plan_to_pose(): No plan calculated to pose: \n %s", pose_stamped)
-            # rospy.loginfo("MoveItWrapper.plan_to_pose() current state - commander: %s",
-            #               self.commander.get_current_state())
-            # rospy.loginfo("MoveItWrapper.plan_to_pose(): plan (not successful)\n %s", self.plan)
+            rospy.logdebug("MoveItWrapper.plan_to_pose(): No plan calculated to pose: \n %s", pose_stamped)
+            rospy.logdebug("MoveItWrapper.plan_to_pose() current state - commander: %s",
+                          self.commander.get_current_state())
+            rospy.logdebug("MoveItWrapper.plan_to_pose(): plan (not successful)\n %s", self.plan)
             return False
-        # rospy.loginfo("--Joint Trajectory---")
-        # rospy.loginfo("%s", self.plan.joint_trajectory)
-        # rospy.loginfo("---------------------")
-        display_trajectory = moveit_msgs.msg.DisplayTrajectory()
-        display_trajectory.trajectory_start = self.commander.get_current_state()
-        display_trajectory.trajectory.append(self.plan)
-        self.display_trajectory_publisher.publish(display_trajectory)
+        else:
+            rospy.logdebug("--Joint Trajectory---")
+            rospy.logdebug("%s", self.plan.joint_trajectory)
+            rospy.logdebug("---------------------")
+            display_trajectory = moveit_msgs.msg.DisplayTrajectory()
+            display_trajectory.trajectory_start = self.commander.get_current_state()
+            display_trajectory.trajectory.append(self.plan)
+            self.display_trajectory_publisher.publish(display_trajectory)
         rospy.loginfo("MoveItWrapper.plan_to_pose(): end planning successful")
         return self.plan is not None
 
     def plan_to_joints(self, rbt_state_msg):
+        """
+        Plan the movement to a given joint states starting at the current joints
+        :param rbt_state_msg: target joint state
+        :type rbt_state_msg: JointState
+        :return: return if a plan could be calculated successful
+        :rtype: Boolean
+        """
         rospy.loginfo("MoveItWrapper.plan_to_joints(): start planning")
         self.group.clear_pose_targets()
         self.group.set_start_state(self.commander.get_current_state())
         joint_states = self.convert_robot_state_for_group(rbt_state_msg)
-        dct_joint_states = self.convert_joint_states_to_dict(joint_states)
+        dct_joint_states = MoveItWrapper.convert_joint_states_to_dict(joint_states)
         self.group.set_joint_value_target(dct_joint_states)
-        # rospy.loginfo("MoveItWrapper.plan_to_joints(): plan to:\n %s", dct_joint_states)
+        rospy.logdebug("MoveItWrapper.plan_to_joints(): plan to:\n %s", dct_joint_states)
         self.plan = self.group.plan()
-        # rospy.loginfo("MoveItWrapper.plan_to_joints(): That's the plan \n %s", self.plan.joint_trajectory)
+        rospy.logdebug("MoveItWrapper.plan_to_joints(): That's the plan \n %s", self.plan.joint_trajectory)
         display_trajectory = moveit_msgs.msg.DisplayTrajectory()
         display_trajectory.trajectory_start = self.commander.get_current_state()
         display_trajectory.trajectory.append(self.plan)
@@ -134,6 +164,13 @@ class MoveItWrapper(object):
         return self.plan is not None
 
     def plan_cartesian(self, waypoints):
+        """
+        UNSTABLE - Set a path of cartesian waypoints for the end effector as planing target
+        :param waypoints: list of waypoints of the end effector
+        :type waypoints: list of Pose
+        :return: if a plan could be calculated successful
+        :rtype: Boolean
+        """
         # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html#cartesian-paths
         self.group.clear_pose_targets()
         waypoints.insert(0, self.group.get_current_pose().pose)
@@ -142,10 +179,21 @@ class MoveItWrapper(object):
         return self.plan is not None
 
     def get_current_joints(self):
+        """
+        Give the current joint state of the arm
+        :return: current joint state of the arm
+        :rtype: JointState
+        """
         return self.commander.get_current_state()
 
     def move_to_pose(self):
-        # rospy.loginfo("MoveItWrapper.move_to_pose(): Plan:\n%s", self.plan)
+        """
+        Move the arm according to the previous calculated plan. This function should be blocking until the plan is
+        fulfilled or an error occurs
+        :return: if the plan could be executed successful
+        :rtype: Boolean
+        """
+        rospy.logdebug("MoveItWrapper.move_to_pose(): Plan:\n%s", self.plan)
         answer = raw_input("MoveItWrapper: Move to given pose? (y/n) ...")
         if answer == 'y':
             return self.group.go(wait=True)
@@ -153,9 +201,16 @@ class MoveItWrapper(object):
             return False
 
     def convert_robot_state_for_group(self, msg):
+        """
+        The joint state of the whole robot is parsed for the joints of the arm (resp. planing group)
+        :param msg: joint states of the robot
+        :type msg: JointState
+        :return: joint states of the arm
+        :rtype: JointState
+        """
         joint_states = msg.joint_state
-        # rospy.loginfo("MoveItWrapper.convert_robot_state_for_group():joint_states  %s", joint_states)
-        # rospy.loginfo("MoveItWrapper.convert_robot_state_for_group():self.group.get_active_joints()  %s", self.group.get_active_joints())
+        rospy.logdebug("MoveItWrapper.convert_robot_state_for_group():joint_states  %s", joint_states)
+        rospy.logdebug("MoveItWrapper.convert_robot_state_for_group():self.group.get_active_joints()  %s", self.group.get_active_joints())
 
         positions = []
         velocities = []
@@ -172,24 +227,53 @@ class MoveItWrapper(object):
         group_start_state_msg.joint_state.velocity = velocities
         group_start_state_msg.joint_state.effort = efforts
 
-        # rospy.loginfo("MoveItWrapper.convert_robot_state_for_group():group_start_state_msg  %s", group_start_state_msg)
+        rospy.logdebug("MoveItWrapper.convert_robot_state_for_group():group_start_state_msg  %s", group_start_state_msg)
 
         return group_start_state_msg
 
-    def convert_joint_states_to_dict(self, joint_msg):
+    @staticmethod
+    def convert_joint_states_to_dict(joint_msg):
+        """
+        Parse the given joint state into a dictionary with name-position pairs.
+        :param joint_msg:
+        :type joint_msg: JointState
+        :return: dictionary with joint_name-position pairs
+        :rtype: Dictionary
+        """
         dct = {}
         for i in range(0, len(joint_msg.joint_state.name)):
             pair = {joint_msg.joint_state.name[i]: joint_msg.joint_state.position[i]}
             dct.update(pair)
         return dct
 
-
-    def attach_box(self, name="a_box", pose=None, size =(0.15, 0.15, 0.15), touch_links=[]):
+    def attach_box(self, name="a_box", pose=None, size=(0.15, 0.15, 0.15), touch_links=[]):
+        """
+        Attach a box to the end-effector at a given pose and define a set of links that can collide with it
+        :param name: id of the box
+        :type name: String
+        :param pose: pose of the box
+        :type pose: Pose
+        :param size: size of the box
+        :type size: tuple of double (x,y,z)
+        :param touch_links: list of links that can touch teh object
+        :type touch_links: list of String
+        :return: -
+        :rtype: -
+        """
         lst = self.ee_links
         lst.extend(touch_links)
         self.scene.attach_box(self.group.get_end_effector_link(), name, pose=pose, size=size, touch_links=lst)
 
     def remove_attached_object(self, link, name = None):
+        """
+        Remove a previous attached object from the scene
+        :param link: remove all that is connected to this link
+        :type link: String
+        :param name: id of the object
+        :type name: String
+        :return: -
+        :rtype: -
+        """
         self.scene.remove_attached_object(link=link, name=name)
 
 if __name__ == '__main__':

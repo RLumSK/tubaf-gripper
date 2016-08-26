@@ -28,7 +28,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os
 import rospy
 import actionlib
 import tf.transformations
@@ -41,28 +40,31 @@ import sensor_msgs.msg
 
 from visualization_msgs.msg import *
 
-
-def get_param(key, def_value):
-    return rospy.get_param("~"+key, def_value)
-    look_up = rospy.search_param(key)
-    rospy.logdebug("get_param: "+key+" (%s)", type(look_up))
-    if look_up is None:
-        return def_value
-    else:
-        return rospy.get_param(look_up, def_value)
+"""@package grasping
+This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
+camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
+then manages to grasp the object by making use of MoveIt! and a HandController.
+@author: Steve Grehl
+"""
 
 
 class HAFClient(object):
-
+    """
+    Client for the haf_grasping action server
+    """
     def __init__(self):
-        self.action_server_name = get_param("~haf_server_name", "/haf_server")
+        """
+        Default Constructor - Connect to the sever, Load parameters from the parameter server and pass them by using a
+        set of services
+        """
+        self.action_server_name = rospy.get_param("~haf_server_name", "/haf_server")
         self.grasp_cbs = list()
 
         self.graspingcenter = geometry_msgs.msg.Point()
         self.graspingcenter.x = 0.0
         self.graspingcenter.y = 0.0
         self.graspingcenter.z = 0.0
-        tmp_graspingcenter = get_param("~grasp_search_center", [0.0, 0.0, 0.0])
+        tmp_graspingcenter = rospy.get_param("~grasp_search_center", [0.0, 0.0, 0.0])
         if type(tmp_graspingcenter) == list and len(tmp_graspingcenter) == 3 and type(tmp_graspingcenter[0]) == float:
             self.graspingcenter.x = tmp_graspingcenter[0]
             self.graspingcenter.y = tmp_graspingcenter[1]
@@ -72,23 +74,23 @@ class HAFClient(object):
         self.approach_vector.x = 0.0
         self.approach_vector.y = 0.0
         self.approach_vector.z = 1.0
-        tmp_approach_vector = get_param("~gripper_approach_vector", [0.0, 0.0, 1.0])
+        tmp_approach_vector = rospy.get_param("~gripper_approach_vector", [0.0, 0.0, 1.0])
         if type(tmp_approach_vector) == list and len(tmp_approach_vector) == 3 and type(tmp_approach_vector[0]) == float:
             self.approach_vector.x = tmp_approach_vector[0]
             self.approach_vector.y = tmp_approach_vector[1]
             self.approach_vector.z = tmp_approach_vector[2]
 
         # max limit_x 32-14 = 18, limit_y = 44-14 = 30
-        self.grasp_search_size_x = get_param("~grasp_search_size_x", 18)
-        self.grasp_search_size_y = get_param("~grasp_search_size_y", 30)
-        self.max_calculation_time = get_param("~max_calculation_time", 50)
+        self.grasp_search_size_x = rospy.get_param("~grasp_search_size_x", 18)
+        self.grasp_search_size_y = rospy.get_param("~grasp_search_size_y", 30)
+        self.max_calculation_time = rospy.get_param("~max_calculation_time", 50)
         self.grasp_calculation_time_max = rospy.Duration(self.max_calculation_time)
-        self.show_only_best_grasp = get_param("~show_only_best_grasp", True)
-        self.base_frame_default = get_param("~base_frame_default", "gripper_camera_rgb_frame")
-        self.gripper_opening_width = get_param("~gripper_width", 0.1)
-        self.grasp_offset = get_param("~grasp_offset", 0.01)
+        self.show_only_best_grasp = rospy.get_param("~show_only_best_grasp", True)
+        self.base_frame_default = rospy.get_param("~base_frame_default", "gripper_camera_rgb_frame")
+        self.gripper_opening_width = rospy.get_param("~gripper_width", 0.1)
+        self.grasp_offset = rospy.get_param("~grasp_offset", 0.01)
 
-        self.input_pc_topic = get_param("~input_pc_topic", "/gripper_camera/depth_registered/points")
+        self.input_pc_topic = rospy.get_param("~input_pc_topic", "/gripper_camera/depth_registered/points")
         self.pc_sub = None
 
         # services for setting parameters
@@ -111,8 +113,8 @@ class HAFClient(object):
                                                    haf_grasping.srv.GraspPreGripperOpeningWidth,
                                                    self.set_gripper_width)
 
-        self.grasp_quality_threshold = get_param("~grasp_quality_threshold", 50)  # worst [-20, 99] best
-        self.grasp_search_timeout = get_param("~grasp_search_timeout", 50.0)
+        self.grasp_quality_threshold = rospy.get_param("~grasp_quality_threshold", 50)  # worst [-20, 99] best
+        self.grasp_search_timeout = rospy.get_param("~grasp_search_timeout", 50.0)
 
         self.ac_haf = actionlib.SimpleActionClient(self.action_server_name,
                                                    haf_grasping.msg.CalcGraspPointsServerAction)
@@ -145,21 +147,38 @@ class HAFClient(object):
         self.rate = rospy.Rate(10)
 
     def register_pc_callback(self):
-        self.input_pc_topic = get_param("~input_pc_topic", self.input_pc_topic)
+        """
+        Subscribe to a point cloud topic
+        :return: -
+        :rtype: -
+        """
+        self.input_pc_topic = rospy.get_param("~input_pc_topic", self.input_pc_topic)
         self.pc_sub = rospy.Subscriber(self.input_pc_topic, sensor_msgs.msg.PointCloud2, callback=self.get_grasp_cb,
                                        queue_size=1)
         self.rate = rospy.Rate(1)
         rospy.loginfo("HAFClient.register_pc_callback(): subscribed to pointcloud topic: %s", self.input_pc_topic)
 
     def unregister_pc_callback(self):
+        """
+        unsubscribe from the point cloud
+        :return: -
+        :rtype: -
+        """
         self.pc_sub.unregister()
 
-    #Service Callbacks
+    # Service Callbacks
     def get_grasp_cb(self, msg):
-        # rospy.loginfo("HAFClient.get_grasp_cb(): point cloud received")
-        #rospy.loginfo("HAFClient.get_grasp_cb(): Waiting for action server to start.")
+        """
+        Query the action server for a grasp point using the given point cloud
+        :param msg: a point cloud
+        :type msg: PointCloud2
+        :return: -
+        :rtype: -
+        """
+        rospy.logdebug("HAFClient.get_grasp_cb(): point cloud received")
+        rospy.logdebug("HAFClient.get_grasp_cb(): Waiting for action server to start.")
         self.ac_haf.wait_for_server()
-        #rospy.loginfo("HAFClient.get_grasp_cb(): Action server started, sending goal.")
+        rospy.logdebug("HAFClient.get_grasp_cb(): Action server started, sending goal.")
         goal = haf_grasping.msg.CalcGraspPointsServerGoal()
 
         goal.graspinput.input_pc = msg
@@ -178,15 +197,15 @@ class HAFClient(object):
         finished_before_timeout = self.ac_haf.wait_for_result(rospy.Duration(self.grasp_search_timeout))
 
         if finished_before_timeout:
-            # state = self.ac_haf.get_state()
+            state = self.ac_haf.get_state()
             result = self.ac_haf.get_result()
             if result.graspOutput.eval <= -20:
                 rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point")
-            # else:
-                # rospy.loginfo("HAFClient.get_grasp_cb(): Found grasp point") #  Result: %s", result)
-            #rospy.loginfo("HAFClient.get_grasp_cb(): Action finished: %s", state)
-        # else:
-            # rospy.loginfo("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
+            else:
+                rospy.logdebug("HAFClient.get_grasp_cb(): Found grasp point Result: %s", result)
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished: %s", state)
+        else:
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
         self.rate.sleep()
 
     # Parameter Services Callbacks

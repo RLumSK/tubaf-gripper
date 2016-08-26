@@ -32,19 +32,43 @@ import rospy
 import actionlib
 import tbf_gripper_hand.msg
 
-class HandController():
 
+"""@package grasping
+This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
+camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
+then manages to grasp the object by making use of MoveIt! and a HandController.
+@author: Steve Grehl
+"""
+
+
+class HandController(object):
+    """
+    The HandController manages the communication with a robotiq 3 finger gripper (s-model) vi an action server on a
+    basic level. The complexity of the hand interface itself is shadowed in this server, so that this client can provide
+    basic, straight forward functions and commands.
+    Further functionality ma be added in the future is needed.
+    """
     def __init__(self):
+        """
+        Default constructor that loads parameters from the parameter server and waits for the action server to start.
+        It starts with the hand "rested", meaning closed in basic mode.
+        """
         server_name = rospy.get_param("~hand_server_name", "robotiqgripper_action_server")
         # rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
         self.ac = actionlib.SimpleActionClient(server_name, tbf_gripper_hand.msg.RobotiqGripperAction)
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
-        self.hand_mode = rospy.get_param("~hand_mode", "Basic")
+        self.hand_mode = rospy.get_param("~hand_mode", "basic")
         self.ac.wait_for_server()
         self.action_pending = False
-        self.closeHand()
+        self.restHand()
 
     def closeHand(self):
+        """
+        Closing the hand by setting all its fingers to 240 or the defined maxima,
+        see (robotiq/robotiq_s_model_control/config/s_model_boundaries.yaml)
+        :return: -
+        :rtype: -
+        """
         if self.action_pending:
             rospy.loginfo("HandController.closeHand(): Action pending - abort")
             return
@@ -67,6 +91,12 @@ class HandController():
         self.action_pending = False;
 
     def openHand(self):
+        """
+        Opening the hand by setting all its fingers to 0 or the defined minima,
+        see (robotiq/robotiq_s_model_control/config/s_model_boundaries.yaml)
+        :return: -
+        :rtype: -
+        """
         if self.action_pending:
             rospy.loginfo("HandController.openHand(): Action pending - abort")
             return
@@ -86,9 +116,14 @@ class HandController():
         # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
-        self.action_pending = False;
+        self.action_pending = False
 
     def restHand(self):
+        """
+        Closing the hand  in basic mode, so that all finger rest on the palm of the hand.
+        :return: -
+        :rtype: -
+        """
         if self.action_pending:
             rospy.loginfo("HandController.openHand(): Action pending - abort")
             return
@@ -98,17 +133,17 @@ class HandController():
         # int32 position
         # int32 speed
         # int32 force
-        goal.mode = self.hand_mode
-        goal.position = 100
-        goal.speed = 50
-        goal.force = 0
+        goal.mode = "basic"
+        goal.position = 240
+        goal.speed = 100
+        goal.force = 10
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):
         # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
-        self.action_pending = False;
+        self.action_pending = False
 
     # action server callbacks
 
