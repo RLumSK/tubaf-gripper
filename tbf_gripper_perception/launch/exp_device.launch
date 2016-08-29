@@ -3,6 +3,7 @@
 
   <include file="$(find tubaf_common)/launch/fix/fix_openni2.launch">
     <arg name="data_skip" value="15"/>
+    <arg name="depth_registration" value="true"/>
   </include>
 
   <param name="robot_description" command="$(find xacro)/xacro.py '$(find tbf_gripper_perception)/urdf/exp.urdf.xacro'"/>

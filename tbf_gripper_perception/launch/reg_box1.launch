@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="marker_reg" pkg="tbf_gripper_perception" type="marker_reg.py" respawn="false" output="screen">
+    <!--<param name="default_marker_size" value="$(arg default_marker_size)"/>-->
+    <rosparam command="load" file="$(find tbf_gripper_perception)/config/box1_sizes.yaml"/>
+  </node>
+</launch>
