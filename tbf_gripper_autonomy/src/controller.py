@@ -39,6 +39,7 @@ import grasping.arm
 
 
 from visualization_msgs.msg import *
+from std_srvs.srv import Empty, EmptyRequest, EmptyResponse
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -233,7 +234,7 @@ class Controller(object):
             if answer == 'y' or answer == 'c':
                 if answer == 'c':
                     rospy.wait_for_service("clear_octomap")
-                    clear_octomap = rospy.ServiceProxy('clear_octomap')
+                    clear_octomap = rospy.ServiceProxy('clear_octomap', Empty)
                     clear_octomap()
             else:
                 if origin is not None:
