@@ -34,6 +34,7 @@ import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
 import rosnode
+import tf
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -76,6 +77,8 @@ class MoveItWrapper(object):
         self.hand_group = moveit_commander.MoveGroupCommander("Hand")
         self.display_trajectory_publisher = rospy.Publisher(planned_path_publisher, moveit_msgs.msg.DisplayTrajectory,
                                                             queue_size=1)
+        self.tf_listener = tf.TransformListener()
+
         self.plan = None
         self.group.set_planner_id(rospy.get_param("~planner", "KPIECEkConfigDefault"))
         self.group.set_goal_position_tolerance(rospy.get_param("~goal_position_tolerance", 0.001))
@@ -190,6 +193,20 @@ class MoveItWrapper(object):
         """
         return self.commander.get_current_state()
 
+    def get_current_pose(self, frame_id="base_link"):
+        """
+        Give the current end effector pose in a given frame (via tf)
+        :param frame_id: target frame id of the current end effector pose
+        :type frame_id: String
+        :return: pose of the current end effector
+        :rtype: PoseStamped
+        """
+        ret_ps = self.group.get_current_pose()
+        rospy.loginfo("MoveItWrapper.get_current_pose(): ret_ps=%s", ret_ps)
+        now = rospy.Time.now()
+        self.tf_listener.waitForTransform(ret_ps.header.frame_id, frame_id, now, rospy.Duration(4))
+        return self.tf_listener.transformPose(frame_id, ps=ret_ps)
+
     def move_to_pose(self):
         """
         Move the arm according to the previous calculated plan. This function should be blocking until the plan is
@@ -249,6 +266,15 @@ class MoveItWrapper(object):
             pair = {joint_msg.joint_state.name[i]: joint_msg.joint_state.position[i]}
             dct.update(pair)
         return dct
+
+    def grasped_object(self):
+        """
+        The hand closed and an object is in collision with the hand links (self.ee_links)
+        :return: -
+        :rtype: -
+        """
+        # TODO: Implementierung
+        pass
 
     def attach_box(self, name="a_box", pose=None, size=(0.15, 0.15, 0.15), touch_links=[]):
         """

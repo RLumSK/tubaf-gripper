@@ -158,23 +158,33 @@ class Controller(object):
         self.hand_controller.openHand()
         rospy.sleep(1.0)
         origin = self.moveit_controller.get_current_joints()
+        origin_pose = self.moveit_controller.get_current_pose(frame_id="gripper_ur5_base_link")
 
         # Move to Target
         rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
-        self.move_to_pose(hover_pose, origin)
+        if not self.move_to_pose(hover_pose, origin):
+            self.haf_client.register_pc_callback()
+            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+            return
 
         # rospy.sleep(3.0)
         rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
-        self.move_to_pose(target_pose, origin)
+        if not self.move_to_pose(target_pose, hover_pose):
+            self.haf_client.register_pc_callback()
+            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+            return
 
         # grasp object
         rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
         self.hand_controller.closeHand()
         rospy.sleep(3.0)  # wait till the hand grasp the object
+        self.moveit_controller.grasped_object()
 
         # lift grasped object
         # plan path towards origin
-        self.move_to_origin(origin)
+        while not self.move_to_pose(origin_pose, target_pose):
+            rospy.loginfo("Controller.onGraspSearchCallback(): try tp plan towards origin again ... ")
+            rospy.sleep(0.5)
 
         hand_closed = True
         while hand_closed:
@@ -199,21 +209,36 @@ class Controller(object):
         :rtype: -
         """
         # plan path towards origin
-        if not self.moveit_controller.plan_to_joints(origin):
+        while not self.moveit_controller.plan_to_joints(origin):
             # no plan calculated
-            rospy.loginfo("Controller.move_to_origin(): couldn't calculate to origin")
-            return
+            answer = raw_input("Controller..move_to_pose(): couldn't calculate a plan - Plan again?"
+                               " Clear Octomap and plan again? Abort? (y/c/n)")
+            if answer == 'y' or answer == 'c':
+                if answer == 'c':
+                    rospy.wait_for_service("clear_octomap")
+                    clear_octomap = rospy.ServiceProxy('clear_octomap', Empty)
+                    clear_octomap()
+            else:
+                return False
         rospy.loginfo("Controller.move_to_origin(): Execution: Moving towards origin")
         # raw_input("Press any key to continue ...")
         executed = False
-        while not rospy.is_shutdown() and not executed:
-            executed = self.moveit_controller.move_to_pose()
-            if executed:
-                rospy.loginfo("Controller.move_to_origin(): Execution: Moved to origin ")
-                rospy.sleep(3.0)  # wait while the gripper moves towards the pose
-            else:
-                rospy.sleep(0.5)
-                rospy.loginfo("Controller.move_to_origin(): Execution: Try to move towards origin again")
+        try:
+            while not rospy.is_shutdown() and not executed:
+                executed = self.moveit_controller.move_to_pose()
+                if executed:
+                    rospy.loginfo("Controller.move_to_origin(): Execution: Moved to origin ")
+                    # rospy.sleep(3.0)  # wait while the gripper moves towards the pose
+                else:
+                    # rospy.sleep(0.5)
+                    rospy.loginfo("Controller.move_to_origin(): Execution: Try to move towards origin again")
+        except:
+            rospy.logerr("Controller.move_to_origin(): Error during Execution: PLaning to origin")
+            if origin is not None:
+                self.move_to_origin(origin)
+            self.haf_client.register_pc_callback()
+            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+            return False
 
     def move_to_pose(self, pose, origin):
         """
@@ -238,9 +263,7 @@ class Controller(object):
                     clear_octomap()
             else:
                 if origin is not None:
-                    self.move_to_origin(origin)
-                self.haf_client.register_pc_callback()
-                self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+                    self.move_to_pose(origin)
                 return False
         # Executing
         executed = False
@@ -257,9 +280,7 @@ class Controller(object):
         except:
             rospy.logerr("Controller.move_to_pose(): Error during Execution: PLaning to origin")
             if origin is not None:
-                self.move_to_origin(origin)
-            self.haf_client.register_pc_callback()
-            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+                self.move_to_pose(origin)
             return False
 
 if __name__ == '__main__':
