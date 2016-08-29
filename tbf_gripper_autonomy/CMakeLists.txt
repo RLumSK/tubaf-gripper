@@ -32,9 +32,6 @@ catkin_package(
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})
-add_executable(test_ik src/test/test_ik.cpp)
-target_link_libraries(test_ik ${catkin_LIBRARIES})
-add_dependencies(test_ik ur_kinematics)
-
-catkin_install_python(PROGRAMS scripts/run_client.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+# add_executable(test_ik src/test/test_ik.cpp)
+# target_link_libraries(test_ik ${catkin_LIBRARIES})
+# add_dependencies(test_ik ur_kinematics)
