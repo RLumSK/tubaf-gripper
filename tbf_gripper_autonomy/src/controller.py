@@ -157,19 +157,20 @@ class Controller(object):
 
         self.hand_controller.openHand()
         rospy.sleep(1.0)
-        origin = self.moveit_controller.get_current_joints()
         origin_pose = self.moveit_controller.get_current_pose(frame_id="gripper_ur5_base_link")
 
         # Move to Target
         rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
-        if not self.move_to_pose(hover_pose, origin):
+        if not self.move_to_pose(hover_pose, origin_pose):
+            rospy.logwarn("Controller.onGraspSearchCallback(): Moving to hover_pose failed")
             self.haf_client.register_pc_callback()
             self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
             return
 
         # rospy.sleep(3.0)
         rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
-        if not self.move_to_pose(target_pose, hover_pose):
+        if not self.move_to_pose(target_pose, origin_pose):
+            rospy.logwarn("Controller.onGraspSearchCallback(): Moving to target_pose failed")
             self.haf_client.register_pc_callback()
             self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
             return
@@ -239,6 +240,7 @@ class Controller(object):
             self.haf_client.register_pc_callback()
             self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
             return False
+        return True
 
     def move_to_pose(self, pose, origin):
         """
@@ -254,8 +256,8 @@ class Controller(object):
         rospy.loginfo("Controller.move_to_pose(): planning")
         while not self.moveit_controller.plan_to_pose(pose):
             # rospy.loginfo("Controller.move_to_pose(): couldn't calculate a plan")
-            answer = raw_input("Controller..move_to_pose(): couldn't calculate a plan - Plan again?"
-                               " Clear Octomap and plan again? Abort? (y/c/n)")
+            answer = raw_input("Controller..move_to_pose(): couldn't calculate a plan - Plan again (p)?"
+                               " Clear Octomap and plan again (c)? Abort (a)? (p/c/a)")
             if answer == 'y' or answer == 'c':
                 if answer == 'c':
                     rospy.wait_for_service("clear_octomap")
@@ -263,7 +265,7 @@ class Controller(object):
                     clear_octomap()
             else:
                 if origin is not None:
-                    self.move_to_pose(origin)
+                    self.move_to_pose(origin, pose)
                 return False
         # Executing
         executed = False
@@ -278,10 +280,11 @@ class Controller(object):
                     # rospy.sleep(0.5)
                     rospy.loginfo("Controller.move_to_pose(): Execution: Try to move grasp pose again")
         except:
-            rospy.logerr("Controller.move_to_pose(): Error during Execution: PLaning to origin")
+            rospy.logerr("Controller.move_to_pose(): Error during Execution: Planing to origin")
             if origin is not None:
-                self.move_to_pose(origin)
+                self.move_to_pose(origin, pose)
             return False
+        return True
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_controller", anonymous=False)

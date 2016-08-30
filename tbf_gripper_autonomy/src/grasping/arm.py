@@ -273,8 +273,10 @@ class MoveItWrapper(object):
         :return: -
         :rtype: -
         """
-        # TODO: Implementierung
-        pass
+        rospy.loginfo("MoveItWrapper.grasped_object(): known objects: %s", self.scene.get_known_object_names())
+        # /ar_pose_marker
+        known_obj = self.scene.get_known_object_names()
+
 
     def attach_box(self, name="a_box", pose=None, size=(0.15, 0.15, 0.15), touch_links=[]):
         """

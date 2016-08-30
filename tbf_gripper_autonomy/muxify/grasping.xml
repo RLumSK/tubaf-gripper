@@ -19,7 +19,7 @@
       ab
     </layout>
     <cmd pane="a">roslaunch tbf_gripper_perception wlanbox.launch</cmd>
-    <cmd pane="a">roslaunch tbf_gripper_perception planning_interface.launch</cmd>
+    <cmd pane="b">roslaunch tbf_gripper_perception planning_interface.launch</cmd>
   </window>
   <window name="arm" directory="~">
     <layout>
