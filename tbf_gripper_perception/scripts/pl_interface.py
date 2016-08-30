@@ -102,7 +102,7 @@ class PlaningInterface(object):
         max_marker.pose.header = max_marker.header
 
         # add collision object at given pose
-        cs = self.collision_scale*1.2
+        cs = self.collision_scale
         self.scene.add_mesh(name=self.ar_topic, pose=max_marker.pose, filename=self.stl, size=(cs, cs, cs))
         rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() finished")
         rospy.sleep(1.0)
