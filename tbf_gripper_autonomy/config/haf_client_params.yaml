@@ -11,4 +11,4 @@ input_pc_topic: "/gripper_camera/depth_registered/points"
 
 grasp_quality_threshold: 50.0
 grasp_search_timeout: 50.0
-grasp_offset: 0.05
+grasp_offset: 0.02

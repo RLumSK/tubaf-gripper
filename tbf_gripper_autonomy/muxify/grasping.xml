@@ -14,6 +14,12 @@
     <cmd pane="c">roslaunch julius xtion_gripper.launch</cmd>
     <cmd pane="d">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
   </window>
+  <window name="perception" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch tbf_gripper_perception wlanbox.launch</cmd>
+  </window>
   <window name="arm" directory="~">
     <layout>
       ab
