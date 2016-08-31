@@ -70,6 +70,7 @@ class Controller(object):
         rospy.loginfo("controller.py: Controller(): initilized HAF client")
 
         self.moveit_controller = grasping.arm.MoveItWrapper()
+        # self.moveit_controller.clear_attached_objects()
         rospy.loginfo("controller.py: Controller(): initilized arm")
 
         self.hand_controller = grasping.hand.HandController()
@@ -415,7 +416,7 @@ class Controller(object):
                     # rospy.sleep(3.0)  # wait while the gripper moves towards the pose
                 else:
                     # rospy.sleep(0.5)
-                    rospy.loginfo("Controller.move_to_pose(): Execution: Try to move grasp pose again")
+                    rospy.loginfo("Controller.move_to_pose(): Execution: Try to move again")
         except:
             rospy.logerr("Controller.move_to_pose(): Error during Execution: Planing to origin")
             if origin is not None:

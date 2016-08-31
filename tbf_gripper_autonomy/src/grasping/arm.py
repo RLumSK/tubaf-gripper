@@ -275,9 +275,8 @@ class MoveItWrapper(object):
         :return: name of the attached link and the object
         :rtype: String
         """
-        rospy.loginfo("MoveItWrapper.grasped_object(): known objects: %s", self.scene.get_known_object_names())
-        # /ar_pose_marker
         known_obj = self.scene.get_known_object_names()
+        rospy.loginfo("MoveItWrapper.grasped_object(): known objects: %s", known_obj)
         if len(known_obj) > 0:
             object_name = known_obj[0]
         else:
