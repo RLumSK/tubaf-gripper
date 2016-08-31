@@ -72,7 +72,7 @@ class PoseSamples:
 class cfg:
     min_samples = 12
     max_samples = 120
-    cluster_threshold = 0.001
+    cluster_threshold = 0.00001
 
 
 # singleton class for global variables
@@ -127,15 +127,23 @@ def cluster_orientations(rot_q_np):
 
 def optimize_clustering_orientations(id_tuple):
     data = np.array(g.transforms[id_tuple].o)
+
     # compute pdist (Y)
+    Y = dist.pdist(data,metric=phi4_q)
     # linkage clustering (Z)
+    Z = ch.linkage(Y,method='complete')
     # select biggest cluster up to cfg.cluster_threshold
+
     # flatten these clusters
+    C = ch.fcluster(Z,cfg.cluster_threshold,criterion='distance')
     # from these clusters, select the one with most members
     # compute best element from the cluster
     #   sum-square distances to other elements in cluster and take the one with lowest value
     # remove all samples from other clusters
     # optionally remove samples furthest away from best element when beyond max_samples
+
+
+
 
 
 def on_optimize(timer_event):
