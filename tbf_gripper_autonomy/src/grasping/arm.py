@@ -89,6 +89,7 @@ class MoveItWrapper(object):
         self.group.set_num_planning_attempts(rospy.get_param("~planning_attempts", 100))
         self.group.allow_looking(rospy.get_param("~allow_looking", False))
         self.group.allow_replanning(rospy.get_param("~allow_replanning", False))
+        self.ee_link = rospy.get_param("~ee_link", "gripper_robotiq_palm_planning")
         # [minX, minY, minZ, maxX, maxY, maxZ]
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
@@ -104,7 +105,8 @@ class MoveItWrapper(object):
         rospy.logdebug("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
         rospy.logdebug("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
         rospy.logdebug("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
-        rospy.logdebug("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s", self.group.get_goal_tolerance())
+        rospy.logdebug("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s",
+                       self.group.get_goal_tolerance())
         rospy.logdebug("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
 
     def plan_to_pose(self, pose_stamped):
@@ -275,16 +277,15 @@ class MoveItWrapper(object):
         """
         rospy.loginfo("MoveItWrapper.grasped_object(): known objects: %s", self.scene.get_known_object_names())
         # /ar_pose_marker
-        ee_link = "gripper_robotiq_palm_planning"
         known_obj = self.scene.get_known_object_names()
         if len(known_obj) > 0:
             object_name = known_obj[0]
         else:
             object_name = ""
         rospy.loginfo("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
-                      object_name, ee_link, self.ee_links)
-        self.group.attach_object(object_name, ee_link, touch_links=self.ee_links)
-        return ee_link, known_obj
+                      object_name, self.ee_link, self.ee_links)
+        self.group.attach_object(object_name, self.ee_link, touch_links=self.ee_links)
+        return self.ee_link, known_obj
 
     def remove_attached_object(self, link="gripper_robotiq_palm_planning", name="/ar_pose_marker"):
         """
@@ -298,6 +299,17 @@ class MoveItWrapper(object):
         """
         self.scene.remove_attached_object(link=link, name=name)
         self.group.detach_object(name=name)
+
+    def clear_attached_objects(self):
+        """
+        Remove all known objects from the planning scene
+        :return: -
+        :rtype: -
+        """
+        known_objects = self.scene.get_known_object_names()
+        for obj in known_objects:
+            self.group.detach_object(obj)
+        self.scene.remove_attached_object(self.ee_link)
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_arm", anonymous=False)

@@ -30,8 +30,10 @@
 
 import rospy
 import tf
+import tf.transformations
 import copy
 import random
+import numpy
 
 import grasping.haf_client
 import grasping.hand
@@ -39,7 +41,8 @@ import grasping.arm
 
 
 from visualization_msgs.msg import *
-from std_srvs.srv import Empty, EmptyRequest, EmptyResponse
+from std_srvs.srv import Empty
+from ar_track_alvar_msgs.msg import AlvarMarkers as AlvarMarkers
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -60,12 +63,11 @@ class Controller(object):
         """
         Default constructor that loads parameter from the parameter server, register callbacks and publisher
         """
-        self.end_effector_link = rospy.get_param("end_effector_link", "gripper_robotiq_palm_planning")
+        self.end_effector_link = rospy.get_param("~end_effector_link", "gripper_robotiq_palm_planning")
+        self.base_link = rospy.get_param("~base_link", "gripper_ur5_base_link")
 
         self.haf_client = grasping.haf_client.HAFClient()
         rospy.loginfo("controller.py: Controller(): initilized HAF client")
-
-        self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
 
         self.moveit_controller = grasping.arm.MoveItWrapper()
         rospy.loginfo("controller.py: Controller(): initilized arm")
@@ -74,8 +76,13 @@ class Controller(object):
         rospy.loginfo("controller.py: Controller(): initilized hand")
 
         self.tf_listener = tf.TransformListener()
+        self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
+        self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers, callback=self.to_hover_pose,
+                                             queue_size=1)
+        self.haf_client.add_grasp_cb_function(self.to_target_pose)
+        # self.haf_client.register_pc_callback()
 
-        self.haf_client.register_pc_callback()
+        self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
 
         # Debugging & Development tools
         self.marker_id = 1
@@ -92,7 +99,7 @@ class Controller(object):
         :rtype: PoseStamped
         """
         ret_pose = copy.deepcopy(grasp_pose)
-        ret_pose.header.frame_id = "base_link"
+        ret_pose.header.frame_id = self.base_link
         now = rospy.Time.now()
 
         self.tf_listener.waitForTransform(grasp_pose.header.frame_id, ret_pose.header.frame_id, now, rospy.Duration(4))
@@ -123,69 +130,109 @@ class Controller(object):
         self.marker_id += 1
         self.marker_pub.publish(a_marker)
 
-    def grasp_at_pose(self, grasp_pose):
+    def to_hover_pose(self, msg):
         """
-        Callback function for a given grasp pose - Here is the logic and schedule stored, the main functionality is here
-        :param grasp_pose: pose for the gripper in order to grasp the object
-        :type grasp_pose: PoseStamped
+        Callback from the Object Recognition (ar_track_alvar) to move the robot over the object for grasp estimation
+        :param msg: ar marker pose
+        :type msg: ar_track_alvar_msgs.msg.AlvarMarkers
         :return: -
         :rtype: -
         """
-        # Pausing Recognition?
-        rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
-        self.haf_client.remove_grasp_cb_function(self.grasp_at_pose)
-        self.haf_client.unregister_pc_callback()
+        rospy.loginfo("Controller.to_hover_pose(): starting")
+        if len(msg.markers) < 1:
+            rospy.loginfo("Controller.to_hover_pose(): no pose")
+            rospy.sleep(1.0)
+            return
+        # Unsubscribe and continue with given pose
+        self.sub_ar_track.unregister()
 
-        # Calculating Target and Hover Pose
-        target_pose = self.convert_grasp_pose(grasp_pose)
-        hover_pose = copy.deepcopy(target_pose)
-        hover_pose.pose.position.z += 0.24  # double finger length
+        # Calculate the hover pose
+        max_marker = msg.markers[0]
+        max_marker.pose.header = max_marker.header
+        now = rospy.Time.now()
+        self.tf_listener.waitForTransform(max_marker.header.frame_id, self.base_link, now, rospy.Duration(10.0))
+        hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
+        rospy.loginfo("Controller.to_hover_pose(): transform from: %s to %s",
+                      max_marker.header.frame_id, self.base_link)
+        hover_pose.pose.position.z += 0.8
+        quat = tf.transformations.quaternion_from_euler(0, numpy.pi/2.0, 0)
+        hover_pose.pose.orientation.x = quat[0]
+        hover_pose.pose.orientation.y = quat[1]
+        hover_pose.pose.orientation.z = quat[2]
+        hover_pose.pose.orientation.w = quat[3]
+        # self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
 
         # Show marker
-        self.show_marker(target_pose)
-        rospy.sleep(0.1)
         self.show_marker(hover_pose)
 
-        # Ask user if grasp point is ok
-        answer = raw_input("Controller: Use calculated grasp point? (y/n) ...")
-        if answer == 'y':
-            pass
-        else:
-            self.haf_client.increment_set_graspingcenter()
-            self.haf_client.register_pc_callback()
-            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
-            return
-
-        self.hand_controller.openHand()
-        rospy.sleep(1.0)
-        origin_pose = self.moveit_controller.get_current_pose(frame_id="gripper_ur5_base_link")
-
         # Move to Target
-        rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
-        if not self.move_to_pose(hover_pose, origin_pose):
-            rospy.logwarn("Controller.onGraspSearchCallback(): Moving to hover_pose failed")
-            self.haf_client.register_pc_callback()
-            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+        rospy.loginfo("Controller.to_hover_pose(): to hover_pose")
+        if not self.move_to_pose(hover_pose, self.origin_pose):
+            rospy.logwarn("Controller.to_hover_pose(): Moving to hover_pose failed")
+            self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
+                                                 callback=self.to_hover_pose,
+                                                 queue_size=1)
             return
 
-        # rospy.sleep(3.0)
-        rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
-        if not self.move_to_pose(target_pose, origin_pose):
-            rospy.logwarn("Controller.onGraspSearchCallback(): Moving to target_pose failed")
-            self.haf_client.register_pc_callback()
-            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+        # Next Step: Find a Grasp point -> haf_grasping
+        self.haf_client.register_pc_callback()
+
+    def to_target_pose(self, msg):
+        """
+        Callback after determining a grasp point
+        :param msg: dertermined grasp point
+        :type msg: PoseStamped
+        :return: -
+        :rtype: -
+        """
+        if msg is None:
+            return
+        # Unsubscribe and continue with given pose
+        self.haf_client.unregister_pc_callback()
+
+        # Calculate the target pose
+
+        # Show marker
+        self.show_marker(msg)
+
+        # Move to target pose
+        if not self.move_to_pose(msg, self.origin_pose):
+            rospy.logwarn("Controller.to_target_pose(): Moving to target_pose failed")
+            self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
+                                                 callback=self.to_hover_pose,
+                                                 queue_size=1)
             return
 
-        # grasp object
-        rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
+        # Next Step: Grasp the object
+        self.grasp_object()
+
+    def grasp_object(self):
+        """
+        Grasp an object after reaching a target pose determined by haf_grasping earlier
+        :return: -
+        :rtype: -
+        """
+
+        rospy.loginfo("Controller.grasp_object(): closing hand")
         self.hand_controller.closeHand()
         rospy.sleep(3.0)  # wait till the hand grasp the object
         (obj_link, obj_name) = self.moveit_controller.grasped_object()
 
-        # lift grasped object
-        # plan path towards origin
-        while not self.move_to_pose(origin_pose, target_pose):
-            rospy.loginfo("Controller.onGraspSearchCallback(): try tp plan towards origin again ... ")
+        # Next Step: lift object
+        self.lift_object(obj_link, obj_name)
+
+    def lift_object(self, link="gripper_robotiq_palm_planning", name="/ar_pose_marker"):
+        """
+        Remove a previous attached object from the scene
+        :param link: remove all that is connected to this link
+        :type link: String
+        :param name: id of the object
+        :type name: String
+        :return: -
+        :rtype: -
+        """
+        while not self.move_to_pose(self.origin_pose, self.origin_pose):
+            rospy.loginfo("Controller.lift_object(): try tp plan towards origin again ... ")
             rospy.sleep(0.5)
 
         hand_closed = True
@@ -193,15 +240,102 @@ class Controller(object):
             answer = raw_input("Controller: Open Hand? (y/n) ...")
             if answer == 'y':
                 self.hand_controller.openHand()
-                # self.moveit_controller.remove_attached_object(box_name)
-                rospy.loginfo("Controller.onGraspSearchCallback(): END")
-                self.haf_client.register_pc_callback()
-                self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
-                self.moveit_controller.remove_attached_object(link=obj_link, name=obj_name)
+                rospy.loginfo("Controller.lift_object(): END")
+                self.moveit_controller.remove_attached_object(link, name)
                 hand_closed = False
             else:
-                 rospy.sleep(3.0)  # sleep so the hand can open
+                rospy.sleep(3.0)  # sleep so the hand can open
         self.hand_controller.restHand()
+
+        go_on = False
+        while not go_on:
+            answer = raw_input("Controller: Start grasping again?(y/n)")
+            if answer == 'y':
+                self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
+                                                     callback=self.to_hover_pose,
+                                                     queue_size=1)
+            else:
+                rospy.sleep(3.0)  # sleep so the hand can open
+
+    # def grasp_at_pose(self, grasp_pose):
+    #     """
+    #     Callback function for a given grasp pose - Here is the logic and schedule stored, the main functionality is here
+    #     :param grasp_pose: pose for the gripper in order to grasp the object
+    #     :type grasp_pose: PoseStamped
+    #     :return: -
+    #     :rtype: -
+    #     """
+    #     # Pausing Recognition?
+    #     rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
+    #     self.haf_client.remove_grasp_cb_function(self.grasp_at_pose)
+    #     self.haf_client.unregister_pc_callback()
+    #
+    #     # Calculating Target and Hover Pose
+    #     target_pose = self.convert_grasp_pose(grasp_pose)
+    #     hover_pose = copy.deepcopy(target_pose)
+    #     hover_pose.pose.position.z += 0.24  # double finger length
+    #
+    #     # Show marker
+    #     self.show_marker(target_pose)
+    #     rospy.sleep(0.1)
+    #     self.show_marker(hover_pose)
+    #
+    #     # Ask user if grasp point is ok
+    #     answer = raw_input("Controller: Use calculated grasp point? (y/n) ...")
+    #     if answer == 'y':
+    #         pass
+    #     else:
+    #         self.haf_client.increment_set_graspingcenter()
+    #         self.haf_client.register_pc_callback()
+    #         self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+    #         return
+    #
+    #     self.hand_controller.openHand()
+    #     rospy.sleep(1.0)
+    #     origin_pose = self.moveit_controller.get_current_pose(frame_id="gripper_ur5_base_link")
+    #
+    #     # Move to Target
+    #     rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
+    #     if not self.move_to_pose(hover_pose, origin_pose):
+    #         rospy.logwarn("Controller.onGraspSearchCallback(): Moving to hover_pose failed")
+    #         self.haf_client.register_pc_callback()
+    #         self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+    #         return
+    #
+    #     # rospy.sleep(3.0)
+    #     rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
+    #     if not self.move_to_pose(target_pose, origin_pose):
+    #         rospy.logwarn("Controller.onGraspSearchCallback(): Moving to target_pose failed")
+    #         self.haf_client.register_pc_callback()
+    #         self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+    #         return
+    #
+    #     # grasp object
+    #     rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
+    #     self.hand_controller.closeHand()
+    #     rospy.sleep(3.0)  # wait till the hand grasp the object
+    #     (obj_link, obj_name) = self.moveit_controller.grasped_object()
+    #
+    #     # lift grasped object
+    #     # plan path towards origin
+    #     while not self.move_to_pose(origin_pose, target_pose):
+    #         rospy.loginfo("Controller.onGraspSearchCallback(): try tp plan towards origin again ... ")
+    #         rospy.sleep(0.5)
+    #
+    #     hand_closed = True
+    #     while hand_closed:
+    #         answer = raw_input("Controller: Open Hand? (y/n) ...")
+    #         if answer == 'y':
+    #             self.hand_controller.openHand()
+    #             # self.moveit_controller.remove_attached_object(box_name)
+    #             rospy.loginfo("Controller.onGraspSearchCallback(): END")
+    #             self.haf_client.register_pc_callback()
+    #             self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+    #             self.moveit_controller.remove_attached_object(link=obj_link, name=obj_name)
+    #             hand_closed = False
+    #         else:
+    #              rospy.sleep(3.0)  # sleep so the hand can open
+    #     self.hand_controller.restHand()
 
     def move_to_origin(self, origin):
         """
@@ -240,7 +374,6 @@ class Controller(object):
             if origin is not None:
                 self.move_to_origin(origin)
             self.haf_client.register_pc_callback()
-            self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
             return False
         return True
 

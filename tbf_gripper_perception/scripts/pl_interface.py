@@ -35,19 +35,21 @@ import ar_track_alvar_msgs.msg
 import moveit_msgs.msg
 import moveit_msgs.srv
 
-class PlaningInterface(object):
 
+class PlaningInterface(object):
+    """
+    class that transforms an ar pose of an marker on a known object into a collision object into the planning scene
+    """
     def __init__(self):
         """
         Default constructor that loads parameter from the parameter server, register callbacks and publisher
         """
         rospy.loginfo("pl_interface.py:PlanningInterface() initializing")
         self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
-        self.ar_sub = rospy.Subscriber( self.ar_topic, ar_track_alvar_msgs.msg.AlvarMarkers, callback=self.onMarkersMessage,
+        self.ar_sub = rospy.Subscriber(self.ar_topic, ar_track_alvar_msgs.msg.AlvarMarkers, callback=self.onMarkersMessage,
                                        queue_size=1)
 
         self.scene = moveit_commander.PlanningSceneInterface()
-
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
         self.collision_scale = rospy.get_param("~model_scale", 1e-03)
@@ -56,7 +58,8 @@ class PlaningInterface(object):
         self._pubPlanningScene = rospy.Publisher('planning_scene', moveit_msgs.msg.PlanningScene, queue_size=10)
         rospy.wait_for_service('/get_planning_scene', 10.0)
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', moveit_msgs.srv.GetPlanningScene)
-        request = moveit_msgs.msg.PlanningSceneComponents(components=moveit_msgs.msg.PlanningSceneComponents.ALLOWED_COLLISION_MATRIX)
+        request = moveit_msgs.msg.PlanningSceneComponents(
+            components=moveit_msgs.msg.PlanningSceneComponents.ALLOWED_COLLISION_MATRIX)
         response = get_planning_scene(request)
         allowed_collisions_matrix = response.scene.allowed_collision_matrix
 

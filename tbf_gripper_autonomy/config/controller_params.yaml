@@ -1,3 +1,5 @@
 grasp_detection_frame: "gripper_camera_rgb_frame"
 group_name: "UR5"
-end_effector_link: "/gripper_robotiq_palm_planning"
+end_effector_link: "gripper_robotiq_palm_planning"
+base_link: "base_link"
+ar_topic: "/ar_pose_marker"
