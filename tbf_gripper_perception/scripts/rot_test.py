@@ -135,11 +135,27 @@ data2 = np.array(
 
 # data = np.vstack((data, data3))
 
-q90 = tft.quaternion_from_euler(0, 0, np.pi * 0.5)
+import random
+random.seed = 684643613
+
+q90 = tft.quaternion_from_euler(random.gauss(0.05,0.001), random.gauss(0.05,0.001), random.gauss(0.1,0.008))
+
 
 data5 = map(lambda q: tft.quaternion_multiply(q, q90), data2)
 
-# data = np.vstack((data2, data5))
+data = np.vstack((data2, data5))
+
+def swap_rows(d,idx_a,idx_b):
+    buf = np.copy(d[idx_a,:])
+    d[idx_a, :] = d[idx_b,:]
+    d[idx_b, :] = buf
+
+swap_rows(data,1,9)
+swap_rows(data,2,12)
+swap_rows(data,3,15)
+swap_rows(data,4,8)
+swap_rows(data,0,11)
+
 
 v = np.array([1, 0, 0, 1])
 
@@ -147,19 +163,36 @@ for row in data:
     m = tft.quaternion_matrix(row)
     print np.dot(m, v)
 
-clu, dm, li = mr.cluster_orientations(data)
+# compute pdist (Y)
+Y = dist.pdist(data,metric=mr.phi4_q)
 
-c, co = ch.cophenet(li, dm)
-print "c ", c
+print dist.squareform(Y)
 
-print len(dm)
+# linkage clustering (Z)
+Z = ch.linkage(Y,method='complete')
+# select biggest cluster up to cfg.cluster_threshold
+
+# flatten these clusters
+C = ch.fcluster(Z,mr.cfg.cluster_threshold,criterion='distance')
+
+T = ch.fcluster(Z,1e-3,criterion='distance')
+print T
+
+print Z
+
+L = ch.leaders(Z,T)
+print L
+
+print mr.get_best_representative(Y,T,1)
+print mr.get_best_representative(Y,T,2)
+
 
 plt.figure(figsize=(25, 10))
 plt.title('Hierarchical Clustering Dendrogram')
 plt.xlabel('sample index')
 plt.ylabel('distance')
 ch.dendrogram(
-    li,
+    Z,
     leaf_rotation=90.,  # rotates the x axis labels
     leaf_font_size=8,  # font size for the x axis labels
 )
