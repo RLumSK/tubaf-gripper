@@ -270,33 +270,23 @@ class MoveItWrapper(object):
     def grasped_object(self):
         """
         The hand closed and an object is in collision with the hand links (self.ee_links)
-        :return: -
-        :rtype: -
+        :return: name of the attached link and the object
+        :rtype: String
         """
         rospy.loginfo("MoveItWrapper.grasped_object(): known objects: %s", self.scene.get_known_object_names())
         # /ar_pose_marker
+        ee_link = "gripper_robotiq_palm_planning"
         known_obj = self.scene.get_known_object_names()
+        if len(known_obj) > 0:
+            object_name = known_obj[0]
+        else:
+            object_name = ""
+        rospy.loginfo("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
+                      object_name, ee_link, self.ee_links)
+        self.group.attach_object(object_name, ee_link, touch_links=self.ee_links)
+        return ee_link, known_obj
 
-
-    def attach_box(self, name="a_box", pose=None, size=(0.15, 0.15, 0.15), touch_links=[]):
-        """
-        Attach a box to the end-effector at a given pose and define a set of links that can collide with it
-        :param name: id of the box
-        :type name: String
-        :param pose: pose of the box
-        :type pose: Pose
-        :param size: size of the box
-        :type size: tuple of double (x,y,z)
-        :param touch_links: list of links that can touch teh object
-        :type touch_links: list of String
-        :return: -
-        :rtype: -
-        """
-        lst = self.ee_links
-        lst.extend(touch_links)
-        self.scene.attach_box(self.group.get_end_effector_link(), name, pose=pose, size=size, touch_links=lst)
-
-    def remove_attached_object(self, link, name = None):
+    def remove_attached_object(self, link="gripper_robotiq_palm_planning", name="/ar_pose_marker"):
         """
         Remove a previous attached object from the scene
         :param link: remove all that is connected to this link
@@ -307,6 +297,7 @@ class MoveItWrapper(object):
         :rtype: -
         """
         self.scene.remove_attached_object(link=link, name=name)
+        self.group.detach_object(name=name)
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_arm", anonymous=False)

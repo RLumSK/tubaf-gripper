@@ -132,7 +132,7 @@ class Controller(object):
         :rtype: -
         """
         # Pausing Recognition?
-        # rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
+        rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
         self.haf_client.remove_grasp_cb_function(self.grasp_at_pose)
         self.haf_client.unregister_pc_callback()
 
@@ -151,6 +151,7 @@ class Controller(object):
         if answer == 'y':
             pass
         else:
+            self.haf_client.increment_set_graspingcenter()
             self.haf_client.register_pc_callback()
             self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
             return
@@ -179,7 +180,7 @@ class Controller(object):
         rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
         self.hand_controller.closeHand()
         rospy.sleep(3.0)  # wait till the hand grasp the object
-        self.moveit_controller.grasped_object()
+        (obj_link, obj_name) = self.moveit_controller.grasped_object()
 
         # lift grasped object
         # plan path towards origin
@@ -196,6 +197,7 @@ class Controller(object):
                 rospy.loginfo("Controller.onGraspSearchCallback(): END")
                 self.haf_client.register_pc_callback()
                 self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
+                self.moveit_controller.remove_attached_object(link=obj_link, name=obj_name)
                 hand_closed = False
             else:
                  rospy.sleep(3.0)  # sleep so the hand can open
