@@ -145,6 +145,18 @@ data5 = map(lambda q: tft.quaternion_multiply(q, q90), data2)
 
 data = np.vstack((data2, data5))
 
+def swap_rows(d,idx_a,idx_b):
+    buf = np.copy(d[idx_a,:])
+    d[idx_a, :] = d[idx_b,:]
+    d[idx_b, :] = buf
+
+swap_rows(data,1,9)
+swap_rows(data,2,12)
+swap_rows(data,3,15)
+swap_rows(data,4,8)
+swap_rows(data,0,11)
+
+
 v = np.array([1, 0, 0, 1])
 
 for row in data:
@@ -153,6 +165,9 @@ for row in data:
 
 # compute pdist (Y)
 Y = dist.pdist(data,metric=mr.phi4_q)
+
+print dist.squareform(Y)
+
 # linkage clustering (Z)
 Z = ch.linkage(Y,method='complete')
 # select biggest cluster up to cfg.cluster_threshold
@@ -163,8 +178,13 @@ C = ch.fcluster(Z,mr.cfg.cluster_threshold,criterion='distance')
 T = ch.fcluster(Z,1e-3,criterion='distance')
 print T
 
+print Z
+
 L = ch.leaders(Z,T)
 print L
+
+print mr.get_best_representative(Y,T,1)
+print mr.get_best_representative(Y,T,2)
 
 
 plt.figure(figsize=(25, 10))

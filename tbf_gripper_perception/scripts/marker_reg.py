@@ -9,10 +9,17 @@ from collections import deque, defaultdict
 import tf.transformations as tft
 import scipy.cluster.hierarchy as ch
 import scipy.spatial.distance as dist
+import sys
+import threading
 
 
-def q_to_a(q):
+def q_to_array(q):
+    "ros Quaternion to array"
     return [q.x, q.y, q.z, q.w]
+
+def p_to_array(p):
+    "ros Point (or Vector3) to array"
+    return [p.x, p.y, p.z]
 
 
 # distance metrics based on "Metrics for 3D Rotations: Comparison and Analysis"
@@ -53,12 +60,48 @@ def pose_rel(p0, p1):
     return affine_to_pose(res)
 
 
+def get_best_representative(Y,T,c):
+    sq_Y = dist.squareform(Y,force='tomatrix',checks=False)
+    clusters = np.max(T)
+    res = np.array([sys.float_info.max] * clusters)
+    n = len(T)
+    assert n == sq_Y.shape[0]
+    assert c -1 < clusters
+
+    v_zero = np.zeros(n)
+    # set elements not in the desired cluster to zero
+    for i in range(n):
+        if T[i] != c:
+            sq_Y[i,:] = v_zero
+            sq_Y[:,i] = v_zero
+
+    min_idx = 0
+    min_val = sys.float_info.max
+
+    # square all distance values
+    sq_Y = sq_Y**2
+
+    for i in range(n):
+        if T[i] == c:
+            sum_sq = np.sum(sq_Y[i,:])
+            if sum_sq < min_val:
+                min_val = sum_sq
+                min_idx = i
+
+    return min_idx, min_val / float(n)
+
+
 class PoseSamples:
     def __init__(self):
+        # list of samples, elements are vectors of length 4 (quaternion, o) or 3 (translation)
         self.o = list()
         self.t = list()
+        # the current best representative from last optimization
         self.best_o = None
         self.best_t = None
+        # number of samples in list after last optimization (skip opt if no samples were added)
+        self.last_num_o = 0
+        self.last_num_t = 0
         pass
 
     def __str__(self):
@@ -67,27 +110,34 @@ class PoseSamples:
     def __repr__(self):
         return self.__str__()
 
+def print_current_transforms():
+    for id_tup,pose_sample in iter(g.transforms.items()):
+        rospy.loginfo("%-7s r: %52s  t: %s",str(id_tup), pose_sample.best_o,pose_sample.best_t)
 
 # all configuration goes here
 class cfg:
     min_samples = 12
-    max_samples = 120
-    cluster_threshold = 0.00001
+    max_samples = 60
+    cluster_threshold = 0.0005
 
 
 # singleton class for global variables
 class g:
     marker_sub = None
     transforms = defaultdict(lambda: PoseSamples())
+    # otimization and adding of data happens asynchronous, so locking is required to not mess up the data
+    transforms_lock = threading.Lock()
 
 
 def on_markers(markers):
     mks = sorted(markers.markers,key=lambda m:m.id)
     m_len = len(mks)
     if m_len < 2:
-        rospy.logdebug("need at least 2 markers per view, view skipped")
+        # rospy.logdebug("need at least 2 markers per view, view skipped")
         return
 
+    # lock access to g.transforms
+    g.transforms_lock.acquire()
     # compute relative poses
     for i in range(0, m_len - 1):
         mk0 = mks[i]
@@ -99,60 +149,150 @@ def on_markers(markers):
             key = (mk0.id, mk1.id)
             rospy.logdebug("adding pose sample for %d->%d", *key)
             pose_sample = g.transforms[key]
-            pose_sample.o.append(p01.orientation)
+            pose_sample.o.append(q_to_array(p01.orientation))
             pose_sample.t.append(p01.position)
+    g.transforms_lock.release()
 
-    pass
-
-def cluster_orientations(rot_q_np):
-    rospy.loginfo("clustering orientations from %s values", str(rot_q_np.shape))
-
-    print "data:\n", rot_q_np
-
-    print "shape ", rot_q_np.shape
-    # noinspection PyTypeChecker
-
-
-    clusters = ch.fclusterdata(rot_q_np, 1.8, metric=phi4_q, depth=4)
-    print "clusters: ", clusters
-
-    dm = dist.pdist(rot_q_np, metric=phi4_q)
-    print "dm:", dm
-
-
-    l = ch.linkage(dm,method='complete')
-    print "linkage: ", l
-
-    return clusters,dm,l
-
-def optimize_clustering_orientations(id_tuple):
-    data = np.array(g.transforms[id_tuple].o)
+def optimize_clustering_orientations(id_tuple, do_print=True):
+    pose_sample = g.transforms[id_tuple]
+    data = np.array(pose_sample.o)
+    n_samples = data.shape[0]
+    if n_samples < cfg.min_samples:
+        rospy.loginfo("not enough samples for pair %s",str(id_tuple))
+        return
+    if pose_sample.last_num_o == n_samples:
+        rospy.loginfo("no new samples for %s", str(id_tuple))
+        return
 
     # compute pdist (Y)
     Y = dist.pdist(data,metric=phi4_q)
     # linkage clustering (Z)
     Z = ch.linkage(Y,method='complete')
-    # select biggest cluster up to cfg.cluster_threshold
-
-    # flatten these clusters
-    C = ch.fcluster(Z,cfg.cluster_threshold,criterion='distance')
+    # flatten these clusters based on distance with cfg.cluster_threshold
+    T = ch.fcluster(Z,cfg.cluster_threshold,criterion='distance')
     # from these clusters, select the one with most members
+    counts = np.bincount(T)
+    largest = np.argmax(counts)
+    # print "clusters: ", counts
     # compute best element from the cluster
     #   sum-square distances to other elements in cluster and take the one with lowest value
-    # remove all samples from other clusters
-    # optionally remove samples furthest away from best element when beyond max_samples
+    best_idx,mean_square_dist = get_best_representative(Y,T,largest)
+    best_repr = data[best_idx,:]
+    g.transforms[id_tuple].best_o = best_repr
+    #    first convert data to a list. -> removal of elements more efficient
+    #    also write back data as list for efficient adding of samples
+    data = list(data)
+
+    # only remove samples, when over max_samples -- so it is possible to recover from a wrong initialisation
+    if len(data) > cfg.max_samples:
+        # remove all samples from other clusters
+        #    iterate T i descending order, otherwise removing elements would mess up indices
+        for i in range(len(T) -1,-1,-1):
+            if T[i] != largest:
+                data.pop(i)
+        # optionally remove samples furthest away from best element when beyond max_samples
+        remove_n = len(data) - cfg.max_samples
+        # print best_repr
+        # print remove_n
+        if remove_n > 0:
+            # remove samples furthest away from best representative.
+            # data has probably changed, so just compute 1 to n distance again
+            D = [phi4_q(best_repr,x) for x in data]
+            indices_of_largest = np.argsort(D)[-remove_n:]
+            # print "d", D
+            # print "l", indices_of_largest
+            for idx in np.sort(indices_of_largest)[::-1]:
+                data.pop(idx)
+
+    # finally write back (possibly pruned) data set
+    g.transforms[id_tuple].o = data
+    g.transforms[id_tuple].last_num_o = len(data)
+
+    #and print some results
+    if do_print:
+        rospy.loginfo("optimization result for orientations:\n"
+                      "  started with %d samples of %s\n"
+                      "  found %d clusters, selected largest cluster with %d elements\n"
+                      "  selected best representative %s with mean square distance of %f\n"
+                      "  sample set size after optimization %d",
+                      n_samples, str(id_tuple), len(counts),counts[largest],best_repr,mean_square_dist,len(data))
 
 
 
+def optimize_clustering_orientations(id_tuple, do_print=True):
+    pose_sample = g.transforms[id_tuple]
+    data = np.array(pose_sample.o)
+    n_samples = data.shape[0]
+    if n_samples < cfg.min_samples:
+        rospy.loginfo("not enough samples for pair %s",str(id_tuple))
+        return
+    if pose_sample.last_num_o == n_samples:
+        rospy.loginfo("no new samples for %s", str(id_tuple))
+        return
 
+    # compute pdist (Y)
+    Y = dist.pdist(data,metric=phi4_q)
+    # linkage clustering (Z)
+    Z = ch.linkage(Y,method='complete')
+    # flatten these clusters based on distance with cfg.cluster_threshold
+    T = ch.fcluster(Z,cfg.cluster_threshold,criterion='distance')
+    # from these clusters, select the one with most members
+    counts = np.bincount(T)
+    largest = np.argmax(counts)
+    # print "clusters: ", counts
+    # compute best element from the cluster
+    #   sum-square distances to other elements in cluster and take the one with lowest value
+    best_idx,mean_square_dist = get_best_representative(Y,T,largest)
+    best_repr = data[best_idx,:]
+    g.transforms[id_tuple].best_o = best_repr
+    #    first convert data to a list. -> removal of elements more efficient
+    #    also write back data as list for efficient adding of samples
+    data = list(data)
+
+    # only remove samples, when over max_samples -- so it is possible to recover from a wrong initialisation
+    if len(data) > cfg.max_samples:
+        # remove all samples from other clusters
+        #    iterate T i descending order, otherwise removing elements would mess up indices
+        for i in range(len(T) -1,-1,-1):
+            if T[i] != largest:
+                data.pop(i)
+        # optionally remove samples furthest away from best element when beyond max_samples
+        remove_n = len(data) - cfg.max_samples
+        # print best_repr
+        # print remove_n
+        if remove_n > 0:
+            # remove samples furthest away from best representative.
+            # data has probably changed, so just compute 1 to n distance again
+            D = [phi4_q(best_repr,x) for x in data]
+            indices_of_largest = np.argsort(D)[-remove_n:]
+            # print "d", D
+            # print "l", indices_of_largest
+            for idx in np.sort(indices_of_largest)[::-1]:
+                data.pop(idx)
+
+    # finally write back (possibly pruned) data set
+    g.transforms[id_tuple].o = data
+    g.transforms[id_tuple].last_num_o = len(data)
+
+    #and print some results
+    if do_print:
+        rospy.loginfo("optimization result for orientations:\n"
+                      "  started with %d samples of %s\n"
+                      "  found %d clusters, selected largest cluster with %d elements\n"
+                      "  selected best representative %s with mean square distance of %f\n"
+                      "  sample set size after optimization %d",
+                      n_samples, str(id_tuple), len(counts),counts[largest],best_repr,mean_square_dist,len(data))
 
 def on_optimize(timer_event):
     rospy.loginfo("running pose cluster optimization")
-    for k,v in iter(g.transforms.items()):
-        rospy.loginfo("   %s --- %s",str(k),str(v))
-        o_as_numpy = np.array(map(q_to_a,v.o))
-        cluster_orientations(o_as_numpy)
 
+    g.transforms_lock.acquire()
+    for k,v in iter(g.transforms.items()):
+        # rospy.loginfo("   %s --- %s",str(k),str(v))
+        optimize_clustering_orientations(k)
+
+    print_current_transforms()
+    g.transforms_lock.release()
 
 if __name__ == '__main__':
     rospy.init_node("marker_reg",log_level=rospy.DEBUG)
