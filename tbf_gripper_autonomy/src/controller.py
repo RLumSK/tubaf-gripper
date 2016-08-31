@@ -195,6 +195,8 @@ class Controller(object):
         # Show marker
         self.show_marker(msg)
 
+        self.hand_controller.openHand()
+
         # Move to target pose
         if not self.move_to_pose(msg, self.origin_pose):
             rospy.logwarn("Controller.to_target_pose(): Moving to target_pose failed")
