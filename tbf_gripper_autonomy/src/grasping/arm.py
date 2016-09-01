@@ -275,7 +275,7 @@ class MoveItWrapper(object):
         :return: name of the attached link and the object
         :rtype: String
         """
-        known_obj = self.scene.get_known_object_names()
+        known_obj = self.scene.get_known_object_names(with_type=False)
         rospy.logdebug("MoveItWrapper.grasped_object(): known objects: %s", known_obj)
         if len(known_obj) > 0:
             object_name = known_obj[0]

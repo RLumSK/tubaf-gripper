@@ -84,6 +84,7 @@ class Controller(object):
         # self.haf_client.register_pc_callback()
 
         self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
+        self.hover_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
 
         # Debugging & Development tools
         self.marker_id = 1
@@ -152,20 +153,20 @@ class Controller(object):
         max_marker.pose.header = max_marker.header
         now = rospy.Time.now()
         self.tf_listener.waitForTransform(max_marker.header.frame_id, self.base_link, now, rospy.Duration(10.0))
-        hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
+        self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
         rospy.logdebug("Controller.to_hover_pose(): transform from: %s to %s",
                       max_marker.header.frame_id, self.base_link)
-        hover_pose.pose.position.z += 0.8
+        self.hover_pose.pose.position.z += 0.8
         quat = tf.transformations.quaternion_from_euler(0, numpy.pi/2.0, 0)
-        hover_pose.pose.orientation.x = quat[0]
-        hover_pose.pose.orientation.y = quat[1]
-        hover_pose.pose.orientation.z = quat[2]
-        hover_pose.pose.orientation.w = quat[3]
+        self.hover_pose.pose.orientation.x = quat[0]
+        self.hover_pose.pose.orientation.y = quat[1]
+        self.hover_pose.pose.orientation.z = quat[2]
+        self.hover_pose.pose.orientation.w = quat[3]
         # self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
 
         # Move to Target
         rospy.loginfo("Controller.to_hover_pose(): to hover_pose")
-        if not self.move_to_pose(hover_pose, self.origin_pose):
+        if not self.move_to_pose(self.hover_pose, self.origin_pose):
             rospy.logwarn("Controller.to_hover_pose(): Moving to hover_pose failed")
             self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
                                                  callback=self.to_hover_pose,
@@ -228,7 +229,7 @@ class Controller(object):
         :return: -
         :rtype: -
         """
-        while not self.move_to_pose(self.origin_pose, self.origin_pose):
+        while not self.move_to_pose(self.hover_pose, self.origin_pose):
             rospy.loginfo("Controller.lift_object(): try tp plan towards origin again ... ")
             rospy.sleep(0.5)
 
