@@ -111,7 +111,7 @@ class PlaningInterface(object):
         if self.marker is None:
             self.marker = max_marker
         else:
-            if self.poses_match(self.marker.pose, max_marker.pose):
+            if self.poses_match(self.marker.pose.pose, max_marker.pose.pose):
                 # posese seam simlar
                 pass
             else:
