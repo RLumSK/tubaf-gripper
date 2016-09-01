@@ -29,13 +29,18 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
-import moveit_commander
 
 import ar_track_alvar_msgs.msg
 import moveit_msgs.msg
 import moveit_msgs.srv
+import shape_msgs.msg
+import geometry_msgs.msg
 
 import numpy as np
+try:
+    from pyassimp import pyassimp
+except:
+    import pyassimp
 
 
 class PlaningInterface(object):
@@ -51,11 +56,12 @@ class PlaningInterface(object):
         self.ar_sub = rospy.Subscriber(self.ar_topic, ar_track_alvar_msgs.msg.AlvarMarkers, callback=self.onMarkersMessage,
                                        queue_size=1)
 
-        self.scene = moveit_commander.PlanningSceneInterface()
         self.marker = None
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
         self.collision_scale = rospy.get_param("~model_scale", 1e-03)
+
+        self._pub_co = rospy.Publisher('/collision_object', moveit_msgs.msg.CollisionObject, queue_size=100)
 
         # http://answers.ros.org/question/157716/obstacles-management-in-moveit/
         self._pubPlanningScene = rospy.Publisher('planning_scene', moveit_msgs.msg.PlanningScene, queue_size=10)
@@ -109,16 +115,78 @@ class PlaningInterface(object):
                 return
             else:
                 self.marker = max_marker
-                self.scene.remove_world_object(name=self.ar_topic)
+                self.remove_world_object(name=self.ar_topic)
                 rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() Updating pose: %s",
                               self.marker.pose)
                 rospy.sleep(0.2)
         # add collision object at given pose
+        self.add_collision_object()
+        rospy.sleep(1.0)
+
+    def remove_world_object(self, name):
+        """
+        Remove an object from planning scene, or all if no name is provided
+        :param name: name of the object
+        :type name: String
+        :return: -
+        :rtype: -
+        """
+        co = moveit_msgs.msg.CollisionObject()
+        co.operation = moveit_msgs.msg.CollisionObject.REMOVE
+        if name != None:
+             co.id = name
+        self._pub_co.publish(co)
+
+    def add_collision_object(self):
+        """
+        Add an Collision Object to the PLanning scene using a Publisher
+        :return: -
+        :rtype: -
+        """
+        # see:http://docs.ros.org/indigo/api/moveit_commander/html/planning__scene__interface_8py_source.html add_mesh()
         cs = self.collision_scale
         rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() add Mesh")
-        self.scene.add_mesh(name=self.ar_topic, pose=self.marker.pose, filename=self.stl, size=(cs, cs, cs))
-        # rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() finished")
-        rospy.sleep(1.0)
+        self._pub_co.publish(self.__make_mesh(name=self.ar_topic, pose=self.marker.pose, filename=self.stl,
+                                              scale=(cs, cs, cs)))
+
+    def __make_mesh(self, name, pose, filename, scale = (1, 1, 1)):
+        """
+        Defina a Collision object from a mesh
+        :param name: name of the object
+        :type name: String
+        :param pose: Pose of the object in the PLanning scene
+        :type pose: PoseStamped
+        :param filename: filename where the mesh is stored
+        :type filename: String
+        :param scale: scale of the mesh/collision object in the scene
+        :type scale: (double, double, double)
+        :return: -
+        :rtype: -
+        """
+        co = moveit_msgs.msg.CollisionObject()
+        scene = pyassimp.load(filename)
+        if not scene.meshes:
+            raise moveit_msgs.msg.MoveItCommanderException("There are no meshes in the file")
+        co.operation = moveit_msgs.msg.CollisionObject.ADD
+        co.id = name
+        co.header = pose.header
+
+        mesh = shape_msgs.msg.Mesh()
+        for face in scene.meshes[0].faces:
+            triangle = shape_msgs.msg.MeshTriangle()
+            if len(face.indices) == 3:
+                triangle.vertex_indices = [face.indices[0], face.indices[1], face.indices[2]]
+            mesh.triangles.append(triangle)
+        for vertex in scene.meshes[0].vertices:
+            point = geometry_msgs.msg.Point()
+            point.x = vertex[0] * scale[0]
+            point.y = vertex[1] * scale[1]
+            point.z = vertex[2] * scale[2]
+            mesh.vertices.append(point)
+        co.meshes = [mesh]
+        co.mesh_poses = [pose.pose]
+        pyassimp.release(scene)
+        return co
 
     def poses_match(self, pose1, pose2, pos_tol=0.005, rot_tol=0.1):
         """
