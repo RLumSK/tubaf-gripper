@@ -138,8 +138,8 @@ class PlaningInterface(object):
         :return: True if similar, False if not
         :rtype: Boolean
         """
-        pos1 = (pose1.position.x, pose1.position.y, pose1.position.z)
-        pos2 = (pose2.position.x, pose2.position.y, pose2.position.z)
+        pos1 = np.array((pose1.position.x, pose1.position.y, pose1.position.z))
+        pos2 = np.array((pose2.position.x, pose2.position.y, pose2.position.z))
         dp = np.linalg.norm(pos2-pos1)
 
         q1 = (pose1.orientation.x, pose1.orientation.y, pose1.orientation.z, pose1.orientation.w)
