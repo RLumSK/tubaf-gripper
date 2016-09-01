@@ -35,6 +35,8 @@ import ar_track_alvar_msgs.msg
 import moveit_msgs.msg
 import moveit_msgs.srv
 
+import numpy as np
+
 
 class PlaningInterface(object):
     """
@@ -50,6 +52,7 @@ class PlaningInterface(object):
                                        queue_size=1)
 
         self.scene = moveit_commander.PlanningSceneInterface()
+        self.marker = None
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
         self.collision_scale = rospy.get_param("~model_scale", 1e-03)
@@ -104,12 +107,46 @@ class PlaningInterface(object):
         max_marker.pose.pose.position.z -= 0.078
         max_marker.pose.header = max_marker.header
 
-        # add collision object at given pose
-        cs = self.collision_scale
-        self.scene.add_mesh(name=self.ar_topic, pose=max_marker.pose, filename=self.stl, size=(cs, cs, cs))
+        # determine if pose has changed
+        if self.marker is None:
+            self.marker = max_marker
+        else:
+            if self.poses_match(self.marker.pose, max_marker.pose):
+                # posese seam simlar
+                pass
+            else:
+                self.marker = max_marker
+                self.scene.remove_world_object(name=self.ar_topic)
+                rospy.sleep(0.2)
+                # add collision object at given pose
+                cs = self.collision_scale
+                self.scene.add_mesh(name=self.ar_topic, pose= self.marker.pose, filename=self.stl, size=(cs, cs, cs))
         rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() finished")
         rospy.sleep(1.0)
 
+    def poses_match(self, pose1, pose2, pos_tol=0.005, rot_tol=1.0):
+        """
+        Determine if two given poses are similar or not by comparing position and orientation
+        :param pose1: 1st pose
+        :type pose1: Pose
+        :param pose2: 2nd pose
+        :type pose2: Pose
+        :param pos_tol: position tolerance, default: 0.005
+        :type pos_tol: Double
+        :param rot_tol: rotation tolerance, default: 1.0
+        :type rot_tol: Double
+        :return: True if similar, False if not
+        :rtype: Boolean
+        """
+        pos1 = (pose1.position.x, pose1.position.y, pose1.position.z)
+        pos2 = (pose2.position.x, pose2.position.y, pose2.position.z)
+        dp = np.linalg.norm(pos2-pos1)
+
+        q1 = (pose1.orientation.x, pose1.orientation.y, pose1.orientation.z, pose1.orientation.w)
+        q2 = (pose2.orientation.x, pose2.orientation.y, pose2.orientation.z, pose2.orientation.w)
+        dq = 1 - np.abs(np.dot(q2, q1))
+
+        return dp <= pos_tol and dq <= rot_tol
 
 if __name__ == '__main__':
     rospy.init_node("tbf_gripper_perception_planing_interface", anonymous=False)
