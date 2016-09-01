@@ -90,19 +90,11 @@ class PlaningInterface(object):
         :return: -
         :rtype: -
         """
-        # rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() received msg:%s", msg)
+        rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() received msg:%s", msg)
         if len(msg.markers) < 1:
             return
         max_marker = msg.markers[0]
-        # determine which pose gone serve as reference for the object
-        # for i in range(1, len(msg.markers)):
-        #     if msg.markers[i].confidence > confidence:
-        #         max_marker = msg.markers[i]
-        #         confidence = msg.markers[i].confidence
-        # if max_marker is None:
-        #     return
-
-        # rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() max marker:%s", max_marker)
+        rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() max marker:%s", max_marker)
         # add offset to ar_marker pose
         max_marker.pose.pose.position.z -= 0.078
         max_marker.pose.header = max_marker.header
@@ -113,18 +105,22 @@ class PlaningInterface(object):
         else:
             if self.poses_match(self.marker.pose.pose, max_marker.pose.pose):
                 # posese seam simlar
-                pass
+                rospy.sleep(1.0)
+                return
             else:
                 self.marker = max_marker
                 self.scene.remove_world_object(name=self.ar_topic)
+                rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() Updating pose: %s",
+                              self.marker.pose)
                 rospy.sleep(0.2)
-                # add collision object at given pose
-                cs = self.collision_scale
-                self.scene.add_mesh(name=self.ar_topic, pose= self.marker.pose, filename=self.stl, size=(cs, cs, cs))
-        rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() finished")
+        # add collision object at given pose
+        cs = self.collision_scale
+        rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() add Mesh")
+        self.scene.add_mesh(name=self.ar_topic, pose=self.marker.pose, filename=self.stl, size=(cs, cs, cs))
+        # rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() finished")
         rospy.sleep(1.0)
 
-    def poses_match(self, pose1, pose2, pos_tol=0.005, rot_tol=1.0):
+    def poses_match(self, pose1, pose2, pos_tol=0.005, rot_tol=0.1):
         """
         Determine if two given poses are similar or not by comparing position and orientation
         :param pose1: 1st pose
@@ -133,7 +129,7 @@ class PlaningInterface(object):
         :type pose2: Pose
         :param pos_tol: position tolerance, default: 0.005
         :type pos_tol: Double
-        :param rot_tol: rotation tolerance, default: 1.0
+        :param rot_tol: rotation tolerance, default: 0.1
         :type rot_tol: Double
         :return: True if similar, False if not
         :rtype: Boolean
