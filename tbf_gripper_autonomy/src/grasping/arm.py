@@ -276,13 +276,13 @@ class MoveItWrapper(object):
         :rtype: String
         """
         known_obj = self.scene.get_known_object_names()
-        rospy.loginfo("MoveItWrapper.grasped_object(): known objects: %s", known_obj)
+        rospy.logdebug("MoveItWrapper.grasped_object(): known objects: %s", known_obj)
         if len(known_obj) > 0:
             object_name = known_obj[0]
         else:
             object_name = ""
-        rospy.loginfo("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
-                      object_name, self.ee_link, self.ee_links)
+        rospy.logdebug("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
+                       object_name, self.ee_link, self.ee_links)
         self.group.attach_object(object_name, self.ee_link, touch_links=self.ee_links)
         return self.ee_link, known_obj
 
@@ -296,6 +296,7 @@ class MoveItWrapper(object):
         :return: -
         :rtype: -
         """
+        rospy.loginfo("MoveItWrapper.remove_attached_object(): remove %s from %s ", name, link)
         self.scene.remove_attached_object(link=link, name=name)
         self.group.detach_object(name=name)
 
@@ -307,13 +308,14 @@ class MoveItWrapper(object):
         """
         known_objects = self.scene.get_known_object_names()
         for obj in known_objects:
+            rospy.loginfo("MoveItWrapper.clear_attached_objects(): detach %s ", obj)
             self.group.detach_object(obj)
         self.scene.remove_attached_object(self.ee_link)
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_arm", anonymous=False)
     wrapper = MoveItWrapper()
-    wrapper.group.set_start_state_to_current_state();
+    wrapper.group.set_start_state_to_current_state()
     rospy.sleep(1.0)
     rospy.loginfo("@main current state: %s", wrapper.group.get_current_joint_values())
 

@@ -87,7 +87,7 @@ class Controller(object):
 
         # Debugging & Development tools
         self.marker_id = 1
-        self.marker_pub = rospy.Publisher("/cntrl_marker", Marker, queue_size=1)
+        self.marker_pub = rospy.Publisher("/controller_marker", Marker, queue_size=1)
 
         rospy.loginfo("controller.py: Controller(): finished initialization")
 
@@ -128,7 +128,7 @@ class Controller(object):
         a_marker.color.b = 0.5
         a_marker.color.a = 1.0
         a_marker.id = self.marker_id
-        self.marker_id += 1
+        # self.marker_id += 1
         self.marker_pub.publish(a_marker)
 
     def to_hover_pose(self, msg):
@@ -153,7 +153,7 @@ class Controller(object):
         now = rospy.Time.now()
         self.tf_listener.waitForTransform(max_marker.header.frame_id, self.base_link, now, rospy.Duration(10.0))
         hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
-        rospy.loginfo("Controller.to_hover_pose(): transform from: %s to %s",
+        rospy.logdebug("Controller.to_hover_pose(): transform from: %s to %s",
                       max_marker.header.frame_id, self.base_link)
         hover_pose.pose.position.z += 0.8
         quat = tf.transformations.quaternion_from_euler(0, numpy.pi/2.0, 0)
@@ -162,9 +162,6 @@ class Controller(object):
         hover_pose.pose.orientation.z = quat[2]
         hover_pose.pose.orientation.w = quat[3]
         # self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
-
-        # Show marker
-        self.show_marker(hover_pose)
 
         # Move to Target
         rospy.loginfo("Controller.to_hover_pose(): to hover_pose")
@@ -192,9 +189,6 @@ class Controller(object):
         self.haf_client.unregister_pc_callback()
 
         # Calculate the target pose
-
-        # Show marker
-        self.show_marker(msg)
 
         self.hand_controller.openHand()
 
@@ -260,86 +254,6 @@ class Controller(object):
             else:
                 rospy.sleep(3.0)  # sleep so the hand can open
 
-    # def grasp_at_pose(self, grasp_pose):
-    #     """
-    #     Callback function for a given grasp pose - Here is the logic and schedule stored, the main functionality is here
-    #     :param grasp_pose: pose for the gripper in order to grasp the object
-    #     :type grasp_pose: PoseStamped
-    #     :return: -
-    #     :rtype: -
-    #     """
-    #     # Pausing Recognition?
-    #     rospy.loginfo("controller.py: Controller.onGraspSearchCallback(): received grasp_pose")  # : %s", grasp_pose)
-    #     self.haf_client.remove_grasp_cb_function(self.grasp_at_pose)
-    #     self.haf_client.unregister_pc_callback()
-    #
-    #     # Calculating Target and Hover Pose
-    #     target_pose = self.convert_grasp_pose(grasp_pose)
-    #     hover_pose = copy.deepcopy(target_pose)
-    #     hover_pose.pose.position.z += 0.24  # double finger length
-    #
-    #     # Show marker
-    #     self.show_marker(target_pose)
-    #     rospy.sleep(0.1)
-    #     self.show_marker(hover_pose)
-    #
-    #     # Ask user if grasp point is ok
-    #     answer = raw_input("Controller: Use calculated grasp point? (y/n) ...")
-    #     if answer == 'y':
-    #         pass
-    #     else:
-    #         self.haf_client.increment_set_graspingcenter()
-    #         self.haf_client.register_pc_callback()
-    #         self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
-    #         return
-    #
-    #     self.hand_controller.openHand()
-    #     rospy.sleep(1.0)
-    #     origin_pose = self.moveit_controller.get_current_pose(frame_id="gripper_ur5_base_link")
-    #
-    #     # Move to Target
-    #     rospy.loginfo("Controller.onGraspSearchCallback(): to hover_pose")
-    #     if not self.move_to_pose(hover_pose, origin_pose):
-    #         rospy.logwarn("Controller.onGraspSearchCallback(): Moving to hover_pose failed")
-    #         self.haf_client.register_pc_callback()
-    #         self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
-    #         return
-    #
-    #     # rospy.sleep(3.0)
-    #     rospy.loginfo("Controller.onGraspSearchCallback(): to target_pose")
-    #     if not self.move_to_pose(target_pose, origin_pose):
-    #         rospy.logwarn("Controller.onGraspSearchCallback(): Moving to target_pose failed")
-    #         self.haf_client.register_pc_callback()
-    #         self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
-    #         return
-    #
-    #     # grasp object
-    #     rospy.loginfo("Controller.onGraspSearchCallback(): closing hand")
-    #     self.hand_controller.closeHand()
-    #     rospy.sleep(3.0)  # wait till the hand grasp the object
-    #     (obj_link, obj_name) = self.moveit_controller.grasped_object()
-    #
-    #     # lift grasped object
-    #     # plan path towards origin
-    #     while not self.move_to_pose(origin_pose, target_pose):
-    #         rospy.loginfo("Controller.onGraspSearchCallback(): try tp plan towards origin again ... ")
-    #         rospy.sleep(0.5)
-    #
-    #     hand_closed = True
-    #     while hand_closed:
-    #         answer = raw_input("Controller: Open Hand? (y/n) ...")
-    #         if answer == 'y':
-    #             self.hand_controller.openHand()
-    #             # self.moveit_controller.remove_attached_object(box_name)
-    #             rospy.loginfo("Controller.onGraspSearchCallback(): END")
-    #             self.haf_client.register_pc_callback()
-    #             self.haf_client.add_grasp_cb_function(self.grasp_at_pose)
-    #             self.moveit_controller.remove_attached_object(link=obj_link, name=obj_name)
-    #             hand_closed = False
-    #         else:
-    #              rospy.sleep(3.0)  # sleep so the hand can open
-    #     self.hand_controller.restHand()
-
     def move_to_origin(self, origin):
         """
         Move the arm to the given joint set, that is assumed to be the origin of the gripper
@@ -390,13 +304,16 @@ class Controller(object):
         :return: return if the pose could be reached within the tolerances (after execution)
         :rtype: Boolean
         """
+        # Visualize target
+        self.show_marker(pose)
+
         # Planing
         rospy.loginfo("Controller.move_to_pose(): planning")
         while not self.moveit_controller.plan_to_pose(pose):
             # rospy.loginfo("Controller.move_to_pose(): couldn't calculate a plan")
-            answer = raw_input("Controller..move_to_pose(): couldn't calculate a plan - Plan again (p)?"
+            answer = raw_input("Controller.move_to_pose(): couldn't calculate a plan - Plan again (p)?"
                                " Clear Octomap and plan again (c)? Abort (a)? (p/c/a)")
-            if answer == 'y' or answer == 'c':
+            if answer == 'p' or answer == 'c':
                 if answer == 'c':
                     rospy.wait_for_service("clear_octomap")
                     clear_octomap = rospy.ServiceProxy('clear_octomap', Empty)
