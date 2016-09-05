@@ -65,12 +65,13 @@ class Controller(object):
         """
         self.end_effector_link = rospy.get_param("~end_effector_link", "gripper_robotiq_palm_planning")
         self.base_link = rospy.get_param("~base_link", "gripper_ur5_base_link")
+        self.target_object_name = rospy.get_param("~target_object_name", "wlan_box")
 
         self.haf_client = grasping.haf_client.HAFClient()
         rospy.loginfo("controller.py: Controller(): initilized HAF client")
 
         self.moveit_controller = grasping.arm.MoveItWrapper()
-        # self.moveit_controller.clear_attached_objects()
+        self.moveit_controller.clear_attached_objects()
         rospy.loginfo("controller.py: Controller(): initilized arm")
 
         self.hand_controller = grasping.hand.HandController()
@@ -152,10 +153,10 @@ class Controller(object):
         max_marker = msg.markers[0]
         max_marker.pose.header = max_marker.header
         now = rospy.Time.now()
-        self.tf_listener.waitForTransform(max_marker.header.frame_id, self.base_link, now, rospy.Duration(10.0))
+        self.tf_listener.waitForTransform(max_marker.header.frame_id, self.base_link, now, rospy.Duration(10))
         self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
         rospy.logdebug("Controller.to_hover_pose(): transform from: %s to %s",
-                      max_marker.header.frame_id, self.base_link)
+                       max_marker.header.frame_id, self.base_link)
         self.hover_pose.pose.position.z += 0.8
         quat = tf.transformations.quaternion_from_euler(0, numpy.pi/2.0, 0)
         self.hover_pose.pose.orientation.x = quat[0]
@@ -210,14 +211,13 @@ class Controller(object):
         :return: -
         :rtype: -
         """
-
         rospy.loginfo("Controller.grasp_object(): closing hand")
         self.hand_controller.closeHand()
         rospy.sleep(3.0)  # wait till the hand grasp the object
-        (obj_link, obj_name) = self.moveit_controller.grasped_object()
+        obj_link = self.moveit_controller.grasped_object(self.target_object_name)
 
         # Next Step: lift object
-        self.lift_object(obj_link, obj_name)
+        self.lift_object(obj_link, self.target_object_name)
 
     def lift_object(self, link="gripper_robotiq_palm_planning", name="/ar_pose_marker"):
         """
@@ -238,7 +238,7 @@ class Controller(object):
             answer = raw_input("Controller: Open Hand? (y/n) ...")
             if answer == 'y':
                 self.hand_controller.openHand()
-                rospy.loginfo("Controller.lift_object(): END")
+                rospy.loginfo("Controller.lift_object(): %s on link %s lifted", name, link)
                 self.moveit_controller.remove_attached_object(link, name)
                 hand_closed = False
             else:

@@ -72,6 +72,7 @@ class MoveItWrapper(object):
         self.ee_links = rospy.get_param("~ee_links", [])
 
         self.scene = moveit_commander.PlanningSceneInterface()
+        # rospy.loginfo("MoveItWrapper(): type of self.scene: %s\n%s", type(self.scene), dir(self.scene))
         self.commander = moveit_commander.RobotCommander()  # controller of the robot (arm)
         self.group = moveit_commander.MoveGroupCommander(group_name)
         self.hand_group = moveit_commander.MoveGroupCommander("Hand")
@@ -204,7 +205,7 @@ class MoveItWrapper(object):
         :rtype: PoseStamped
         """
         ret_ps = self.group.get_current_pose()
-        rospy.loginfo("MoveItWrapper.get_current_pose(): ret_ps=%s", ret_ps)
+        rospy.logdebug("MoveItWrapper.get_current_pose(): ret_ps=%s", ret_ps)
         now = rospy.Time.now()
         self.tf_listener.waitForTransform(ret_ps.header.frame_id, frame_id, now, rospy.Duration(4))
         return self.tf_listener.transformPose(frame_id, ps=ret_ps)
@@ -269,22 +270,18 @@ class MoveItWrapper(object):
             dct.update(pair)
         return dct
 
-    def grasped_object(self):
+    def grasped_object(self, object_name):
         """
         The hand closed and an object is in collision with the hand links (self.ee_links)
-        :return: name of the attached link and the object
+        :param object_name: name of the grasped object
+        :type object_name: String
+        :return: name of the attached link
         :rtype: String
         """
-        known_obj = self.scene.get_known_object_names(with_type=False)
-        rospy.logdebug("MoveItWrapper.grasped_object(): known objects: %s", known_obj)
-        if len(known_obj) > 0:
-            object_name = known_obj[0]
-        else:
-            object_name = ""
         rospy.logdebug("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
                        object_name, self.ee_link, self.ee_links)
         self.group.attach_object(object_name, self.ee_link, touch_links=self.ee_links)
-        return self.ee_link, known_obj
+        return self.ee_link
 
     def remove_attached_object(self, link="gripper_robotiq_palm_planning", name="/ar_pose_marker"):
         """
@@ -306,10 +303,8 @@ class MoveItWrapper(object):
         :return: -
         :rtype: -
         """
-        known_objects = self.scene.get_known_object_names()
-        for obj in known_objects:
-            rospy.loginfo("MoveItWrapper.clear_attached_objects(): detach %s ", obj)
-            self.group.detach_object(obj)
+        if self.scene is None:
+            return
         self.scene.remove_attached_object(self.ee_link)
 
 if __name__ == '__main__':

@@ -139,7 +139,7 @@ class PlaningInterface(object):
 
     def add_collision_object(self):
         """
-        Add an Collision Object to the PLanning scene using a Publisher
+        Add an Collision Object to the Planning scene using a Publisher
         :return: -
         :rtype: -
         """
