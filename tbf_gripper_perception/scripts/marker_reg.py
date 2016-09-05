@@ -177,6 +177,8 @@ def vis_result(src_transform, base_id):
     m.pose.position = Point(*pos)
     m.pose.orientation = Quaternion(*rot)
     m.text = "id_%d" % base_id
+    m.scale.x *= cfg.sizes[base_id]
+    m.scale.y *= cfg.sizes[base_id]
 
 
     arr.markers.append(m)
@@ -239,6 +241,8 @@ def vis_result(src_transform, base_id):
             pos, rot = transformer.lookupTransform("base_link","id_%d" % id, rospy.Time(0))
             m.pose.position = Point(*pos)
             m.pose.orientation = Quaternion(*rot)
+            m.scale.x *= cfg.sizes[id]
+            m.scale.y *= cfg.sizes[id]
             arr.markers.append(m)
             m = copy.deepcopy(m)
             m.id = 1000+ m.id
@@ -291,8 +295,9 @@ class cfg:
     default_marker.ns = "object"
     default_marker.lifetime.secs = 10
     default_marker.color.a = 0.5
-    default_marker.type = Marker.CUBE
-    default_marker.scale = Vector3(0.1, 0.1, 0.01)
+    default_marker.type = Marker.MESH_RESOURCE
+    default_marker.scale = Vector3(0.1, 0.1, 0.005)
+    default_marker.mesh_resource = "package://tbf_gripper_perception/meshes/marker.dae"
 
 
 # singleton class for global variables
@@ -433,7 +438,8 @@ if __name__ == '__main__':
     cfg.datafile = rospy.get_param("~datafile","/tmp/marker_reg.pypickle")
     cfg.autosave = rospy.get_param("~autosave",True)
     cfg.sizes = rospy.get_param("~marker_sizes", dict())
-    cfg.valid_ids = set([int(s[3:]) for s in cfg.sizes.keys()])
+    cfg.sizes = {int(k[3:]):float(v) for k,v in iter(cfg.sizes.items())}
+    cfg.valid_ids = cfg.sizes.keys()
 
     # load_data("/tmp/marker_reg.pypickle")
     load_data(cfg.datafile)
