@@ -140,7 +140,6 @@ random.seed = 684643613
 
 q90 = tft.quaternion_from_euler(random.gauss(0.05,0.001), random.gauss(0.05,0.001), random.gauss(0.1,0.008))
 
-
 data5 = map(lambda q: tft.quaternion_multiply(q, q90), data2)
 
 data = np.vstack((data2, data5))

@@ -4,7 +4,8 @@
 import rospy
 import numpy as np
 from ar_track_alvar_msgs.msg import AlvarMarkers, AlvarMarker
-from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, TransformStamped, Transform
+from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, TransformStamped, Transform, Vector3
+from std_msgs.msg import Header
 from collections import deque, defaultdict
 import tf.transformations as tft
 import scipy.cluster.hierarchy as ch
@@ -12,7 +13,17 @@ import scipy.spatial.distance as dist
 import sys
 import threading
 from tf import TransformerROS
-from tf2_ros import TransformRegistration
+import os
+import pickle
+from visualization_msgs.msg import Marker, MarkerArray
+import copy
+import scipy.sparse.csgraph as csg
+
+def invert_affine(a):
+    r = a[0:3,0:3]
+    t = a[0:3,3]
+
+
 
 
 def q_to_array(q):
@@ -60,6 +71,10 @@ def pose_rel(p0, p1):
     a0 = pose_to_affine(p0)
     a1 = pose_to_affine(p1)
     res = np.dot(tft.inverse_matrix(a0), a1)
+
+
+    print np.hstack((a0,a1,res))
+
     return affine_to_pose(res)
 
 
@@ -111,20 +126,159 @@ class PoseSamples:
     def __repr__(self):
         return self.__str__()
 
+    def best_transform(self):
+        if self.best_o is None or self.best_t is None:
+            return None
+        m = tft.quaternion_matrix(self.best_o)
+        m[0:3, 3] = self.best_t
+        return m
+
 
 def print_current_transforms():
     for id_tup, pose_sample in iter(g.transforms.items()):
         rospy.loginfo("%-9s r: %52s  t: %s", str(id_tup), pose_sample.best_o, pose_sample.best_t)
+        # print pose_sample.best_transform()
 
-def mk_tf(src,dst,o_quat,t):
-    #todo
-    pass
+
+def mk_tft(src, dst, orient_or_affine, trans=None, header=None):
+    t = TransformStamped()
+    if header is not None:
+        t.header = header
+
+    t.header.frame_id = src
+    t.child_frame_id = dst
+
+    if trans is not None:
+        t.transform.rotation = Quaternion(*orient_or_affine)
+        t.transform.translation = Vector3(*trans)
+    else:
+        p = affine_to_pose(orient_or_affine)
+        t.transform.translation = p.position
+        t.transform.rotation = p.orientation
+    return t
 
 
 def vis_result(src_transform, base_id):
-    #todo
+    # build a transformer for easier getting marker poses
+    h = Header()
+    h.stamp = rospy.get_rostime()
+    h.frame_id = "base_link"
     transformer = TransformerROS()
-    transformer.setTransform()
+    transformer.setTransform(mk_tft("base_link", "id_%d" % base_id, src_transform))
+
+    arr = MarkerArray()
+    arr.markers = list()
+
+    # draw all the markers
+    m = copy.deepcopy(cfg.default_marker)
+    m.header = h
+    m.id = base_id
+    pos, rot = transformer.lookupTransform("base_link","id_%d" % base_id, rospy.Time(0))
+    m.pose.position = Point(*pos)
+    m.pose.orientation = Quaternion(*rot)
+    m.text = "id_%d" % base_id
+
+
+    arr.markers.append(m)
+    valid_ids = set()
+
+    valid_ids.add(base_id)
+
+    # n = np.max([ids[1] for ids in g.transforms.keys()]) +1
+    # graph_mat = np.zeros((n,n))
+    # for ids, pose_data in iter(g.transforms.items()):
+    #     if pose_data.best_o is not None:
+    #         graph_mat[ids[0],ids[1]] = graph_mat[ids[1],ids[0]] = 1.0 / float(pose_data.last_num)
+    #
+    # graph = csg.csgraph_from_dense(graph_mat)
+    # print graph
+    #
+    # print "---"
+    # spanningtree = csg.breadth_first_tree(graph,base_id,False)
+    #
+    # print spanningtree
+    # exit(0)
+
+    iters = 0
+    remaining = set(g.transforms.keys())
+    held_back = set()
+    while iters < 2:
+        for id_tup in remaining:
+            pose_samples = g.transforms[id_tup]
+            if pose_samples.best_o is None:
+                continue
+
+            if (id_tup[0] in valid_ids and id_tup[1] not in valid_ids):
+                transformer.setTransform(mk_tft("id_%d" % id_tup[0], "id_%d" % id_tup[1], pose_samples.best_transform()))
+                rospy.logdebug("added transform for %s", str(id_tup))
+                iters = 0
+                valid_ids.add(id_tup[1])
+            elif (id_tup[1] in valid_ids and id_tup[0] not in valid_ids):
+                transformer.setTransform(mk_tft("id_%d" % id_tup[1], "id_%d" % id_tup[0], tft.inverse_matrix(pose_samples.best_transform())))
+                rospy.logdebug("added transform for swapped %s", str(id_tup))
+                iters = 0
+                valid_ids.add(id_tup[0])
+            else:
+                held_back.add(id_tup)
+        remaining.update(held_back)
+        held_back.clear()
+        iters += 1
+
+
+    # for ids, pose_data in iter(g.transforms.items()):
+    #     if pose_data.best_o is not None:
+    #         transformer.setTransform(mk_tft("id_%d" % ids[0], "id_%d" % ids[1], pose_data.best_transform()))
+    #         rospy.logdebug("added transform for %s",str(ids))
+    #         valid_ids.append(ids[1])
+
+    for id in valid_ids:
+        try:
+            m = copy.deepcopy(cfg.default_marker)
+            m.header = h
+            m.id = id
+            pos, rot = transformer.lookupTransform("base_link","id_%d" % id, rospy.Time(0))
+            m.pose.position = Point(*pos)
+            m.pose.orientation = Quaternion(*rot)
+            arr.markers.append(m)
+            m = copy.deepcopy(m)
+            m.id = 1000+ m.id
+            m.text = "id_%d" % id
+            m.type = Marker.TEXT_VIEW_FACING
+            arr.markers.append(m)
+        except Exception as e:
+            rospy.logwarn("vis error for %s! Reason: %s",str(id), e)
+
+    # publish marker array
+    g.reg_pub.publish(arr)
+
+
+def save_data(fn):
+    g.transforms_lock.acquire()
+    try:
+        pickle.dump(dict(g.transforms), open(fn, 'wb'))
+        rospy.loginfo("saved transforms to %s", fn)
+    except StandardError as e:
+        rospy.logerr("save failed, %s", str(e))
+
+    g.transforms_lock.release()
+
+
+def load_data(fn):
+    if not os.path.exists(fn):
+        rospy.logerr("load failed, %s does not exist", fn)
+        return
+    try:
+        tfms = pickle.load(open(fn, 'rb'))
+    except StandardError as e:
+        rospy.logerr("load failed, %s", str(e))
+        return
+
+    g.transforms_lock.acquire()
+    if tfms is not None:
+        rospy.loginfo("loaded transforms from %s", fn)
+        g.transforms.clear()
+        g.transforms.update(tfms)
+    g.transforms_lock.release()
 
 
 # all configuration goes here
@@ -133,13 +287,22 @@ class cfg:
     max_samples = 60
     cluster_threshold = 0.0005
 
+    default_marker = Marker()
+    default_marker.ns = "object"
+    default_marker.lifetime.secs = 10
+    default_marker.color.a = 0.5
+    default_marker.type = Marker.CUBE
+    default_marker.scale = Vector3(0.1, 0.1, 0.01)
+
 
 # singleton class for global variables
 class g:
     marker_sub = None
+    reg_pub = None
     transforms = defaultdict(lambda: PoseSamples())
-    # otimization and adding of data happens asynchronous, so locking is required to not mess up the data
-    transforms_lock = threading.Lock()
+    # optimization and adding of data happens asynchronous, so locking is required to not mess up the data
+    # use reentrant lock for ease of use, calling subroutines from locked states which are also locking
+    transforms_lock = threading.RLock()
 
 
 def on_markers(markers):
@@ -154,9 +317,13 @@ def on_markers(markers):
     # compute relative poses
     for i in range(0, m_len - 1):
         mk0 = mks[i]
+        if mk0.id not in cfg.valid_ids:
+            continue
         p0 = mk0.pose.pose
         for j in range(i + 1, m_len):
             mk1 = mks[j]
+            if mk1.id not in cfg.valid_ids:
+                continue
             p1 = mk1.pose.pose
             p01 = pose_rel(p0, p1)
             key = (mk0.id, mk1.id)
@@ -164,6 +331,7 @@ def on_markers(markers):
             pose_sample = g.transforms[key]
             pose_sample.o.append(q_to_array(p01.orientation))
             pose_sample.t.append(p_to_array(p01.position))
+
     g.transforms_lock.release()
 
 
@@ -236,7 +404,7 @@ def on_optimize(timer_event):
         # rospy.loginfo("   %s --- %s",str(k),str(v))
         if len(pose_samples.o) == pose_samples.last_num:
             # skip due to no change in sample count
-            rospy.loginfo("skip %9s, no new samples",str(id_tuple))
+            rospy.loginfo("skip %9s, no new samples", str(id_tuple))
             continue
 
         res_o = optimize_clustering(id_tuple, pose_samples.o, phi4_q, cfg.cluster_threshold, "orientations")
@@ -248,12 +416,52 @@ def on_optimize(timer_event):
         if res_t is not None:
             pose_samples.best_t, pose_samples.t = res_t
 
+    if cfg.autosave:
+        save_data(cfg.datafile)
     print_current_transforms()
+
+    base_tf = np.eye(4)
+    base_tf[1, 3] = -0.5
+    vis_result(base_tf, 20)
+
     g.transforms_lock.release()
 
 
 if __name__ == '__main__':
     rospy.init_node("marker_reg", log_level=rospy.DEBUG)
+
+    cfg.datafile = rospy.get_param("~datafile","/tmp/marker_reg.pypickle")
+    cfg.autosave = rospy.get_param("~autosave",True)
+    cfg.sizes = rospy.get_param("~marker_sizes", dict())
+    cfg.valid_ids = set([int(s[3:]) for s in cfg.sizes.keys()])
+
+    # load_data("/tmp/marker_reg.pypickle")
+    load_data(cfg.datafile)
+
+    print cfg.valid_ids
+    for tp in g.transforms.keys():
+        if tp[0] not in cfg.valid_ids or tp[1] not in cfg.valid_ids:
+            rospy.loginfo("removed invalid id %s",str(tp))
+            g.transforms.pop(tp)
+
+    # t0 = PoseSamples()
+    # t1 = PoseSamples()
+    # t2 = PoseSamples()
+    # t0.best_o = [0.0, 0.0, 0.0, 1.0]
+    # t0.best_t = [0.1, 0.0, 0.0]
+    #
+    # t1.best_o = tft.quaternion_from_euler(np.pi * 0.5,0,0)
+    # t1.best_t = [-0.1, 0.0, 0.0]
+    #
+    # t2.best_o = tft.quaternion_from_euler(0, np.pi * 0.5, 0)
+    # t2.best_t = [0.1, 0.1, 0.0]
+    #
+    # g.transforms[(20, 21)] = t0
+    # g.transforms[(20, 22)] = t1
+    # g.transforms[(20, 23)] = t2
+
+    g.reg_pub = rospy.Publisher("/reg_marker_pub", MarkerArray, queue_size=1)
+
 
     g.marker_sub = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, on_markers, queue_size=3)
     g.optim_timer = rospy.Timer(rospy.Duration(3), on_optimize)
