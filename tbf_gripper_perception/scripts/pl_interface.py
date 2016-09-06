@@ -30,7 +30,6 @@
 
 import rospy
 
-import ar_track_alvar_msgs.msg
 import moveit_msgs.msg
 import moveit_msgs.srv
 import shape_msgs.msg
@@ -41,7 +40,6 @@ try:
     from pyassimp import pyassimp
 except:
     import pyassimp
-from geometry_msgs.msg import PoseStamped
 
 
 class PlaningInterface(object):
@@ -91,7 +89,8 @@ class PlaningInterface(object):
             self._pubPlanningScene.publish(planning_scene_diff)
             rospy.sleep(1.0)
 
-        self.ar_sub = rospy.Subscriber(self.ar_topic, PoseStamped, callback=self.onPoseStamped, queue_size=1)
+        self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msgPoseStamped, callback=self.onPoseStamped,
+                                       queue_size=1)
         rospy.loginfo("pl_interface.py:PlanningInterface() initialized")
 
     def onMarkersMessage(self, msg):
@@ -217,6 +216,7 @@ class PlaningInterface(object):
         dq = 1 - np.abs(np.dot(q2, q1))
 
         return dp <= pos_tol and dq <= rot_tol
+
     def onPoseStamped(self, msg):
         """
         After receiving a set of markers publish the referring collision object in the planning scene

@@ -32,9 +32,12 @@ import sys
 import rospy
 import moveit_commander
 import moveit_msgs.msg
+import moveit_ros_planning.cfg.PlanningSceneMonitorDynamicReconfigureConfig
 import geometry_msgs.msg
 import rosnode
 import tf
+
+import dynamic_reconfigure.client
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -93,6 +96,15 @@ class MoveItWrapper(object):
         self.ee_link = rospy.get_param("~ee_link", "gripper_robotiq_palm_planning")
         # [minX, minY, minZ, maxX, maxY, maxZ]
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
+
+        # Unlock Planning Frame ( MoveIt)
+        self.move_group_client = dynamic_reconfigure.client.Client("move_group")
+        params = {'publish_planning_scene': True, 'publish_planning_scene_hz': 2.0,
+                  'publish_geometry_updates': True, 'publish_state_updates': True, 'publish_transforms_updates': True}
+        # cfg = moveit_ros_planning.cfg.PlanningSceneMonitorDynamicReconfigureConfig()
+        # cfg.
+        self.move_group_client.update_configuration(params)
+
 
         # Some information
         rospy.logdebug("--- RobotCommander Info ---")
