@@ -1,2 +1,2 @@
 ar_marker_id: 0
-ar_topic: "/ar_pose_marker"
+ar_topic: "/model_tracker/ar_model_pose"
