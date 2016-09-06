@@ -57,7 +57,6 @@ class PlaningInterface(object):
         #                                callback=self.onMarkersMessage,
         #                                queue_size=1)
 
-
         self.last_pose_st = None
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
@@ -66,7 +65,8 @@ class PlaningInterface(object):
         self._pub_co = rospy.Publisher('/collision_object', moveit_msgs.msg.CollisionObject, queue_size=100)
 
         # http://answers.ros.org/question/157716/obstacles-management-in-moveit/
-        self._pubPlanningScene = rospy.Publisher('planning_scene', moveit_msgs.msg.PlanningScene, queue_size=10)
+        pl_scene_topic = rospy.get_param("~planning_scene_topic", "/move_group/monitored_planning_scene")
+        self._pubPlanningScene = rospy.Publisher(pl_scene_topic, moveit_msgs.msg.PlanningScene, queue_size=10)
         rospy.wait_for_service('/get_planning_scene', 10.0)
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', moveit_msgs.srv.GetPlanningScene)
         request = moveit_msgs.msg.PlanningSceneComponents(

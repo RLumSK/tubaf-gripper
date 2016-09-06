@@ -98,7 +98,7 @@ class MoveItWrapper(object):
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
         # Unlock Planning Frame ( MoveIt)
-        self.move_group_client = dynamic_reconfigure.client.Client("move_group")
+        self.move_group_client = dynamic_reconfigure.client.Client("/move_group/planning_scene_monitor")
         params = {'publish_planning_scene': True, 'publish_planning_scene_hz': 2.0,
                   'publish_geometry_updates': True, 'publish_state_updates': True, 'publish_transforms_updates': True}
         # cfg = moveit_ros_planning.cfg.PlanningSceneMonitorDynamicReconfigureConfig()

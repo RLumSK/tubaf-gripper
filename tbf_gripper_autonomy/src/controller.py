@@ -78,9 +78,6 @@ class Controller(object):
         rospy.loginfo("controller.py: Controller(): initilized hand")
 
         self.tf_listener = tf.TransformListener()
-        self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
-        self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers, callback=self.to_hover_pose,
-                                             queue_size=1)
         self.haf_client.add_grasp_cb_function(self.to_target_pose)
         # self.haf_client.register_pc_callback()
 
@@ -90,6 +87,9 @@ class Controller(object):
         # Debugging & Development tools
         self.marker_id = 1
         self.marker_pub = rospy.Publisher("/controller_marker", Marker, queue_size=1)
+        self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
+        self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers, callback=self.to_hover_pose,
+                                             queue_size=1)
 
         rospy.loginfo("controller.py: Controller(): finished initialization")
 
