@@ -3,9 +3,12 @@
   <arg name="max_new_marker_error" default="0.08"/>
   <arg name="max_track_error" default="0.2"/>
 
-  <arg name="cam_image_topic" default="/gripper_camera/depth_registered/points"/>
-  <arg name="cam_info_topic" default="/gripper_camera/rgb/camera_info"/>
+  <arg name="camera" default="/gripper_camera"/>
+  <arg name="cam_image_topic" default="$(arg camera)/depth_registered/points"/>
+  <arg name="cam_info_topic" default="$(arg camera)/rgb/camera_info"/>
   <arg name="output_frame" default="/base_link"/>
+
+  <arg name="publish_model_tf" default="false"/>
 
   <node name="ar_track_alvar" pkg="ar_track_alvar" type="dynamicIndividualMarkers" respawn="false" output="screen">
     <param name="max_new_marker_error" value="$(arg max_new_marker_error)"/>
@@ -14,5 +17,18 @@
     <param name="cam_info_topic" value="$(arg cam_info_topic)"/>
     <param name="output_frame" value="$(arg output_frame)"/>
     <rosparam command="load" file="$(find tbf_gripper_perception)/config/wlanbox_sizes.yaml"/>
+  </node>
+
+  <node name="model_tracker" pkg="tbf_gripper_perception" type="model_tracker.py" respawn="false" output="screen">
+    <param name="model_description"
+           command="$(find xacro)/xacro.py '$(find tbf_gripper_perception)/urdf/wlanbox_model.urdf.xacro'"/>
+    <param name="publish_tf" value="$(arg publish_model_tf)"/>
+  </node>
+
+  <node name="tbf_gripper_perception_planing_interface" pkg="tbf_gripper_perception" type="pl_interface.py"
+        respawn="false" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_perception)/config/planing_interface.yaml" ns=""/>
+    <param name="model_path" value="$(find tbf_gripper_perception)/meshes/wlan_box.stl"/>
+    <param name="model_scale_factor" value="0.0011"/>
   </node>
 </launch>

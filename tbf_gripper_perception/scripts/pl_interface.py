@@ -41,22 +41,26 @@ try:
     from pyassimp import pyassimp
 except:
     import pyassimp
+from geometry_msgs.msg import PoseStamped
 
 
 class PlaningInterface(object):
     """
     class that transforms an ar pose of an marker on a known object into a collision object into the planning scene
     """
+
     def __init__(self):
         """
         Default constructor that loads parameter from the parameter server, register callbacks and publisher
         """
         rospy.loginfo("pl_interface.py:PlanningInterface() initializing")
-        self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
-        self.ar_sub = rospy.Subscriber(self.ar_topic, ar_track_alvar_msgs.msg.AlvarMarkers, callback=self.onMarkersMessage,
-                                       queue_size=1)
+        self.ar_topic = rospy.get_param("~ar_topic", "/model_tracker/ar_model_pose")
+        # self.ar_sub = rospy.Subscriber(self.ar_topic, ar_track_alvar_msgs.msg.AlvarMarkers,
+        #                                callback=self.onMarkersMessage,
+        #                                queue_size=1)
 
-        self.marker = None
+
+        self.last_pose = None
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
         self.collision_scale = rospy.get_param("~model_scale", 1e-03)
@@ -86,6 +90,8 @@ class PlaningInterface(object):
 
             self._pubPlanningScene.publish(planning_scene_diff)
             rospy.sleep(1.0)
+
+        self.ar_sub = rospy.Subscriber(self.ar_topic, PoseStamped, callback=self.onPoseStamped, queue_size=1)
         rospy.loginfo("pl_interface.py:PlanningInterface() initialized")
 
     def onMarkersMessage(self, msg):
@@ -106,18 +112,18 @@ class PlaningInterface(object):
         max_marker.pose.header = max_marker.header
 
         # determine if pose has changed
-        if self.marker is None:
-            self.marker = max_marker
+        if self.last_pose is None:
+            self.last_pose = max_marker.pose.pose
         else:
-            if self.poses_match(self.marker.pose.pose, max_marker.pose.pose):
+            if self.poses_match(self.last_pose, max_marker.pose.pose):
                 # posese seam simlar
                 rospy.sleep(1.0)
                 return
             else:
-                self.marker = max_marker
+                self.last_pose = max_marker.pose.pose
                 self.remove_world_object(name=self.ar_topic)
                 rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() Updating pose: %s",
-                              self.marker.pose)
+                              self.last_pose)
                 rospy.sleep(0.2)
         # add collision object at given pose
         self.add_collision_object()
@@ -146,7 +152,7 @@ class PlaningInterface(object):
         # see:http://docs.ros.org/indigo/api/moveit_commander/html/planning__scene__interface_8py_source.html add_mesh()
         cs = self.collision_scale
         rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() add Mesh")
-        self._pub_co.publish(self.__make_mesh(name=self.ar_topic, pose=self.marker.pose, filename=self.stl,
+        self._pub_co.publish(self.__make_mesh(name=self.ar_topic, pose=self.last_pose, filename=self.stl,
                                               scale=(cs, cs, cs)))
 
     def __make_mesh(self, name, pose, filename, scale = (1, 1, 1)):
@@ -211,6 +217,37 @@ class PlaningInterface(object):
         dq = 1 - np.abs(np.dot(q2, q1))
 
         return dp <= pos_tol and dq <= rot_tol
+    def onPoseStamped(self, msg):
+        """
+        After receiving a set of markers publish the referring collision object in the planning scene
+        :param msg: PoseStamped of object's base frame to track
+        :type msg: geometry_msgs.msg.PoseStamped
+        :return: -
+        :rtype: -
+        """
+        # add collision object at given pose
+        cs = self.collision_scale
+        rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() finished")
+        rospy.sleep(1.0)
+
+        # determine if pose has changed
+        if self.last_pose is None:
+            self.last_pose = msg.pose
+        else:
+            if self.poses_match(self.last_pose, msg.pose):
+                # posese seam simlar
+                rospy.sleep(1.0)
+                return
+            else:
+                self.last_pose = msg.pose
+                self.remove_world_object(name=self.ar_topic)
+                rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() Updating pose: %s",
+                              self.last_pose)
+                rospy.sleep(0.2)
+        # add collision object at given pose
+        self.add_collision_object()
+        rospy.sleep(1.0)
+
 
 if __name__ == '__main__':
     rospy.init_node("tbf_gripper_perception_planing_interface", anonymous=False)

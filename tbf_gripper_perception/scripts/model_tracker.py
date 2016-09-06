@@ -5,7 +5,7 @@ import rospy
 from urdf_parser_py.urdf import URDF
 import tf
 import tf.transformations as tft
-from geometry_msgs.msg import TransformStamped, Quaternion, Vector3, Point, Pose
+from geometry_msgs.msg import TransformStamped, Quaternion, Vector3, Point, Pose, PoseStamped
 import re
 from ar_track_alvar_msgs.msg import AlvarMarkers
 import threading
@@ -43,6 +43,7 @@ class g:
     # protect tf publishing, called from timer and marker callback
     ft_transform_lock = threading.Lock()
     tf_broadcaster = None
+    model_pose_pub = None
 
 
 def mk_tft(src, dst, xyz, rpy, ):
@@ -119,6 +120,11 @@ def on_markers(markers):
             # print A_marker,"\n", A_model,"\n", A_res
             res_pose = affine_to_pose(A_res)
 
+            ps = PoseStamped()
+            ps.header = m.header
+            ps.pose = res_pose
+            g.model_pose_pub.publish(ps)
+
             if g.publish_tf:
                 g.ft_transform_lock.acquire()
                 t = g.tf_cur_transform
@@ -163,6 +169,7 @@ def main():
         g.tf_broadcaster = tf.TransformBroadcaster(queue_size=10)
         g.tf_pub_timer = rospy.Timer(rospy.Duration(0, 1e8), on_tf_pub_timer)
 
+    g.model_pose_pub = rospy.Publisher("ar_model_pose",PoseStamped,queue_size=3)
     # finally subscribe to marker poses
     g.marker_sub = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, on_markers, queue_size=3)
     rospy.spin()
