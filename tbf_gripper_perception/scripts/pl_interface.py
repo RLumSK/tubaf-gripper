@@ -60,7 +60,7 @@ class PlaningInterface(object):
         #                                queue_size=1)
 
 
-        self.last_pose = None
+        self.last_pose_st = None
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
         self.collision_scale = rospy.get_param("~model_scale", 1e-03)
@@ -112,18 +112,18 @@ class PlaningInterface(object):
         max_marker.pose.header = max_marker.header
 
         # determine if pose has changed
-        if self.last_pose is None:
-            self.last_pose = max_marker.pose.pose
+        if self.last_pose_st is None:
+            self.last_pose_st = max_marker.pose
         else:
-            if self.poses_match(self.last_pose, max_marker.pose.pose):
+            if self.poses_match(self.last_pose_st, max_marker.pose.pose):
                 # posese seam simlar
                 rospy.sleep(1.0)
                 return
             else:
-                self.last_pose = max_marker.pose.pose
+                self.last_pose_st = max_marker.pose
                 self.remove_world_object(name=self.ar_topic)
                 rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() Updating pose: %s",
-                              self.last_pose)
+                              self.last_pose_st)
                 rospy.sleep(0.2)
         # add collision object at given pose
         self.add_collision_object()
@@ -152,7 +152,7 @@ class PlaningInterface(object):
         # see:http://docs.ros.org/indigo/api/moveit_commander/html/planning__scene__interface_8py_source.html add_mesh()
         cs = self.collision_scale
         rospy.logdebug("pl_interface.py:PlanningInterface.onMarkersMessage() add Mesh")
-        self._pub_co.publish(self.__make_mesh(name=self.ar_topic, pose=self.last_pose, filename=self.stl,
+        self._pub_co.publish(self.__make_mesh(name=self.ar_topic, pose=self.last_pose_st, filename=self.stl,
                                               scale=(cs, cs, cs)))
 
     def __make_mesh(self, name, pose, filename, scale = (1, 1, 1)):
@@ -231,18 +231,18 @@ class PlaningInterface(object):
         rospy.sleep(1.0)
 
         # determine if pose has changed
-        if self.last_pose is None:
-            self.last_pose = msg.pose
+        if self.last_pose_st is None:
+            self.last_pose_st = msg
         else:
-            if self.poses_match(self.last_pose, msg.pose):
+            if self.poses_match(self.last_pose_st.pose, msg.pose):
                 # posese seam simlar
                 rospy.sleep(1.0)
                 return
             else:
-                self.last_pose = msg.pose
+                self.last_pose_st = msg
                 self.remove_world_object(name=self.ar_topic)
                 rospy.loginfo("pl_interface.py:PlanningInterface.onMarkersMessage() Updating pose: %s",
-                              self.last_pose)
+                              self.last_pose_st)
                 rospy.sleep(0.2)
         # add collision object at given pose
         self.add_collision_object()
