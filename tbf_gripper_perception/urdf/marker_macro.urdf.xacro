@@ -16,7 +16,8 @@
             <visual>
                 <origin xyz="0 0 0.000" rpy="0 0 0"/>
                 <geometry>
-                    <mesh filename="package://tbf_gripper_perception/meshes/marker_v2.dae" scale="${size} ${size} ${size}"/>
+                    <mesh filename="package://tbf_gripper_perception/meshes/marker_v2.dae"
+                          scale="${size} ${size} ${size}"/>
                 </geometry>
                 <material name="Greenish_marker">
                     <color rgba="0.3 0.7 0.3 1"/>

@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro" name="wlanbox">
   <property name="M_PI" value="3.1415926535897931"/>
+  <property name="MODEL_BASE_NAME" value="wlanbox_base_link"/>
 
-  <link name="wlanbox_base_link">
-
+  <link name="${MODEL_BASE_NAME}">
+    <visual>
+      <origin xyz="0 0 0.000" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://tbf_gripper_perception/meshes/wlan_box.stl" scale="1e-3 1e-3 1e-3"/>
+      </geometry>
+      <material name="Greenish_marker">
+        <color rgba="0.3 0.7 0.3 1"/>
+      </material>
+    </visual>
   </link>
+
+  <xacro:include filename="$(find tbf_gripper_perception)/urdf/marker_macro.urdf.xacro"/>
+  <marker_macro id="50" parent="${MODEL_BASE_NAME}" xyz="0 0 0.078" rpy="0 0 0" size="0.08" />
+  <!--<marker_macro id="52" parent="foo" xyz="0 0 0.078" rpy="0 0 0" size="0.08" />-->
 
 </robot>

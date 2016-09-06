@@ -12,6 +12,6 @@
   <xtion_camera name="camera" parent="base_link"
                 xyz="0  0  0.1" rpy="0 0 0"/>
 
-  <marker_macro id="5" parent="base_link" xyz="0 0 0.5" rpy="0 0 0" size="0.1" />
+  <!--<marker_macro id="5" parent="base_link" xyz="0 0 0.5" rpy="0 0 0" size="0.1" />-->
 
 </robot>
