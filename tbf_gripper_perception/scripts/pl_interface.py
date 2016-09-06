@@ -89,7 +89,7 @@ class PlaningInterface(object):
             self._pubPlanningScene.publish(planning_scene_diff)
             rospy.sleep(1.0)
 
-        self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msgPoseStamped, callback=self.onPoseStamped,
+        self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msg.PoseStamped, callback=self.onPoseStamped,
                                        queue_size=1)
         rospy.loginfo("pl_interface.py:PlanningInterface() initialized")
 
