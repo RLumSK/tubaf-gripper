@@ -169,7 +169,7 @@ def main():
         g.tf_broadcaster = tf.TransformBroadcaster(queue_size=10)
         g.tf_pub_timer = rospy.Timer(rospy.Duration(0, 1e8), on_tf_pub_timer)
 
-    g.model_pose_pub = rospy.Publisher("ar_model_pose",PoseStamped,queue_size=3)
+    g.model_pose_pub = rospy.Publisher(rospy.get_name() + "/ar_model_pose",PoseStamped,queue_size=3)
     # finally subscribe to marker poses
     g.marker_sub = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, on_markers, queue_size=3)
     rospy.spin()
