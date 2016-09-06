@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
+  <arg name="skip" default="10" />
 
   <include file="$(find tubaf_common)/launch/fix/fix_openni2.launch">
-    <arg name="data_skip" value="15"/>
+    <param name="data_skip" value="$(arg skip)" />
     <arg name="depth_registration" value="true"/>
   </include>
 

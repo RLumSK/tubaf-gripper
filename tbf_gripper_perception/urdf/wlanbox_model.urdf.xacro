@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="wlanbox">
+  <property name="M_PI" value="3.1415926535897931"/>
+
+  <link name="wlanbox_base_link">
+
+  </link>
+
+</robot>

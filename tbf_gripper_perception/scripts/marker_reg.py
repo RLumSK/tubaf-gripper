@@ -26,6 +26,7 @@ def invert_affine(a):
 
 
 
+
 def q_to_array(q):
     "ros Quaternion to array"
     return [q.x, q.y, q.z, q.w]
@@ -72,8 +73,7 @@ def pose_rel(p0, p1):
     a1 = pose_to_affine(p1)
     res = np.dot(tft.inverse_matrix(a0), a1)
 
-
-    print np.hstack((a0,a1,res))
+    # print np.hstack((a0,a1,res))
 
     return affine_to_pose(res)
 
@@ -210,13 +210,16 @@ def vis_result(src_transform, base_id):
             if pose_samples.best_o is None:
                 continue
 
-            if (id_tup[0] in valid_ids and id_tup[1] not in valid_ids):
+            print id_tup
+            if (id_tup[0] in valid_ids and not id_tup[1] in valid_ids):
                 transformer.setTransform(mk_tft("id_%d" % id_tup[0], "id_%d" % id_tup[1], pose_samples.best_transform()))
                 rospy.logdebug("added transform for %s", str(id_tup))
                 iters = 0
                 valid_ids.add(id_tup[1])
-            elif (id_tup[1] in valid_ids and id_tup[0] not in valid_ids):
-                transformer.setTransform(mk_tft("id_%d" % id_tup[1], "id_%d" % id_tup[0], tft.inverse_matrix(pose_samples.best_transform())))
+            elif (id_tup[1] in valid_ids and not id_tup[0] in valid_ids):
+                t2 = tft.inverse_matrix(pose_samples.best_transform())
+                print pose_samples.best_transform(),"\n",t2
+                transformer.setTransform(mk_tft("id_%d" % id_tup[1], "id_%d" % id_tup[0], t2))
                 rospy.logdebug("added transform for swapped %s", str(id_tup))
                 iters = 0
                 valid_ids.add(id_tup[0])
