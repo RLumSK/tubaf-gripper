@@ -11,6 +11,6 @@
     <!--<param name="default_marker_size" value="$(arg default_marker_size)"/>-->
     <rosparam command="load" file="$(find tbf_gripper_perception)/config/wlanbox_sizes.yaml"/>
     <param name="publish_tf" value="true"/>
-
+    <param name="median_len" value="10"/>
   </node>
 </launch>

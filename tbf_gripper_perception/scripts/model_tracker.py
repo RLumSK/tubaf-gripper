@@ -246,7 +246,8 @@ def main():
     model_description = rospy.get_param("~model_description", None)
     base_name = rospy.get_param("~base_name", None)
     g.publish_tf = rospy.get_param("~publish_tf", True)
-    g.poses.maxlen = rospy.get_param("~median_len",6)
+    maxlen = rospy.get_param("~median_len",6)
+    g.poses = deque(maxlen=maxlen)
 
     default_tf = rospy.get_param("~default_transform", "base_link 0 0 0.5 0 0 0")
 
