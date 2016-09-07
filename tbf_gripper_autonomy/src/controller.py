@@ -157,7 +157,7 @@ class Controller(object):
         self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
         rospy.logdebug("Controller.to_hover_pose(): transform from: %s to %s",
                        max_marker.header.frame_id, self.base_link)
-        self.hover_pose.pose.position.z += 0.8
+        self.hover_pose.pose.position.z += 0.6
         quat = tf.transformations.quaternion_from_euler(0, numpy.pi/2.0, 0)
         self.hover_pose.pose.orientation.x = quat[0]
         self.hover_pose.pose.orientation.y = quat[1]

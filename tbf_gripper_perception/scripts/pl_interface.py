@@ -156,10 +156,10 @@ class PlaningInterface(object):
 
     def __make_mesh(self, name, pose, filename, scale = (1, 1, 1)):
         """
-        Defina a Collision object from a mesh
+        Define a Collision object from a mesh
         :param name: name of the object
         :type name: String
-        :param pose: Pose of the object in the PLanning scene
+        :param pose: Pose of the object in the Planning scene
         :type pose: PoseStamped
         :param filename: filename where the mesh is stored
         :type filename: String
