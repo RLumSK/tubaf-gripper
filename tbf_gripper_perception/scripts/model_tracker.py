@@ -12,6 +12,7 @@ import threading
 import numpy as np
 from collections import deque
 import sys
+import scipy.spatial.distance as dist
 
 MARKER_NAME_PATTERN = re.compile("^marker\d+$")
 ZERO_TIME = rospy.Time(0)
@@ -65,7 +66,7 @@ class g:
     model_pose_pub = None
     tf_model_lookup_affine_inverse_cache = dict()
     tf_model_lookup_affine_cache = dict()
-    last_pose = Pose(orientation=Quaternion(0, 0, 0, 1))
+    poses = deque(maxlen=6)
 
 
 def mk_tft(src, dst, xyz, rpy, ):
@@ -126,29 +127,31 @@ def on_tf_pub_timer(timer_event):
     g.ft_transform_lock.release()
 
 
-def publish_pose(pose, header):
-    angle_dif = phi4_q(q_to_array(pose.orientation), q_to_array(g.last_pose.orientation))
-    pos_dif = abs(np.linalg.norm(p_to_array(pose.position)) - np.linalg.norm(p_to_array(g.last_pose.position)))
+def publish_pose(pose_A, header):
 
-    rospy.loginfo("pose dif r: %f    t: %f", angle_dif, pos_dif)
+    g.poses.append(pose_A)
+    if len(g.poses) < g.poses.maxlen:
+        return
+
+    best_A = get_best_pose(list(g.poses))
+    pose = affine_to_pose(best_A)
 
     ps = PoseStamped()
     ps.header = header
     ps.pose = pose
-    if angle_dif + pos_dif < 0.001:
-        g.model_pose_pub.publish(ps)
 
-        if g.publish_tf:
-            g.ft_transform_lock.acquire()
-            t = g.tf_cur_transform
-            t.transform.rotation = pose.orientation
-            t.transform.translation = pose.position
-            t.header = header
-            g.tf_broadcaster.sendTransformMessage(t)
-            g.tf_last_pub = rospy.get_rostime()
-            g.ft_transform_lock.release()
+    g.model_pose_pub.publish(ps)
 
-    g.last_pose = pose
+    if g.publish_tf:
+        g.ft_transform_lock.acquire()
+        t = g.tf_cur_transform
+        t.transform.rotation = pose.orientation
+        t.transform.translation = pose.position
+        t.header = header
+        g.tf_broadcaster.sendTransformMessage(t)
+        g.tf_last_pub = rospy.get_rostime()
+        g.ft_transform_lock.release()
+
 
 
 def lookup_tf_model_affine_inverse(id):
@@ -189,6 +192,34 @@ def vector_rotation(v1, v2):
     return q
 
 
+def derive_model_A_from_marker(m):
+    "Compute model pose as affine transform from a given marker"
+    A_model = lookup_tf_model_affine_inverse(m.id)
+    A_marker = pose_to_affine(m.pose.pose)
+    A_res = np.dot(A_marker, A_model)
+    return A_res
+
+def get_best_pose(pose_list_A):
+    t = np.array([p[0:3, 3] for p in pose_list_A])
+    r = np.array([tft.quaternion_from_matrix(p) for p in pose_list_A])
+    # compute distance matrix for t and r, then square these values and express as a full matrix
+    Yt_sq = dist.squareform(dist.pdist(t, metric='euclidean'), force='tomatrix', checks=False) ** 2
+    Yr_sq = dist.squareform(dist.pdist(r, metric=phi4_q), force='tomatrix', checks=False) ** 2
+
+    # just sum those distances for r and t
+    Y_sq = Yr_sq + Yt_sq
+
+    # compute sum square distance for every pose to all other poses
+    # print Y_sq
+    ssqd = np.sum(Y_sq,1)
+    # print ssqd
+    best_idx = np.argmin(ssqd)
+    # print best_idx
+    return pose_list_A[best_idx]
+
+
+
+
 def on_markers(markers):
     mks = {m.id: m for m in markers.markers}
 
@@ -199,54 +230,11 @@ def on_markers(markers):
     if n_found == 0:
         # no marker -> no alignment
         rospy.logdebug("no known markers detected (%d of %d)", n_found, len(found_ids))
-    elif n_found == 1:
-        # single marker -> align to that
-        m = mks[found_known.pop()]  # single element, don't need it afterwards, so this is ok
-        rospy.logdebug("single known marker detected. Align object to marker %d.", m.id)
-        # get transform from marker to obj-base (in that direction)
-        A_model = lookup_tf_model_affine_inverse(m.id)
-        # print A
-        A_marker = pose_to_affine(m.pose.pose)
-        A_res = np.dot(A_marker, A_model)
-        res_pose = affine_to_pose(A_res)
+        return
 
-        publish_pose(res_pose, m.header)
-        # elif n_found == 2:
-        # two markers: compute average pose and derive orientation from positions
-    else:
-        # 3 or more markers, hmmm...    for now just take any two of them and compute pose of them
-        # copy this to the case of two markers when implementation with more then two is ready
-        m0 = mks[found_known.pop()]
-        m1 = mks[found_known.pop()]
-        rospy.logdebug("multiple known marker detected. Align object to markers %d and %d.", m0.id, m1.id)
-        tc_c0 = lookup_tf_model_affine(m0.id)[0:3, 3]
-        tc_c1 = lookup_tf_model_affine(m1.id)[0:3, 3]
-
-        tc_01 = tc_c1 - tc_c0
-        print tc_01
-
-        tb_b0 = p_to_array(m0.pose.pose.position)
-        tb_b1 = p_to_array(m1.pose.pose.position)
-
-        tb_01 = tb_b1 - tb_b0
-        print tb_01
-
-        r = vector_rotation(tc_01, tb_01)
-        R = tft.quaternion_matrix(r)
-        print r
-
-        h = np.dot(R, np.concatenate((tc_c0, [1])))
-        h = h[0:3] / h[3]  # dehomogenize
-        tb_bc_0 = tb_b0 - h
-
-        h = np.dot(R, np.concatenate((tc_c1, [1])))
-        h = h[0:3] / h[3]  # dehomogenize
-        tb_bc_1 = tb_b1 - h
-
-        tb_bc = (tb_bc_0 + tb_bc_1) / 2
-
-        pose = Pose(position=Vector3(*tb_bc), orientation=Quaternion(*r))
-        publish_pose(pose, m0.header)
+    poses_A = [derive_model_A_from_marker(mks[mid]) for mid in found_known]
+    best_A = get_best_pose(poses_A)
+    publish_pose(best_A,mks[found_known.pop()].header)
 
 
 def main():
@@ -258,6 +246,7 @@ def main():
     model_description = rospy.get_param("~model_description", None)
     base_name = rospy.get_param("~base_name", None)
     g.publish_tf = rospy.get_param("~publish_tf", True)
+    g.poses.maxlen = rospy.get_param("~median_len",6)
 
     default_tf = rospy.get_param("~default_transform", "base_link 0 0 0.5 0 0 0")
 

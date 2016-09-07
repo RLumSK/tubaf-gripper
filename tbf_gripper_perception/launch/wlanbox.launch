@@ -9,6 +9,7 @@
   <arg name="output_frame" default="/base_link"/>
 
   <arg name="publish_model_tf" default="false"/>
+  <arg name="median_len" default="6"/>
 
   <node name="ar_track_alvar" pkg="ar_track_alvar" type="dynamicIndividualMarkers" respawn="false" output="screen">
     <param name="max_new_marker_error" value="$(arg max_new_marker_error)"/>
@@ -23,6 +24,7 @@
     <param name="model_description"
            command="$(find xacro)/xacro.py '$(find tbf_gripper_perception)/urdf/wlanbox_model.urdf.xacro'"/>
     <param name="publish_tf" value="$(arg publish_model_tf)"/>
+    <param name="median_len" value="$(arg median_len)"/>
   </node>
 
   <node name="tbf_gripper_perception_planing_interface" pkg="tbf_gripper_perception" type="pl_interface.py"
