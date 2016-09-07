@@ -3,11 +3,14 @@
   <arg name="datafile" default="/home/donner/marker_reg.pypickle"/>
 
   <env name="ROSCONSOLE_CONFIG_FILE" value="/home/donner/.ros/rcdebug.config"/>
-  <node name="model_tracker" pkg="tbf_gripper_perception" type="model_tracker.py" respawn="false" output="screen">
+  <node name="model_tracker" pkg="tbf_gripper_perception" type="model_tracker.py"
+        args="debug"
+        respawn="false" output="screen">
     <param name="model_description"
            command="$(find xacro)/xacro.py '$(find tbf_gripper_perception)/urdf/wlanbox_model.urdf.xacro'"/>
     <!--<param name="default_marker_size" value="$(arg default_marker_size)"/>-->
-    <rosparam command="load" file="$(find tbf_gripper_perception)/config/box1_sizes.yaml"/>
-
+    <rosparam command="load" file="$(find tbf_gripper_perception)/config/wlanbox_sizes.yaml"/>
+    <param name="publish_tf" value="true"/>
+    <param name="median_len" value="10"/>
   </node>
 </launch>
