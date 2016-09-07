@@ -105,7 +105,6 @@ class MoveItWrapper(object):
         # cfg.
         self.move_group_client.update_configuration(params)
 
-
         # Some information
         rospy.logdebug("--- RobotCommander Info ---")
         rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())

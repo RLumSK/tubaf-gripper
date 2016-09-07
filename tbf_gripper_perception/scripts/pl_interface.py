@@ -193,14 +193,14 @@ class PlaningInterface(object):
         pyassimp.release(scene)
         return co
 
-    def poses_match(self, pose1, pose2, pos_tol=0.005, rot_tol=0.1):
+    def poses_match(self, pose1, pose2, pos_tol=0.001, rot_tol=0.1):
         """
         Determine if two given poses are similar or not by comparing position and orientation
         :param pose1: 1st pose
         :type pose1: Pose
         :param pose2: 2nd pose
         :type pose2: Pose
-        :param pos_tol: position tolerance, default: 0.005
+        :param pos_tol: position tolerance, default: 0.001
         :type pos_tol: Double
         :param rot_tol: rotation tolerance, default: 0.1
         :type rot_tol: Double
