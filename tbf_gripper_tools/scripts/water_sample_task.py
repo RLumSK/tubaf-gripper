@@ -87,7 +87,7 @@ class WaterSampleTask:
         self.arm_acceleration = rospy.get_param("~arm_acceleration", 20.0)
 
         rospy.sleep(0.5)
-        self.initialise()
+        self.run_as_process(WaterSampleTask.initialise)
 
     def run_as_process(self, function):
         """
@@ -97,6 +97,9 @@ class WaterSampleTask:
         :return: -
         :rtype: -
         """
+        if self.exec_thread is not None:
+            rospy.logwarn("WaterSampleTask.run_as_process() self.exec_thread=%s", self.exec_thread)
+            return
         self.exec_thread = thread.start_new_thread(function, (self,))
 
     def on_joint_states(self, js):
@@ -107,10 +110,11 @@ class WaterSampleTask:
         :return: -
         :rtype: -
         """
+        # rospy.loginfo("WaterSampleTask.on_joint_states(): received jopint states: %s", js)
         if time.time() - self.last_time > 0.02:
             pp = list(js.position)
-            pp[0] = js.position[2]
-            pp[2] = js.position[0]
+            # pp[0] = js.position[2]
+            # pp[2] = js.position[0]
 
             self.cur_pos = np.rad2deg(pp)
             self.last_time = time.time()
@@ -133,7 +137,7 @@ class WaterSampleTask:
         :return: -
         :rtype: -
         """
-        rospy.loginfo("WaterSampleTask.move_wait(): moving to:\n %s", str(pose))
+        rospy.loginfo("WaterSampleTask.move_wait(): %s to:\n %s", move_cmd,  str(pose))
         program = move_cmd + "(%s" % pos2str(pose)
         if a is not None:
             program += ", a=%f" % np.deg2rad(a)
@@ -141,15 +145,19 @@ class WaterSampleTask:
             program += ", v=%f" % np.deg2rad(v)
         if t is not None:
             program += ", t=%f" % t
-            program += ")"
+        program += ")"
         if self.exec_thread is not None:
             self.program_pub.publish(program)
         else:
             raise InterruptError("Thread interrupted")
         while True:
             dst = np.abs(np.subtract(pose, self.cur_pos))
-            if np.max(dst) < goal_tolerance:
+            max_dst = np.max(dst)
+            if max_dst < goal_tolerance:
                 break
+            rospy.logdebug("WaterSampleTask.move_wait(): self.cur_pos=%s", self.cur_pos)
+            rospy.logdebug("WaterSampleTask.move_wait():         pose=%s", pose)
+            rospy.logdebug("WaterSampleTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
             rospy.sleep(0.02)
 
     def perform(self):
@@ -200,6 +208,7 @@ class WaterSampleTask:
         self.move_wait(self.waypoints["home_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
         self.hand_controller.closeHand()
         rospy.sleep(2.)
+        self.exec_thread = None
 
     def initialise(self):
         """
@@ -221,10 +230,18 @@ class WaterSampleTask:
         rospy.loginfo("WaterSampleTask.initialisation(): Init done")
         self.exec_thread = None
 
+    def start(self):
+        """
+        Start the water Sample Task
+        :return: -
+        :rtype: -
+        """
+        self.run_as_process(WaterSampleTask.perform)
 
 if __name__ == '__main__':
-    print("Hello world")
-    rospy.init_node("PnPwlanDemo")
+    rospy.init_node("WaterSampleTask")
     obj = WaterSampleTask()
-    obj.perform()
+    while obj.exec_thread is not None:
+        rospy.sleep(0.5)
+    obj.start()
     rospy.spin()

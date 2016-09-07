@@ -1,10 +1,15 @@
 waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
-  home_pos: [0, -90, 0, -90, 0, 0]
-  by_resting: [-166.0, -114.5, 58.28, 55.34, 92.91]
-  pick_up: [-178.6, -87.8, 40.55, 46.44, 80.33]
+  home_pose: [0, -90, 0, -90, 0, 0]
+  by_resting: [-166.0, -114.5, 58.28, 55.34, 92.91, 46.6]
+  pick_up: [-178.6, -87.8, 40.55, 46.44, 80.33, 46.97]
   move_free: [-178.6, -121.22, 40.55, 46.45, 80.33, 46.96]
   hover_pose: [-182.87, -85.87, -113.5, 21.3, 94, -133]
-  bottom_pose: [-183.0, -184.7, -97.5, 104,17, 94.55, -132.52]
+  bottom_pose: [-183.0, -184.7, -97.5, 104.17, 94.55, -132.52]
 backup_pos: [0, -90, 0, -90, 0, 0]
-arm_speed: 20.0
-arm_acceleration: 20.0
+arm_speed: 45
+arm_acceleration: 20
+# Hand/Gripper
+publisher_name: "/hand/SModelRobotOutput"
+subscriber_name: "/hand/SModelRobotInput"
+hand_server_name: "/hand/hand_action_server"
+hand_mode: "basic"
