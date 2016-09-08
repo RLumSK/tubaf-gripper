@@ -191,6 +191,12 @@ class Controller(object):
         # Unsubscribe and continue with given pose
         self.haf_client.unregister_pc_callback()
 
+        # Determine if the target pose is correct
+        answer = raw_input("Controller.to_target_pose(): Plan towards grasp? (y/n)")
+        if answer != 'y':
+            self.haf_client.register_pc_callback()
+            return
+
         # Calculate the target pose
 
         self.hand_controller.openHand()

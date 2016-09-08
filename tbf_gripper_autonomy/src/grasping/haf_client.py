@@ -188,10 +188,11 @@ class HAFClient(object):
         :return: -
         :rtype: -
         """
-        if self.graspingcenter.x > 0.6:
-            self.graspingcenter.x = 0.4
+        if self.graspingcenter.x > rospy.get_param("~grasp_search_max", 0.6):
+            tmp_graspingcenter = rospy.get_param("~grasp_search_center", [0.0, 0.0, 0.0])
+            self.graspingcenter.x = tmp_graspingcenter[0]
         else:
-            self.graspingcenter.x += 0.05
+            self.graspingcenter.x += rospy.get_param("~grasp_search_inc", 0.05)
 
     # Service Callbacks
     def get_grasp_cb(self, msg):
