@@ -60,7 +60,7 @@ class PlaningInterface(object):
         self.last_pose_st = None
 
         self.stl = rospy.get_param("~model_path", "package://tbf_gripper_perception/meshes/wlan_box.stl")
-        self.collision_scale = rospy.get_param("~model_scale", 1e-03)
+        self.collision_scale = rospy.get_param("~model_scale_factor", 1e-03)
 
         self._pub_co = rospy.Publisher('/collision_object', moveit_msgs.msg.CollisionObject, queue_size=100)
 
