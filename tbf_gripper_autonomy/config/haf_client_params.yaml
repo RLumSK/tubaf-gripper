@@ -1,5 +1,5 @@
 haf_server_name: "/haf_server"
-grasp_search_center: [0.6, 0.0 , 0.0]
+grasp_search_center: [0.4, 0.0 , 0.0]
 gripper_approach_vector: [-1.0, 0.0, 0.0]
 grasp_search_size_x: 60
 grasp_search_size_y: 60

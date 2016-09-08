@@ -188,7 +188,7 @@ class HAFClient(object):
         :return: -
         :rtype: -
         """
-        if self.graspingcenter.x > 1.0:
+        if self.graspingcenter.x > 0.6:
             self.graspingcenter.x = 0.4
         else:
             self.graspingcenter.x += 0.05
