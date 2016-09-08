@@ -20,8 +20,8 @@
 
   <marker_macro id="53" parent="${MODEL_BASE_NAME}" xyz="-0.070 0.034 0.078" rpy="0 0 0" size="0.036" />
   <marker_macro id="54" parent="${MODEL_BASE_NAME}" xyz="0.070 0.034 0.078" rpy="0 0 ${M_PI}" size="0.036" />
-  <marker_macro id="51" parent="${MODEL_BASE_NAME}" xyz="0.070 -0.034 0.078" rpy="0 0 ${M_PI}" size="0.036" />
-  <marker_macro id="52" parent="${MODEL_BASE_NAME}" xyz="-0.070 -0.034 0.078" rpy="0 0 0" size="0.036" />
+  <marker_macro id="52" parent="${MODEL_BASE_NAME}" xyz="0.070 -0.034 0.078" rpy="0 0 ${M_PI}" size="0.036" />
+  <marker_macro id="51" parent="${MODEL_BASE_NAME}" xyz="-0.070 -0.034 0.078" rpy="0 0 0" size="0.036" />
 
   <marker_macro id="55" parent="${MODEL_BASE_NAME}" xyz="0.050 ${0.12*0.5} 0.038" rpy="${-0.5*M_PI} ${-0.5*M_PI} 0" size="0.056" />
   <marker_macro id="56" parent="${MODEL_BASE_NAME}" xyz="-0.052 ${0.12*0.5} 0.038" rpy="${-0.5*M_PI} ${-0.5*M_PI} 0" size="0.056" />
