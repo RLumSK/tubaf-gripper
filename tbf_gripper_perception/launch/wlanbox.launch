@@ -31,6 +31,6 @@
         respawn="false" output="screen">
     <rosparam command="load" file="$(find tbf_gripper_perception)/config/planing_interface.yaml" ns=""/>
     <param name="model_path" value="$(find tbf_gripper_perception)/meshes/wlan_box.stl"/>
-    <param name="model_scale_factor" value="0.0015"/>
+    <param name="model_scale_factor" value="0.002"/>
   </node>
 </launch>
