@@ -141,6 +141,7 @@ class Controller(object):
         :return: -
         :rtype: -
         """
+        self.hand_controller.closeHand()
         rospy.loginfo("Controller.to_hover_pose(): starting")
         if len(msg.markers) < 1:
             rospy.loginfo("Controller.to_hover_pose(): no pose")
