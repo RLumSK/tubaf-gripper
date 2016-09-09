@@ -36,6 +36,9 @@ import shape_msgs.msg
 import geometry_msgs.msg
 
 import numpy as np
+
+from tbf_gripper_perception.srv import *
+
 try:
     from pyassimp import pyassimp
 except:
@@ -91,6 +94,7 @@ class PlaningInterface(object):
 
         self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msg.PoseStamped, callback=self.onPoseStamped,
                                        queue_size=1)
+        self.service = rospy.Service('toogle_perception', TogglePerception, self.toogle_perception)
         rospy.loginfo("pl_interface.py:PlanningInterface() initialized")
 
     def onMarkersMessage(self, msg):
@@ -245,6 +249,23 @@ class PlaningInterface(object):
         # add collision object at given pose
         self.add_collision_object()
         rospy.sleep(1.0)
+
+    def toogle_perception(self, req):
+        """
+        Toggle the perception of the wlan box active or inactive
+        :param req: True for active perception
+        :type req: TogglePerceptionRequest
+        :return: Status of the service
+        :rtype: TooglePerceptionResponse
+        """
+        if req.toggle_active:
+            self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msg.PoseStamped, callback=self.onPoseStamped,
+                                           queue_size=1)
+        else:
+            self.ar_sub.unregister()
+        res = TogglePerceptionResponse()
+        res.is_active = not req.toggle_active
+        return res
 
 
 if __name__ == '__main__':
