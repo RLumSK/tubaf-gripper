@@ -43,6 +43,7 @@ import grasping.arm
 from visualization_msgs.msg import *
 from std_srvs.srv import Empty
 from ar_track_alvar_msgs.msg import AlvarMarkers as AlvarMarkers
+from tbf_gripper_perception.srv import *
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -67,6 +68,10 @@ class Controller(object):
         self.base_link = rospy.get_param("~base_link", "gripper_ur5_base_link")
         self.target_object_name = rospy.get_param("~target_object_name", "wlan_box")
 
+        rospy.wait_for_service('toggle_perception')
+        self.perception_service = rospy.ServiceProxy('toggle_perception', TogglePerception)
+        rospy.loginfo("controller.py: Controller(): initilized perception service")
+
         self.haf_client = grasping.haf_client.HAFClient()
         rospy.loginfo("controller.py: Controller(): initilized HAF client")
 
@@ -79,7 +84,6 @@ class Controller(object):
 
         self.tf_listener = tf.TransformListener()
         self.haf_client.add_grasp_cb_function(self.to_target_pose)
-        # self.haf_client.register_pc_callback()
 
         self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
         self.hover_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
@@ -88,8 +92,8 @@ class Controller(object):
         self.marker_id = 1
         self.marker_pub = rospy.Publisher("/controller_marker", Marker, queue_size=1)
         self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
-        self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers, callback=self.to_hover_pose,
-                                             queue_size=1)
+        self.sub_ar_track = None
+        self.toggle_perception(True)
 
         rospy.loginfo("controller.py: Controller(): finished initialization")
 
@@ -147,8 +151,9 @@ class Controller(object):
             rospy.loginfo("Controller.to_hover_pose(): no pose")
             rospy.sleep(1.0)
             return
+
         # Unsubscribe and continue with given pose
-        self.sub_ar_track.unregister()
+        self.toggle_perception(False)
 
         # Calculate the hover pose
         max_marker = msg.markers[0]
@@ -170,9 +175,7 @@ class Controller(object):
         rospy.loginfo("Controller.to_hover_pose(): to hover_pose")
         if not self.move_to_pose(self.hover_pose, self.origin_pose):
             rospy.logwarn("Controller.to_hover_pose(): Moving to hover_pose failed")
-            self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
-                                                 callback=self.to_hover_pose,
-                                                 queue_size=1)
+            self.toggle_perception(True)
             return
 
         # Next Step: Find a Grasp point -> haf_grasping
@@ -204,9 +207,7 @@ class Controller(object):
         # Move to target pose
         if not self.move_to_pose(msg, self.origin_pose):
             rospy.logwarn("Controller.to_target_pose(): Moving to target_pose failed")
-            self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
-                                                 callback=self.to_hover_pose,
-                                                 queue_size=1)
+            self.toggle_perception(True)
             return
 
         # Next Step: Grasp the object
@@ -256,9 +257,7 @@ class Controller(object):
         while not go_on:
             answer = raw_input("Controller: Start grasping again?(y/n)")
             if answer == 'y':
-                self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
-                                                     callback=self.to_hover_pose,
-                                                     queue_size=1)
+                self.toggle_perception(True)
             else:
                 rospy.sleep(3.0)  # sleep so the hand can open
 
@@ -348,6 +347,24 @@ class Controller(object):
                 self.move_to_pose(origin, pose)
             return False
         return True
+
+    def toggle_perception(self, active):
+        """
+        Activate/Deactivate the perception component
+        :param active:
+        :type active: Boolean
+        :return: -
+        :rtype: -
+        """
+        if active:
+            self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
+                                                 callback=self.to_hover_pose,
+                                                 queue_size=1)
+        else:
+            self.sub_ar_track.unregister()
+        req = TogglePerceptionRequest()
+        req.toggle_active = active
+        self.perception_service(req)
 
 if __name__ == '__main__':
     rospy.init_node("tubaf_grasping_controller", anonymous=False)

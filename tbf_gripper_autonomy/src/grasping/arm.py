@@ -289,7 +289,7 @@ class MoveItWrapper(object):
         :return: name of the attached link
         :rtype: String
         """
-        rospy.logdebug("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
+        rospy.loginfo("MoveItWrapper.grasped_object(): attach %s to %s with touch links: %s",
                        object_name, self.ee_link, self.ee_links)
         self.group.attach_object(object_name, self.ee_link, touch_links=self.ee_links)
         return self.ee_link
