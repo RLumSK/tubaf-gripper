@@ -153,7 +153,8 @@ class Controller(object):
             return
 
         # Unsubscribe and continue with given pose
-        self.toggle_perception(False)
+        self.sub_ar_track.unregister()
+        # self.toggle_perception(False)
 
         # Calculate the hover pose
         max_marker = msg.markers[0]
@@ -201,7 +202,7 @@ class Controller(object):
             return
 
         # Calculate the target pose
-
+        self.toggle_perception(False)
         self.hand_controller.openHand()
 
         # Move to target pose
