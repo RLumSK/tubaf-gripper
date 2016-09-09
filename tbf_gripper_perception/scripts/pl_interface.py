@@ -94,7 +94,7 @@ class PlaningInterface(object):
 
         self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msg.PoseStamped, callback=self.onPoseStamped,
                                        queue_size=1)
-        self.service = rospy.Service('toogle_perception', TogglePerception, self.toogle_perception)
+        self.service = rospy.Service('toggle_perception', TogglePerception, self.toogle_perception)
         rospy.loginfo("pl_interface.py:PlanningInterface() initialized")
 
     def onMarkersMessage(self, msg):
@@ -258,13 +258,14 @@ class PlaningInterface(object):
         :return: Status of the service
         :rtype: TooglePerceptionResponse
         """
+        res = TogglePerceptionResponse()
         if req.toggle_active:
             self.ar_sub = rospy.Subscriber(self.ar_topic, geometry_msgs.msg.PoseStamped, callback=self.onPoseStamped,
                                            queue_size=1)
+            res.is_active = True
         else:
             self.ar_sub.unregister()
-        res = TogglePerceptionResponse()
-        res.is_active = not req.toggle_active
+            res.is_active = False
         return res
 
 
