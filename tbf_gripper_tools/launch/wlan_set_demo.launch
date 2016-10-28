@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="wlan_set_task" pkg="tbf_gripper_tools" type="wlan_set_task.py" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_tools)/config/wlan_station_set_task.yaml" />
+  </node>
+</launch>
