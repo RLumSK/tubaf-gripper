@@ -170,19 +170,20 @@ class WaterSampleTask:
         # Move to Station on top of the Robot starting at HOME position
         self.move_wait(self.waypoints["home_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
         self.hand_controller.openHand()
-        self.move_wait(self.waypoints["by_resting"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
-        self.move_wait(self.waypoints["pick_up"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+        self.move_wait(self.waypoints["pre_pickup"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
+        self.move_wait(self.waypoints["pickup"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
 
         rospy.loginfo("WaterSampleTask.perform(): Grasp station")
         # Grasp station
         self.hand_controller.closeHand()
         rospy.sleep(2.)
-        self.move_wait(self.waypoints["move_free"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
-        self.move_wait(self.waypoints["hover_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
+        self.move_wait(self.waypoints["lift"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+        self.move_wait(self.waypoints["post_pickup"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
 
-        rospy.loginfo("WaterSampleTask.perform(): Set station")
         # Set station
-        self.move_wait(self.waypoints["bottom_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+        rospy.loginfo("WaterSampleTask.perform(): Set station")
+        self.move_wait(self.waypoints["hover"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
+        self.move_wait(self.waypoints["sample_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
 
         rospy.loginfo("WaterSampleTask.perform(): Take sample -automatic-")
         # Take sample -automatic-
@@ -190,12 +191,15 @@ class WaterSampleTask:
 
         rospy.loginfo("WaterSampleTask.perform(): Lift station")
         # Lift station
-        self.move_wait(self.waypoints["hover_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+        self.move_wait(self.waypoints["lifted"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+
+        # TODO: check if successful
 
         rospy.loginfo("WaterSampleTask.perform(): Move to origin")
         # Move to origin
-        self.move_wait(self.waypoints["move_free"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
-        self.move_wait(self.waypoints["pick_up"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
+        self.move_wait(self.waypoints["post_pickup"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
+        self.move_wait(self.waypoints["lift"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
+        self.move_wait(self.waypoints["pickup"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
 
         rospy.loginfo("WaterSampleTask.perform(): Release station")
         # Release station
@@ -204,7 +208,8 @@ class WaterSampleTask:
 
         rospy.loginfo("WaterSampleTask.perform(): Move back to home station")
         # Move back to home station
-        self.move_wait(self.waypoints["by_resting"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+        self.move_wait(self.waypoints["lift"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movel")
+        self.move_wait(self.waypoints["pre_pickup"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
         self.move_wait(self.waypoints["home_pose"], v=self.arm_speed, a=self.arm_acceleration, move_cmd="movej")
         self.hand_controller.closeHand()
         rospy.sleep(2.)
