@@ -9,10 +9,10 @@ waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
   lifted: [-6.83, -86.84, 87.12, 0.87, 88.67, 49.70]
 
 backup_pos: [0, -90, 0, -90, 0, 0]
-linear_tcp_speed: 60
-linear_tcp_acceleration: 20
-joint_speed: 10
-joint_acceleration: 5
+linear_tcp_speed: 5
+linear_tcp_acceleration: 2
+joint_speed: 15
+joint_acceleration: 7
 # Hand/Gripper
 publisher_name: "/hand/SModelRobotOutput"
 subscriber_name: "/hand/SModelRobotInput"

@@ -1,6 +1,6 @@
 <muxify>
   <!--
-
+    script to start the ROS nodes for communication with a virtual machine of the UR5
 
   -->
   <session name="vjur5" mode="o" size="240x60"/>
@@ -18,6 +18,12 @@
     <cmd pane="a">sleep 4;roslaunch --wait julius moveit.launch</cmd>
     <cmd pane="b">sleep 6;roslaunch --wait julius_moveit moveit_rviz.launch</cmd>
 
+  </window>
+  <window name="hand" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a">roslaunch --wait julius robotiq_hand</cmd>
   </window>
 
 

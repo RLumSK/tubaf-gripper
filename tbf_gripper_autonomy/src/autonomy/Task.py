@@ -125,8 +125,14 @@ class SetTask(object):
         # rospy.loginfo("Task.on_joint_states(): received jopint states: %s", js)
         if time.time() - self.last_time > 0.02:
             pp = list(js.position)
-            # pp[0] = js.position[2]
-            # pp[2] = js.position[0]
+
+            # Resolve mismatch of joint positions between older firmware version and newer
+            pp[0] = js.position[js.name.index('gripper_ur5_shoulder_pan_joint')]
+            pp[1] = js.position[js.name.index('gripper_ur5_shoulder_lift_joint')]
+            pp[2] = js.position[js.name.index('gripper_ur5_elbow_joint')]
+            pp[3] = js.position[js.name.index('gripper_ur5_wrist_1_joint')]
+            pp[4] = js.position[js.name.index('gripper_ur5_wrist_2_joint')]
+            pp[5] = js.position[js.name.index('gripper_ur5_wrist_3_joint')]
 
             self.cur_pos = np.rad2deg(pp)
             self.last_time = time.time()
@@ -167,9 +173,9 @@ class SetTask(object):
             max_dst = np.max(dst)
             if max_dst < goal_tolerance:
                 break
-            rospy.loginfo("Task.move_wait(): self.cur_pos=%s", self.cur_pos)
-            rospy.loginfo("Task.move_wait():         pose=%s", pose)
-            rospy.loginfo("Task.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
+            rospy.logdebug("Task.move_wait(): self.cur_pos=%s", self.cur_pos)
+            rospy.logdebug("Task.move_wait():         pose=%s", pose)
+            rospy.logdebug("Task.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
             rospy.sleep(0.02)
 
     @abc.abstractmethod

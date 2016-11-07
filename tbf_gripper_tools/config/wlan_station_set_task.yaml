@@ -27,8 +27,8 @@ waypoints_station_3: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
 
 
 backup_pos: [-180, -90, 0, -90, 0, 0]
-linear_tcp_speed: 60
-linear_tcp_acceleration: 20
+linear_tcp_speed: 10
+linear_tcp_acceleration: 5
 joint_speed: 10
 joint_acceleration: 5
 # Hand/Gripper
