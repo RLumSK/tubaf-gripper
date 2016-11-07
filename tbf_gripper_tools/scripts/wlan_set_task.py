@@ -119,7 +119,7 @@ class WlanSetTask(autonomy.Task.SetTask):
 if __name__ == '__main__':
     rospy.init_node("WlanSetTask")
     obj = None
-    for i in range(1, 3):
+    for i in range(1, 4):
         if obj is None or obj.exec_thread is None:
             obj = WlanSetTask(i)
             rospy.loginfo("wlan_set_task.py: main(): Start station: %d", i)
