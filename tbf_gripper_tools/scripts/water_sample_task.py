@@ -62,6 +62,14 @@ class WaterSampleTask(autonomy.Task.SetTask):
     Class to get a water sample
     """
 
+    def __init__(self):
+        """
+        default constructor of the perform the sampling task
+        """
+        autonomy.Task.SetTask.__init__(self)
+        self.waypoints = rospy.get_param("~waypoints")
+        self.exec_thread = None
+
     def perform(self):
         """
         Hard coded task to pickup a water sample station from the robot, take a sample and return it to the robot
