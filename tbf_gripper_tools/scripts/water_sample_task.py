@@ -124,6 +124,16 @@ class WaterSampleTask(autonomy.Task.SetTask):
         self.hand_controller.closeHand()
         self.exec_thread = None
 
+
+    def start(self):
+        """
+        Start the water Sample Task
+        :return: -
+        :rtype: -
+        """
+        rospy.loginfo("SetTask.start():")
+        self.run_as_process(WaterSampleTask.perform)
+
 if __name__ == '__main__':
     rospy.init_node("WaterSampleTask")
     obj = WaterSampleTask()

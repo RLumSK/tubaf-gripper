@@ -109,7 +109,7 @@ class WlanSetTask(autonomy.Task.SetTask):
 
     def start(self):
         """
-        Start the water Sample Task
+        Start the wlan set task
         :return: -
         :rtype: -
         """
