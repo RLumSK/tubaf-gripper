@@ -1,0 +1,22 @@
+<muxify>
+  <!--
+      Start the ORK (object recognition kitchen) Framework for the Asus Xtion Pro Live
+      mounted on the end-effector of julius's ur5
+      author: grehl
+      mail: steve.grehl@informatik.tu-freiberg.de
+  -->
+  <session name="recognition" mode="o" size="240x60"/>
+  <window name="ork" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch tbf_gripper_perception ork_server.launch</cmd>
+    <cmd pane="b" noexec="true">roslaunch tbf_gripper_perception ork_client.launch</cmd>
+  </window>
+    <window name="visualization" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">rosrun rviz rviz</cmd>
+  </window>
+</muxify>
