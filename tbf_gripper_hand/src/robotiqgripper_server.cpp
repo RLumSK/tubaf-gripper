@@ -10,7 +10,13 @@
 #include <sstream>
 #include <string>
 
-class RobotiqGripperAction
+inline const char * const BoolToString(bool b)
+{
+  return b ? "true" : "false";
+}
+
+
+class RobotiqGripperActionServer
 {
 private:
 	ros::Publisher gripper_pub;
@@ -327,12 +333,12 @@ private:
 			break;
 		default:;
 		}
-		ss << "\n";
+        ss << "\n";
 		ss << "Position information (request, actual) | current consumption:\n-------------------------------\n";
-		ss << "Finger A: " << boost::lexical_cast<uint8_t>(msg->gPRA) << ", " << boost::lexical_cast<uint8_t>(msg->gPOA) << "| " << boost::lexical_cast<uint8_t>(msg->gCUA) <<"\n";
-		ss << "Finger B: " << boost::lexical_cast<uint8_t>(msg->gPRB) << ", " << boost::lexical_cast<uint8_t>(msg->gPOB) << "| " << boost::lexical_cast<uint8_t>(msg->gCUB) <<"\n";
-		ss << "Finger C: " << boost::lexical_cast<uint8_t>(msg->gPRC) << ", " << boost::lexical_cast<uint8_t>(msg->gPOC) << "| " << boost::lexical_cast<uint8_t>(msg->gCUC) <<"\n";
-		ss << "Scissor : " << boost::lexical_cast<uint8_t>(msg->gPRS) << ", " << boost::lexical_cast<uint8_t>(msg->gPOS) << "| " << boost::lexical_cast<uint8_t>(msg->gCUS) <<"\n";
+        ss << "Finger A: " << unsigned(msg->gPRA) << ", " << unsigned(msg->gPOA) << "| " << unsigned(msg->gCUA) *0.1 <<" mA\n";
+        ss << "Finger B: " << unsigned(msg->gPRB) << ", " << unsigned(msg->gPOB) << "| " << unsigned(msg->gCUB) *0.1 <<" mA\n";
+        ss << "Finger C: " << unsigned(msg->gPRC) << ", " << unsigned(msg->gPOC) << "| " << unsigned(msg->gCUC) *0.1 <<" mA\n";
+        ss << "Scissor : " << unsigned(msg->gPRS) << ", " << unsigned(msg->gPOS) << "| " << unsigned(msg->gCUS) *0.1 <<" mA\n";
 		ss << "\n";
 
 		return ss.str();
@@ -343,10 +349,10 @@ private:
 	 */
 	void transcriptGoal(){
 		this->msg_to_gripper.rGTO = 1;
-		this->msg_to_gripper.rMOD = RobotiqGripperAction::parseMode(this->current_goal->mode);
+		this->msg_to_gripper.rMOD = RobotiqGripperActionServer::parseMode(this->current_goal->mode);
 		this->msg_to_gripper.rPRA = this->current_goal->position;
-		this->msg_to_gripper.rSPA = RobotiqGripperAction::calcSpeed(this->current_goal->speed);
-		this->msg_to_gripper.rFRA = RobotiqGripperAction::approximateForce(this->current_goal->force);
+		this->msg_to_gripper.rSPA = RobotiqGripperActionServer::calcSpeed(this->current_goal->speed);
+		this->msg_to_gripper.rFRA = RobotiqGripperActionServer::approximateForce(this->current_goal->force);
 	}
 
 	/**
@@ -354,7 +360,10 @@ private:
 	 * @return true if the gripper is still running
 	 */
 	bool checkStatus(){
-		bool isRunning = this->msg_from_gripper->gSTA==0?true:false;	// Gripper in Motion
+        if(this->msg_from_gripper->gGTO == 0){
+            return false;
+        }
+        bool isRunning = this->msg_from_gripper->gSTA==0?true:false;	// Gripper in Motion
 		return isRunning;
 	}
 
@@ -371,6 +380,7 @@ private:
 protected:
 
   ros::NodeHandle nh_;
+  ros::NodeHandle p_nh;
   // NodeHandle instance must be created before this line. Otherwise strange error may occur.
   actionlib::SimpleActionServer<tbf_gripper_hand::RobotiqGripperAction> as_;
   std::string action_name_;
@@ -384,27 +394,45 @@ protected:
 
 public:
 
-  RobotiqGripperAction(std::string name) :
-    as_(nh_, name, boost::bind(&RobotiqGripperAction::executeCB, this, _1), false),
+  RobotiqGripperActionServer(std::string name) :
+    p_nh("~"), /* init private node handle*/
+	as_(nh_, name, boost::bind(&RobotiqGripperActionServer::executeCB, this, _1), false),
     action_name_(name)
   {
 
 	ROS_INFO("RobotiqGripperAction: Action server starting.");
     as_.start();
-    // TODO: read topic names from config file / parameter server
 
-    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>("/hand/SModelRobotOutput", 5);
+    std::string publisher_name = "SModelRobotOutput", subscriber_name = "SModelRobotInput";
+    p_nh.param<std::string>("publisher_name", publisher_name, "/SModelRobotOutput");
+    p_nh.param<std::string>("subscriber_name", subscriber_name, "/SModelRobotInput");
+    /*
+    ros::master::V_TopicInfo master_topics;
+    ros::master::getTopics(master_topics);
+    for (ros::master::V_TopicInfo::iterator it = master_topics.begin() ; it != master_topics.end(); it++) {
+              const ros::master::TopicInfo& info = *it;
+              ROS_DEBUG_STREAM(info.datatype << " == robotiq_s_model_control/SModel_robot_intput? " << (info.datatype == "robotiq_s_model_control/SModel_robot_input"));
+              if(info.datatype == "robotiq_s_model_control/SModel_robot_input"){
+                  ROS_DEBUG_STREAM("Found: "<<info.name);
+                  subscriber_name = info.name;
+                  publisher_name = subscriber_name.substr(0, subscriber_name.find_last_of("/")) + "/SModelRobotOutput";
+                  break;
+              }
+    }
+    */
+    ROS_INFO_STREAM("RobotiqGripperAction: Subscribe to: " << subscriber_name << "\tPublish at: " << publisher_name);
+    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>(publisher_name, 5);
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
-    this->gripper_sub = nh_.subscribe("/hand/SModelRobotInput", 5, &RobotiqGripperAction::onNewGripperState, this);
+    this->gripper_sub = nh_.subscribe(subscriber_name, 5, &RobotiqGripperActionServer::onNewGripperState, this);
 
     ros::Duration nap(0.5);
     nap.sleep();
     this->msg_from_gripper = robotiq_s_model_control::SModel_robot_inputConstPtr(new robotiq_s_model_control::SModel_robot_input());
-    this->msg_to_gripper = RobotiqGripperAction::initGripper();
+	this->msg_to_gripper = RobotiqGripperActionServer::initGripper();
     ROS_INFO("RobotiqGripperAction: Action server started.");
   }
 
-  ~RobotiqGripperAction(void)
+  ~RobotiqGripperActionServer(void)
   {
 	  ROS_INFO("RobotiqGripperAction: Action server shutting down.");
 	  this->gripper_pub.shutdown();
@@ -424,22 +452,12 @@ public:
 
   void executeCB(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal)
   {
-	ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
-
-    if(this->isRunning){
-		ROS_INFO("RobotiqGripperAction.executeCB: Aborting old goal and set new one");
-	    result_.hand_status = *(this->msg_from_gripper);
-	    result_.hand_info = RobotiqGripperAction::generateHandStatus();
-		as_.setAborted(result_);
-		this->current_goal = goal;
-		return;
-	}
-    this->isRunning = true;
+    ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
 	this->current_goal = goal;
     // helper variables
     ros::Rate r(1);
     bool success = true;
-    ROS_INFO("RobotiqGripperAction.executeCB: 1");
+    this->isRunning = true;
 
     // feedback initialization
 	/*
@@ -449,28 +467,27 @@ public:
     // start executing the action
     this->transcriptGoal();
     this->gripper_pub.publish(this->msg_to_gripper);
-    ROS_INFO("RobotiqGripperAction.executeCB: 2");
-
     // feedback-loop
-    while(this->isRunning){
-    	// In case we receive a new goal
-        this->transcriptGoal();
-        this->gripper_pub.publish(this->msg_to_gripper);
+    while(this->isRunning && !as_.isPreemptRequested() && ros::ok()){
     	isRunning = this->checkStatus();
     	as_.publishFeedback(feedback_);
-        ROS_INFO("RobotiqGripperAction.executeCB: 3");
-
+        ROS_DEBUG("RobotiqGripperAction.executeCB: is running");
     	r.sleep();
     }
-
+    success = !this->isRunning;
     /*
      * #result definition
      * robotiq_s_model_control/SModel_robot_input hand_status hand_status
      */
-    ROS_INFO("RobotiqGripperAction.executeCB: 4");
-
 	result_.hand_status =  *msg_from_gripper;
-    result_.hand_info = RobotiqGripperAction::generateHandStatus();
+	result_.hand_info = RobotiqGripperActionServer::generateHandStatus();
+
+    if(as_.isPreemptRequested()){
+        ROS_INFO("RobotiqGripperAction.executeCB(): %s: Preempted", action_name_.c_str());
+        // set the action state to preempted
+        as_.setPreempted(result_);
+        return;
+    }
     if(success)
     {
     	as_.setSucceeded(result_);
@@ -478,9 +495,7 @@ public:
     else{
     	as_.setAborted(result_);
     }
-
-    ROS_INFO("RobotiqGripperAction.executeCB: 5");
-
+    ROS_INFO("RobotiqGripperAction.executeCB: successful achieved goal? %s", BoolToString(success));
   }
 
 
@@ -490,7 +505,7 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "robotiqgripper_action_server");
 
-  RobotiqGripperAction action_server(ros::this_node::getName());
+  RobotiqGripperActionServer action_server(ros::this_node::getName());
   ros::spin();
 
   return 0;

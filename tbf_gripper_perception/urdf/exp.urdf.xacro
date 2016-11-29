@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="norose">
+  <property name="M_PI" value="3.1415926535897931"/>
+
+  <link name="base_link">
+  </link>
+
+  <xacro:include filename="$(find tubaf_common)/urdf/sensors/xtion_pro_live.urdf.xacro"/>
+  <xacro:include filename="$(find tbf_gripper_perception)/urdf/marker_macro.urdf.xacro"/>
+
+  <!--add left xtion relative to the pre-mount-link-->
+  <xtion_camera name="camera" parent="base_link"
+                xyz="0  0  0.1" rpy="0 0 0"/>
+
+  <!--<marker_macro id="5" parent="base_link" xyz="0 0 0.5" rpy="0 0 0" size="0.1" />-->
+
+
+  <joint name="wlanbox_float_joint" type="floating">
+    <origin xyz="0 0 0.5" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="wlanbox_base_link"/>
+ </joint>
+  <xacro:include filename="$(find tbf_gripper_perception)/urdf/wlanbox_model.urdf.xacro"/>
+
+
+</robot>

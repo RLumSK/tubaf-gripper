@@ -43,13 +43,14 @@ from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
 
 from finger_module import RobotiqFinger, RobotiqFingerModel
 
-"""@package finger_module
+"""@package hand_module
 This package gives a controller (RobotiqHand) and model (RobotiqHandModel) for the GUI described in ../../resource/RobotiqHand.ui
 The state provided by the Robotiq ROS package via /SModelRobotInput (robotiq_s_model_control.msg.SModel_robot_input) is
 passed to the GUI and the changes made their published via /SModelRobotOutput (robotiq_s_model_control.msg.SModel_robot_output).
 The design follows the idea of the MVC pattern.
 @author: Steve Grehl
 """
+
 
 class RobotiqHand(Plugin):
     """

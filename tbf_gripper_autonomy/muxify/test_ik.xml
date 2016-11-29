@@ -1,0 +1,25 @@
+<muxify>
+  <!--
+  author: grehl
+
+  -->
+  <session name="grasping" mode="o" size="240x60"/>
+  <window name="arm_julius_moveit" directory="~">
+    <layout>
+      ac
+      bd
+    </layout>
+    <cmd pane="a">roslaunch julius moveit.launch</cmd>
+    <cmd pane="b">roslaunch julius ur5_modern_plain_driver.launch robot_ip:="192.168.1.150"</cmd>
+    <cmd pane="c">roslaunch julius description.launch</cmd>
+    <cmd pane="d">roslaunch julius joint_state_pub.launch</cmd>
+  </window>
+  <window name="testearea" directory="~">
+    <layout>
+      ac
+      bc
+    </layout>
+    <cmd pane="a">rostopic list</cmd>
+    <cmd pane="a">rosnode list</cmd>
+  </window>
+</muxify>

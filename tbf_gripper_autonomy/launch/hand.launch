@@ -1,0 +1,5 @@
+<launch>
+  <node name="hand_action_server" pkg="tbf_gripper_hand" type="robotiqgripper_server" respawn="false" output="screen" ns="hand">
+    <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
+  </node>
+</launch>

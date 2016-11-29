@@ -1,0 +1,28 @@
+<muxify>
+  <!--
+
+
+  -->
+  <session name="gripper" mode="o" size="240x60"/>
+  <window name="gripper" directory="~">
+    <layout>
+      cd
+    </layout>
+    <cmd pane="c">roslaunch julius ur5_modern_plain_driver.launch</cmd>
+    <cmd pane="d">roslaunch julius moveit.launch</cmd>
+  </window>
+  <window name="hand" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch julius robotiq_hand.launch</cmd>
+    <cmd pane="b">sleep 1;roslaunch tbf_gripper_autonomy hand.launch</cmd>
+  </window>
+  <window name="skript" directory="~">
+    <layout>
+      ef
+    </layout>
+    <cmd pane="e" noexec="true">roslaunch tbf_gripper_tools water_sample_task.launch</cmd>
+  </window>
+
+</muxify>

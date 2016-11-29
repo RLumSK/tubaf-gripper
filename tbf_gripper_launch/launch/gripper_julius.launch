@@ -51,13 +51,10 @@
     <!-- Launch options-->
     <arg name="start_driver" default="true"/>
     <arg name="modern_driver" default="true"/>
-    <arg name="start_description" default="true"/>
+    <arg name="start_description" default="false"/>
     <arg name="start_jsp" default="true"/>
 
     <!--__________________________________________________________-->
-
-    <env name="ROSCONSOLE_CONFIG_FILE"
-       value="$(find tbf_gripper_launch)/config/rosconsole.conf"/>
 
     <!-- 0. Set-Up -->
     <include file="$(find julius)/launch/description.launch" if="$(arg start_description)" />
@@ -141,12 +138,7 @@
 
     <!-- 4. MoveIt -->
     <group if="$(arg start_moveit)">
-        <!-- Remap follow_joint_trajectory -->
-        <remap if="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
-        <include file="$(find tbf_gripper_julius_move_it)/launch/julius.launch">
-            <arg name="debug" default="$(arg debug)" />
-            <arg name="db" default="false" />
-        </include>
+        <include file="$(find julius)/launch/moveit.launch" />
     </group>
 
     <!-- 5. RQT Plugins -->

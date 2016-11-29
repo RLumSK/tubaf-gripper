@@ -1,8 +1,0 @@
-<launch>
-    <!-- copied from ur5_moveit_controller_manager.launch-->
-  <!--<param name="use_controller_manager" value="false"/>-->
-  <!--<param name="trajectory_execution/execution_duration_monitoring" value="false"/>-->
-  <param name="moveit_controller_manager" value="moveit_simple_controller_manager/MoveItSimpleControllerManager"/>
-  <rosparam file="$(find tbf_gripper_julius_move_it)/config/controllers_manual.yaml"/>
-    <!--see also: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/controller_configuration.html-->
-</launch>

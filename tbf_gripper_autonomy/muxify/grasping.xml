@@ -1,0 +1,36 @@
+<muxify>
+  <!--
+  author: grehl
+
+  -->
+  <session name="grasping" mode="o" size="240x60"/>
+  <window name="hand_and_haf" directory="~">
+    <layout>
+      ab
+      cd
+    </layout>
+    <cmd pane="a">roslaunch julius robotiq_hand.launch</cmd>
+    <cmd pane="b">sleep 1;roslaunch tbf_gripper_autonomy hand.launch</cmd>
+    <cmd pane="c">roslaunch julius xtion_gripper.launch</cmd>
+    <cmd pane="d">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
+  </window>
+  <window name="perception" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch tbf_gripper_perception wlanbox.launch</cmd>
+  </window>
+  <window name="arm" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch julius ur5_modern_plain_driver.launch</cmd>
+    <cmd pane="b">roslaunch julius moveit.launch</cmd>
+  </window>
+  <window name="controller" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a" noexec="true">roslaunch tbf_gripper_autonomy controller.launch</cmd>
+  </window>
+</muxify>

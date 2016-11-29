@@ -1,0 +1,5 @@
+ar_marker_id: 0
+ar_topic: "/model_tracker/ar_model_pose"
+planning_scene_topic: "/move_group/monitored_planning_scene"
+position_tolerance: 0.01
+rotation_tolerance: 0.01

@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node name="tubaf_haf_client" pkg="tbf_gripper_autonomy" type="haf_client.py" output="screen">
+    <rosparam file="$(find tbf_gripper_autonomy)/config/haf_client_params.yaml" command="load" />
+  </node>
+</launch>

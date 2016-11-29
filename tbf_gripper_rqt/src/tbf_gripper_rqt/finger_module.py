@@ -286,7 +286,7 @@ class RobotiqFingerModel(QtCore.QObject):
         @param msg: ROS message of the type 'SModelRobotInput'
         @return: None
         """
-        rospy.loguinfo("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(data))
+        rospy.loginfo("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(msg))
         self.dctActionAtReceive.get(self.strID)(msg)
         self.afterReceivedROSMessage()
 
