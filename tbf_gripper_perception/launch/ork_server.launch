@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="config_file" default="$(find tbf_gripper_perception)/config/detection.ros.ork"/>
+
+  <node pkg="object_recognition_ros" ns="/object_recognition" name="ork_server" output="screen" type="server" args="-c $(arg config_file)">
+    <remap from="/camera/rgb/image_raw" to="/gripper_camera/rgb/image_rect_color"/>
+    <remap from="/camera/depth/image_raw" to="/gripper_camera/depth_registered/image_raw"/>
+  </node>
+</launch>
