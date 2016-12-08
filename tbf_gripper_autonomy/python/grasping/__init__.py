@@ -28,8 +28,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""@package cluster_analysis
-This package is used in an object recognition process. Given cluster of points are analysed to extract objects and
-determine their poses. Mainly the clusters produced by the tabletop-pipline are used, see: http://wg-perception.github.io/tabletop/index.html#tabletop
+"""@package grasping
+This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
+camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
+then manages to grasp the object by making use of MoveIt! and a HandController.
 @author: Steve Grehl
 """

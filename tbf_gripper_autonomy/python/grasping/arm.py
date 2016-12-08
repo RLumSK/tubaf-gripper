@@ -39,13 +39,6 @@ import tf
 
 import dynamic_reconfigure.client
 
-"""@package grasping
-This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
-camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
-then manages to grasp the object by making use of MoveIt! and a HandController.
-@author: Steve Grehl
-"""
-
 
 class MoveItWrapper(object):
     """

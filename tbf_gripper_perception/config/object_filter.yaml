@@ -1,0 +1,5 @@
+cluster_topic: "/ork/tabletop/clusters"       #input
+filtered_clusters_topic: "/ork/obj_clusters"  #output/input
+floor_topic: "/ork/floor_plane"               #input
+threshold_paramter: 0.9                       #input
+pointcloud_topic: "ork/obj_clouds"            #output

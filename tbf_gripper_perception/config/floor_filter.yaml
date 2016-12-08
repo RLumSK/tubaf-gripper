@@ -1,0 +1,4 @@
+tables_topic: "/ork/table_array"
+floor_topic: "/ork/floor_plane"
+floor_frame: "base_link"
+floor_frame_offset: 0.53
