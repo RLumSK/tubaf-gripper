@@ -37,9 +37,11 @@ from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose
 from object_recognition_msgs.msg import TableArray
 
+
 class ObjectFilter(object):
     """
-    Class is used in conjunction with the tabletop pipeline of the object recognition kitchen (ORK) framework, see: http://wg-perception.github.io/tabletop/index.html#tabletop
+    Class is used in conjunction with the tabletop pipeline of the object recognition kitchen (ORK) framework,
+      see: http://wg-perception.github.io/tabletop/index.html#tabletop
     to identify objects from given clusters. You can think of it as a filter that tries to identify clusters that are
     actual objects and not artifacts from any algorithms or occlusions.
     """
@@ -77,7 +79,8 @@ class ObjectFilter(object):
         msg_floor = self.floor_cache.getElemAfterTime(self.floor_cache.getLastestTime())
         if msg_floor is None:
             return
-        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] TableArray has %d planes stored", len(msg_floor.tables))
+        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] TableArray has %d planes stored",
+                       len(msg_floor.tables))
         floor_plane = msg_floor.tables[0]
 
         # analyse given clusters
@@ -86,13 +89,15 @@ class ObjectFilter(object):
             lst_sizes.append(len(cluster.points))
         _min = min(lst_sizes)
         _max = max(lst_sizes)
-        _threshold = _min+self.threshold*(_max - _min)
+        _threshold = _min + self.threshold * (_max - _min)
 
         # identify object clusters
         lst_obj_cluster = []
         for cluster in lst_cluster:
-            # cluster is of type: visualization_msgs/Marker (http://docs.ros.org/indigo/api/visualization_msgs/html/msg/Marker.html)
-            rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster["+str(cluster.id)+"] has "+str(len(cluster.points))+" points")
+            # cluster is of type: visualization_msgs/Marker
+            # (http://docs.ros.org/indigo/api/visualization_msgs/html/msg/Marker.html)
+            rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] has " +
+                           str(len(cluster.points)) + " points")
             if len(cluster.points) > _threshold:
                 lst_obj_cluster.append(cluster)
 
@@ -140,15 +145,16 @@ class ObjectFilter(object):
             # t = self._tf.getLatestCommonTime(frame_from, frame_to)
             # position, quaternion = self._tf.lookupTransform(frame_from, frame_to, t)
             # print position, quaternion
-            self._tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4.0))
+            self._tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4))
             try:
                 ret_ps = self._tf.transformPose(frame_to, ps)
+                return ret_ps.pose
             except Exception as ex:
-                rospy.logwarn(
-                    "[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from + " to " + frame_to)
+                rospy.logwarn("[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from +
+                              " to " + frame_to)
                 rospy.logwarn(ex.message)
-            return ret_ps.pose
-        rospy.logwarn("[cluster_analysis::ObjectFilter.transform] Couldn't Transform from "+frame_from+" to "+frame_to)
+        rospy.logwarn(
+            "[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from + " to " + frame_to)
         return None
 
     def generate_pose(self, points, plane):
@@ -174,13 +180,14 @@ class ObjectFilter(object):
         ret_pose.position.y = np.mean(y_lst)
         ret_pose.position.z = np.mean(z_lst)
         if plane is not None:
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] plane-frame=:"+str(plane.header.frame_id))
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] points-frame=:"+str(points.header.frame_id))
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] before:\n"+str(plane.pose.orientation))
+            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] plane-frame=:" + str(plane.header.frame_id))
+            rospy.logdebug(
+                "[cluster_analysis::ObjectFilter.generate_pose] points-frame=:" + str(points.header.frame_id))
+            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] before:\n" + str(plane.pose.orientation))
             pose = self.transform(plane.header.frame_id, points.header.frame_id, plane.pose)
             ret_pose.orientation = pose.orientation
             # ret_pose.orientation = points.pose.orientation
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] after:\n"+str(ret_pose.orientation))
+            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] after:\n" + str(ret_pose.orientation))
         return ret_pose
 
 

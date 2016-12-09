@@ -29,18 +29,16 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
-import numpy as np
-import message_filters
 import tf
 
-from visualization_msgs.msg import MarkerArray
-from geometry_msgs.msg import PoseStamped, PoseArray, Pose, QuaternionStamped
-from object_recognition_msgs.msg import TableArray, Table
+from geometry_msgs.msg import PoseStamped
+from object_recognition_msgs.msg import TableArray
 
 
 class FloorFilter(object):
     """
-    Class is used in conjunction with the tabletop pipeline of the object recognition kitchen (ORK) framework, see: http://wg-perception.github.io/tabletop/index.html#tabletop
+    Class is used in conjunction with the tabletop pipeline of the object recognition kitchen (ORK) framework,
+      see: http://wg-perception.github.io/tabletop/index.html#tabletop
     to identify the floor plane on which the robot currently stands
     """
 
@@ -67,7 +65,6 @@ class FloorFilter(object):
         :return: -
         :rtype: None
         """
-        rospy.logdebug("[cluster_analysis::FloorFilter._on_new_tables] TableArray has %d planes stored", len(msg.tables))
         floor_plane = self.identify_floor(msg)
         if floor_plane is not None:
             floor_msg = TableArray()
@@ -95,15 +92,16 @@ class FloorFilter(object):
             ps = PoseStamped()
             ps.header.frame_id = frame_from
             ps.pose = pose
-            self._tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4.0))
+            self._tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4))
             try:
                 ret_ps = self._tf.transformPose(frame_to, ps)
+                return ret_ps.pose
             except Exception as ex:
-                rospy.logwarn(
-                    "[cluster_analysis::FloorFilter.transform] Couldn't Transform from " + frame_from + " to " + frame_to)
+                rospy.logwarn("[cluster_analysis::FloorFilter.transform] Couldn't Transform from " + frame_from +
+                              " to " + frame_to)
                 rospy.logwarn(ex.message)
-            return ret_ps.pose
-        rospy.logwarn("[cluster_analysis::FloorFilter.transform] Couldn't Transform from "+frame_from+" to "+frame_to)
+        rospy.logwarn(
+            "[cluster_analysis::FloorFilter.transform] Couldn't Transform from " + frame_from + " to " + frame_to)
         return None
 
     def identify_floor(self, tables):
@@ -124,16 +122,17 @@ class FloorFilter(object):
             rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] plane-frame_id = " + plane.header.frame_id)
             rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] floor-frame_id = " + self.floor_frame)
             rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor]  its quaternion = (" +
-                          str(pose.orientation.x)+"," + str(pose.orientation.y)+"," +
-                          str(pose.orientation.z)+"," + str(pose.orientation.w)+")")
-            if abs(pose.orientation.z) > (2*(abs(pose.orientation.x) + abs(pose.orientation.y))):
+                           str(pose.orientation.x) + "," + str(pose.orientation.y) + "," +
+                           str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
+            if abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
                 lst_ret_planes.append(plane)
-        rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] found %d planes that qualify",len(lst_ret_planes))
+        rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] found %d planes that qualify",
+                       len(lst_ret_planes))
         # Determine closest plane to the floor (z=0 @ base_link, floor is approx. 53 cm below base_link)
         min_z = float("inf")
         for plane in lst_ret_planes:
             rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] pose = " + str(plane.pose))
-            if min_z > abs(plane.pose.position.z+self.floor_frame_offset):
+            if min_z > abs(plane.pose.position.z + self.floor_frame_offset):
                 ret_plane = plane
                 min_z = plane.pose.position.z
         return ret_plane
