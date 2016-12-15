@@ -124,6 +124,7 @@ class FloorFilter(object):
             rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor]  its quaternion = (" +
                            str(pose.orientation.x) + "," + str(pose.orientation.y) + "," +
                            str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
+            # TODO: Check criteria
             if abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
                 lst_ret_planes.append(plane)
         rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] found %d planes that qualify",

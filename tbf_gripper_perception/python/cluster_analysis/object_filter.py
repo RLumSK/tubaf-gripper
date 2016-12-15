@@ -30,12 +30,12 @@
 
 import rospy
 import numpy as np
-import message_filters
 import tf
+import tf.transformations
 
 from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose
-from object_recognition_msgs.msg import TableArray
+from numpy import linalg as LA
 
 
 class ObjectFilter(object):
@@ -61,8 +61,6 @@ class ObjectFilter(object):
         self._cluster_publisher = rospy.Publisher(name=_filtered_clusters_topic, data_class=MarkerArray, queue_size=10)
         # subscriber
         rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray, callback=self._on_new_cluster)
-        _sub_floor = message_filters.Subscriber(_floor_topic, TableArray)
-        self.floor_cache = message_filters.Cache(_sub_floor, 10)
         self._tf = tf.TransformListener()
 
     def _on_new_cluster(self, msg):
@@ -74,14 +72,6 @@ class ObjectFilter(object):
         :rtype: None
         """
         lst_cluster = msg.markers
-
-        # identify floor
-        msg_floor = self.floor_cache.getElemAfterTime(self.floor_cache.getLastestTime())
-        if msg_floor is None:
-            return
-        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] TableArray has %d planes stored",
-                       len(msg_floor.tables))
-        floor_plane = msg_floor.tables[0]
 
         # analyse given clusters
         lst_sizes = []
@@ -107,9 +97,10 @@ class ObjectFilter(object):
         # publish results
         _obj_cluster_msg = MarkerArray()
         _pose_array = PoseArray()
-        _pose_array.header = msg_floor.header
+        _pose_array.header = lst_cluster[0].header
         for cluster in lst_obj_cluster:
-            _pose_array.poses.append(self.generate_pose(cluster, floor_plane))
+            _pose_array.poses.append(self.generate_pose(cluster))
+            # _pose_array.poses.append(self.generate_pose_pca(cluster))
             _obj_cluster_msg.markers.append(cluster)
         self._pose_publisher.publish(_pose_array)
         self._cluster_publisher.publish(_obj_cluster_msg)
@@ -157,14 +148,12 @@ class ObjectFilter(object):
             "[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from + " to " + frame_to)
         return None
 
-    def generate_pose(self, points, plane):
+    def generate_pose(self, points):
         """
         Generate a ROS pose from a given set of points - in the context of the package typical a cluster the orientation
-        of the floor plane is used as orientation for the pose
+        of the base_link is used as orientation for the pose
         :param points: Points
         :type points: visualization_msgs.msg.Marker
-        :param plane: Floor plane
-        :type plane: object_recognition_msgs.msgs.Table
         :return: Pose of the cluster - mean
         :rtype: geometry_msgs.msg.Pose
         """
@@ -179,15 +168,76 @@ class ObjectFilter(object):
         ret_pose.position.x = np.mean(x_lst)
         ret_pose.position.y = np.mean(y_lst)
         ret_pose.position.z = np.mean(z_lst)
-        if plane is not None:
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] plane-frame=:" + str(plane.header.frame_id))
-            rospy.logdebug(
-                "[cluster_analysis::ObjectFilter.generate_pose] points-frame=:" + str(points.header.frame_id))
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] before:\n" + str(plane.pose.orientation))
-            pose = self.transform(plane.header.frame_id, points.header.frame_id, plane.pose)
-            ret_pose.orientation = pose.orientation
-            # ret_pose.orientation = points.pose.orientation
-            rospy.logdebug("[cluster_analysis::ObjectFilter.generate_pose] after:\n" + str(ret_pose.orientation))
+
+        w_05 = np.sqrt(0.5)
+        base_link_pose = Pose()
+        base_link_pose.position.x = 0
+        base_link_pose.position.y = 0
+        base_link_pose.position.z = 0
+        base_link_pose.orientation.x = 0
+        base_link_pose.orientation.y = -w_05
+        base_link_pose.orientation.z = 0
+        base_link_pose.orientation.w = 1
+        _tmp = self.transform("base_link", points.header.frame_id, base_link_pose)
+        ret_pose.orientation = _tmp.orientation
+
+        return ret_pose
+
+    def generate_pose_pca(self, points):
+        """
+        NOT WORKING
+        Generate a ROS pose from a given set of points - a principal component analysis is used to determine the center
+        and orientation of the object. first axis = x, second axis =y, third axis = z
+        :param points: cluster of points
+        :type points: visualization_msgs.msg.Marker
+        :return: Pose of the cluster
+        :rtype: geometry_msgs.msg.Pose
+        """
+        ret_pose = Pose()
+        _point_lst = []
+        for point in points.points:
+            _point_lst.append([point.x, point.y, point.z])
+        _points_matrix = np.asmatrix(_point_lst)
+        # http://stackoverflow.com/questions/13224362/principal-component-analysis-pca-in-python
+        #
+        m, n = _points_matrix.shape  # m = #points, n = #dimensions
+        rospy.loginfo("[cluster_analysis::ObjectFilter.generate_pose_pca] #Points = " + str(m))
+        rospy.loginfo("[cluster_analysis::ObjectFilter.generate_pose_pca] #Dimensions = " + str(n))
+
+        # mean center the data
+        data = _points_matrix - _points_matrix.mean(axis=0)
+        # calculate the covariance matrix
+        R = np.cov(data)
+        rospy.loginfo("[cluster_analysis::ObjectFilter.generate_pose_pca] cov = " + str(R))
+        # calculate eigenvectors & eigenvalues of the covariance matrix
+        # use 'eigh' rather than 'eig' since R is symmetric,
+        # the performance gain is substantial
+        evals, evecs = LA.eigh(R)
+        # sort eigenvalue in decreasing order
+        idx = np.argsort(evals)[::-1]
+        evecs = evecs[:, idx]
+        # sort eigenvectors according to same index
+        # evals = evals[idx]
+        # select the first n eigenvectors (n is desired dimension
+        # of rescaled data array, or dims_rescaled_data)
+        evecs = evecs[:, :]
+        # data_pca = np.dot(evecs.T, data.T).T
+
+        rospy.loginfo("[cluster_analysis::ObjectFilter.generate_pose_pca] evecs = " + str(evecs))
+        X = np.asmatrix(evecs)
+        X_0 = np.asmatrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+        Rot = X*np.invert(X_0)
+
+        _tmp = _points_matrix.mean(axis=0)[0]
+        rospy.loginfo("[cluster_analysis::ObjectFilter.generate_pose_pca] Rot = " + str(Rot))
+        _quat = tf.transformations.quaternion_from_matrix(Rot)
+        rospy.loginfo("[cluster_analysis::ObjectFilter.generate_pose_pca] Quaternion = " + str(_quat))
+        ret_pose.position.x = _tmp[0]
+        ret_pose.position.y = _tmp[1]
+        ret_pose.position.z = _tmp[2]
+        ret_pose.orientation = _quat
+
         return ret_pose
 
 
