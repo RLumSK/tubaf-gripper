@@ -19,7 +19,7 @@
       ab
     </layout>
     <cmd pane="a">roslaunch tbf_gripper_perception ork_tabletop.launch</cmd>
-    <cmd pane="b">roslaunch tbf_gripper_perception perception.launch</cmd>
+    <cmd pane="b">roslaunch tbf_gripper_perception recognition.launch</cmd>
   </window>
   <window name="arm" directory="~">
     <layout>
