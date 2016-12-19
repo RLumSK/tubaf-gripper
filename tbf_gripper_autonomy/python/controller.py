@@ -44,6 +44,7 @@ from visualization_msgs.msg import *
 from std_srvs.srv import Empty
 from ar_track_alvar_msgs.msg import AlvarMarkers as AlvarMarkers
 from tbf_gripper_perception.srv import *
+from geometry_msgs.msg import PoseArray, PoseStamped
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -56,7 +57,7 @@ then manages to grasp the object by making use of MoveIt! and a HandController.
 class Controller(object):
     """
     Controller that handles a grasping/ pick up task. It does so by using a haf_graspin-Client, MoveIt-Wrapper and
-    HandController. their functionalies are utilized to solve the grasping task.
+    HandController. their functionality is utilized to solve the grasping task.
     """
     # see: http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
 
@@ -64,35 +65,34 @@ class Controller(object):
         """
         Default constructor that loads parameter from the parameter server, register callbacks and publisher
         """
+        rospy.loginfo("controller.py: Controller(): initializing")
         self.end_effector_link = rospy.get_param("~end_effector_link", "gripper_robotiq_palm_planning")
         self.base_link = rospy.get_param("~base_link", "gripper_ur5_base_link")
         self.target_object_name = rospy.get_param("~target_object_name", "wlan_box")
 
-        rospy.wait_for_service('toggle_perception')
-        self.perception_service = rospy.ServiceProxy('toggle_perception', TogglePerception)
-        rospy.loginfo("controller.py: Controller(): initilized perception service")
-
         self.haf_client = grasping.haf_client.HAFClient()
-        rospy.loginfo("controller.py: Controller(): initilized HAF client")
+        rospy.loginfo("controller.py: Controller(): initialized HAF client")
 
         self.moveit_controller = grasping.arm.MoveItWrapper()
         self.moveit_controller.clear_attached_objects()
-        rospy.loginfo("controller.py: Controller(): initilized arm")
+        rospy.loginfo("controller.py: Controller(): initialized arm")
 
         self.hand_controller = grasping.hand.HandController()
-        rospy.loginfo("controller.py: Controller(): initilized hand")
+        rospy.loginfo("controller.py: Controller(): initialized hand")
 
         self.tf_listener = tf.TransformListener()
+        rospy.sleep(1.0)  # sleep a bit so all transformations become known
         self.haf_client.add_grasp_cb_function(self.to_target_pose)
 
         self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
         self.hover_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
 
-        # Debugging & Development tools
         self.marker_id = 1
         self.marker_pub = rospy.Publisher("/controller_marker", Marker, queue_size=1)
         self.ar_topic = rospy.get_param("~ar_topic", "/ar_pose_marker")
+        self.ork_pose_topic = rospy.get_param("~ork_poses_topic", "/ork/obj_poses")
         self.sub_ar_track = None
+        self.sub_ork_poses = None
         self.toggle_perception(True)
 
         rospy.loginfo("controller.py: Controller(): finished initialization")
@@ -137,7 +137,41 @@ class Controller(object):
         # self.marker_id += 1
         self.marker_pub.publish(a_marker)
 
-    def to_hover_pose(self, msg):
+    def _setup(self):
+        """
+        This function is called prior the hover_pose calculation and movement
+        :return: -
+        :rtype: None
+        """
+        self.hand_controller.closeHand()
+        # Unsubscribe and continue with given pose
+        self.sub_ar_track.unregister()
+        self.sub_ork_poses.unregister()
+        # self.toggle_perception(False)
+
+    def to_hover_ork_pose(self, msg):
+        """
+        Callback from the Recognition-Node to move the robot over the object for grasp estimation
+        :param msg: array with found obj poses
+        :type msg: geometry_msgs.PoseArray
+        :return: -
+        :rtype: -
+        """
+        rospy.loginfo("Controller.to_hover_ork_pose(): starting")
+        if len(msg.poses) < 1:
+            rospy.loginfo("Controller.to_hover_ork_pose(): no pose")
+            rospy.sleep(1.0)
+            return
+        self._setup()
+
+        # Calculate the hover pose
+        _hover_pose = PoseStamped()
+        _hover_pose.pose = msg.poses[0]
+        _hover_pose.header = msg.header
+
+        self.to_hover_pose(_hover_pose)
+
+    def to_hover_marker_pose(self, msg):
         """
         Callback from the Object Recognition (ar_track_alvar) to move the robot over the object for grasp estimation
         :param msg: ar marker pose
@@ -145,37 +179,40 @@ class Controller(object):
         :return: -
         :rtype: -
         """
-        self.hand_controller.closeHand()
         rospy.loginfo("Controller.to_hover_pose(): starting")
         if len(msg.markers) < 1:
             rospy.loginfo("Controller.to_hover_pose(): no pose")
             rospy.sleep(1.0)
             return
-
-        # Unsubscribe and continue with given pose
-        self.sub_ar_track.unregister()
-        # self.toggle_perception(False)
+        self._setup()
 
         # Calculate the hover pose
-        max_marker = msg.markers[0]
-        max_marker.pose.header = max_marker.header
+        self.to_hover_pose(msg.markers[0])
+
+    def to_hover_pose(self, hover_pose):
+        """
+        After receiving a message from the recognition section and calculating a object pose this function tries to
+        hover over the object
+        :param hover_pose: pose to hover over
+        :type hover_pose: geometry_msgs.PoseStamped
+        :return: -
+        :rtype: None
+        """
         now = rospy.Time.now()
-        self.tf_listener.waitForTransform(max_marker.header.frame_id, self.base_link, now, rospy.Duration(10))
-        self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=max_marker.pose)
-        rospy.logdebug("Controller.to_hover_pose(): transform from: %s to %s",
-                       max_marker.header.frame_id, self.base_link)
+        self.tf_listener.waitForTransform(hover_pose.header.frame_id, self.base_link, now, rospy.Duration(10))
+        self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=hover_pose)
+
         self.hover_pose.pose.position.z += 0.8
-        quat = tf.transformations.quaternion_from_euler(0, numpy.pi/2.0, 0)
+        quat = tf.transformations.quaternion_from_euler(0, numpy.pi / 2.0, 0)
         self.hover_pose.pose.orientation.x = quat[0]
         self.hover_pose.pose.orientation.y = quat[1]
         self.hover_pose.pose.orientation.z = quat[2]
         self.hover_pose.pose.orientation.w = quat[3]
-        # self.origin_pose = self.moveit_controller.get_current_pose(frame_id=self.base_link)
 
         # Move to Target
-        rospy.loginfo("Controller.to_hover_pose(): to hover_pose")
+        rospy.loginfo("Controller.to_hover_ork_pose(): to hover_pose")
         if not self.move_to_pose(self.hover_pose, self.origin_pose):
-            rospy.logwarn("Controller.to_hover_pose(): Moving to hover_pose failed")
+            rospy.logwarn("Controller.to_hover_ork_pose(): Moving to hover_pose failed")
             self.toggle_perception(True)
             return
 
@@ -185,8 +222,8 @@ class Controller(object):
     def to_target_pose(self, msg):
         """
         Callback after determining a grasp point
-        :param msg: dertermined grasp point
-        :type msg: PoseStamped
+        :param msg: determined grasp point
+        :type msg: geometry_msgs.PoseStamped
         :return: -
         :rtype: -
         """
@@ -355,19 +392,21 @@ class Controller(object):
         :param active:
         :type active: Boolean
         :return: -
-        :rtype: -
+        :rtype: None
         """
         if active:
             self.sub_ar_track = rospy.Subscriber(name=self.ar_topic, data_class=AlvarMarkers,
-                                                 callback=self.to_hover_pose,
+                                                 callback=self.to_hover_marker_pose,
                                                  queue_size=1)
+            self.sub_ork_poses = rospy.Subscriber(name=self.ork_pose_topic, data_class=PoseArray,
+                                                  callback=self.to_hover_ork_pose,
+                                                  queue_size=1)
         else:
             self.sub_ar_track.unregister()
-        req = TogglePerceptionRequest()
-        req.toggle_active = active
-        self.perception_service(req)
+            self.sub_ork_poses.unregister()
 
 if __name__ == '__main__':
+    print "Hello World"
     rospy.init_node("tubaf_grasping_controller", anonymous=False)
     cntrl = Controller()
     rospy.spin()
