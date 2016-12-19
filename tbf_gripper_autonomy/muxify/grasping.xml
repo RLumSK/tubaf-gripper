@@ -4,19 +4,28 @@
 
   -->
   <session name="grasping" mode="o" size="240x60"/>
+    <window name="cameras" directory="~">
+
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch julius xtion_gripper.launch</cmd>
+    <cmd pane="b" noexec="true">roslaunch julius kinect2.launch</cmd>
+  </window>
   <window name="hand_and_haf" directory="~">
+
     <layout>
       ab
       cd
     </layout>
     <cmd pane="a">roslaunch julius robotiq_hand.launch</cmd>
     <cmd pane="b">sleep 1;roslaunch tbf_gripper_autonomy hand.launch</cmd>
-    <cmd pane="c">roslaunch julius xtion_gripper.launch</cmd>
     <cmd pane="d">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
   </window>
   <window name="perception" directory="~">
     <layout>
-      ab
+      aa
+      bc
     </layout>
     <cmd pane="a">roslaunch tbf_gripper_perception ork_tabletop.launch</cmd>
     <cmd pane="b">roslaunch tbf_gripper_perception recognition.launch</cmd>
@@ -33,5 +42,14 @@
       a
     </layout>
     <cmd pane="a" noexec="true">roslaunch tbf_gripper_autonomy controller.launch</cmd>
+  </window>
+  <window name="logging" directory="~">
+    <layout>
+      ab
+      cd
+    </layout>
+    <cmd pane="a" noexec="true">rosrun tubaf_common demo.py</cmd>
+    <cmd pane="b" noexec="true">rostopic list</cmd>
+    <cmd pane="c" noexec="true">rosnode list</cmd>
   </window>
 </muxify>
