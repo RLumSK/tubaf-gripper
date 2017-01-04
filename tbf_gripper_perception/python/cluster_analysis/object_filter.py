@@ -72,7 +72,6 @@ class ObjectFilter(object):
         :rtype: None
         """
         lst_cluster = msg.markers
-
         # analyse given clusters
         lst_sizes = []
         for cluster in lst_cluster:
