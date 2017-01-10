@@ -32,10 +32,12 @@ import rospy
 import numpy as np
 import tf
 import tf.transformations
+import message_filters
 
 from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose
 from numpy import linalg as LA
+from object_recognition_msgs.msg import TableArray
 
 
 class ObjectFilter(object):
@@ -62,6 +64,9 @@ class ObjectFilter(object):
         # subscriber
         rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray, callback=self._on_new_cluster)
         self._tf = tf.TransformListener()
+        # cache
+        _floor_msgsub = message_filters.Subscriber(_floor_topic, TableArray)
+        self.floor_cache = message_filters.Cache(_floor_msgsub, 1)
 
     def _on_new_cluster(self, msg):
         """
@@ -93,14 +98,37 @@ class ObjectFilter(object):
         if len(lst_obj_cluster) == 0:
             return
 
+        # get the cluster farthest away from the floor plane
+        floor = self.floor_cache.getElemBeforeTime(rospy.Time.now())
+        if floor is None:
+            rospy.logwarn("cluster_analysis::ObjectFilter._on_new_cluster(): no floor published")
+        ps_floor = PoseStamped(floor.header, floor.tables[0].pose)
+        max_height = 0
+        selected_cluster = None
+        selected_pose = None
+        for cluster in lst_obj_cluster:
+            ps_cluster = self.generate_pose(cluster)
+            cluster_pose = self.transform(ps_floor.header.frame_id, ps_cluster.header.frame_id, ps_cluster.pose)
+            height = cluster_pose.position.z - ps_floor.pose.position.z
+            if(height > max_height):
+                selected_pose = ps_cluster.pose
+                selected_cluster = cluster
+                max_height = height
+                rospy.loginfo("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
+                              "has a distance of " + str(max_height))
+
         # publish results
         _obj_cluster_msg = MarkerArray()
         _pose_array = PoseArray()
         _pose_array.header = lst_cluster[0].header
-        for cluster in lst_obj_cluster:
-            _pose_array.poses.append(self.generate_pose(cluster))
-            # _pose_array.poses.append(self.generate_pose_pca(cluster))
-            _obj_cluster_msg.markers.append(cluster)
+        # for cluster in lst_obj_cluster:
+        #     _pose_array.poses.append(self.generate_pose(cluster))
+        #     # _pose_array.poses.append(self.generate_pose_pca(cluster))
+        #     _obj_cluster_msg.markers.append(cluster)
+        if selected_cluster is None or selected_pose is None:
+            return
+        _pose_array.poses.append(selected_pose)
+        _obj_cluster_msg.markers.append(selected_cluster)
         self._pose_publisher.publish(_pose_array)
         self._cluster_publisher.publish(_obj_cluster_msg)
 
@@ -154,9 +182,9 @@ class ObjectFilter(object):
         :param points: Points
         :type points: visualization_msgs.msg.Marker
         :return: Pose of the cluster - mean
-        :rtype: geometry_msgs.msg.Pose
+        :rtype: geometry_msgs.msg.PoseStamped
         """
-        ret_pose = Pose()
+        ret_pose = PoseStamped()
         x_lst = []
         y_lst = []
         z_lst = []
@@ -164,9 +192,9 @@ class ObjectFilter(object):
             x_lst.append(point.x)
             y_lst.append(point.y)
             z_lst.append(point.z)
-        ret_pose.position.x = np.mean(x_lst)
-        ret_pose.position.y = np.mean(y_lst)
-        ret_pose.position.z = np.mean(z_lst)
+        ret_pose.pose.position.x = np.mean(x_lst)
+        ret_pose.pose.position.y = np.mean(y_lst)
+        ret_pose.pose.position.z = np.mean(z_lst)
 
         w_05 = np.sqrt(0.5)
         base_link_pose = Pose()
@@ -178,7 +206,8 @@ class ObjectFilter(object):
         base_link_pose.orientation.z = 0
         base_link_pose.orientation.w = 1
         _tmp = self.transform("base_link", points.header.frame_id, base_link_pose)
-        ret_pose.orientation = _tmp.orientation
+        ret_pose.pose.orientation = _tmp.orientation
+        ret_pose.header = points.header
 
         return ret_pose
 

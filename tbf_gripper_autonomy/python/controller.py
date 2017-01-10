@@ -199,8 +199,13 @@ class Controller(object):
         :rtype: None
         """
         now = rospy.Time.now()
-        self.tf_listener.waitForTransform(hover_pose.header.frame_id, self.base_link, now, rospy.Duration(10))
-        self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=hover_pose)
+        try:
+            self.tf_listener.waitForTransform(hover_pose.header.frame_id, self.base_link, now, rospy.Duration(10))
+            self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=hover_pose)
+        except Exception as ex:
+            rospy.logwarn("[tbf_gripper_autonomy::Controller.to_hover_pose] Couldn't Transform from " + hover_pose.header.frame_id +
+                          " to " + self.base_link)
+            rospy.logwarn(ex.message)
 
         self.hover_pose.pose.position.z += 0.8
         quat = tf.transformations.quaternion_from_euler(0, numpy.pi / 2.0, 0)

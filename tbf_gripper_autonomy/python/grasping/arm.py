@@ -62,16 +62,16 @@ class MoveItWrapper(object):
         for n in nodes2 - nodes1:
             if n.startswith("/move_group_commander_wrappers_"):
                 rospy.set_param(n+"/", params)
-
-        group_name = rospy.get_param("~group_name", "UR5")  # name in the kinematics.yaml NOT SRDF
+        group_name = rospy.get_param("~group_name", "UR5")
         planned_path_publisher = rospy.get_param("~planned_path_publisher", "/move_group/display_planned_path")
         self.ee_links = rospy.get_param("~ee_links", [])
 
         self.scene = moveit_commander.PlanningSceneInterface()
         # rospy.loginfo("MoveItWrapper(): type of self.scene: %s\n%s", type(self.scene), dir(self.scene))
+        rospy.loginfo("tbf_gripper_autonomy.controller.py MoveItWrapper.init(): here")
         self.commander = moveit_commander.RobotCommander()  # controller of the robot (arm)
+        rospy.loginfo("tbf_gripper_autonomy.controller.py MoveItWrapper.init(): There")
         self.group = moveit_commander.MoveGroupCommander(group_name)
-        self.hand_group = moveit_commander.MoveGroupCommander("Hand")
         self.display_trajectory_publisher = rospy.Publisher(planned_path_publisher, moveit_msgs.msg.DisplayTrajectory,
                                                             queue_size=1)
         self.tf_listener = tf.TransformListener()
@@ -100,6 +100,7 @@ class MoveItWrapper(object):
 
         # Some information
         rospy.logdebug("--- RobotCommander Info ---")
+        rospy.logdebug("MoveItWrapper(): Robot Joints: %s", self.commander.get_joint_names())
         rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
         rospy.logdebug("MoveItWrapper(): Robot Groups: %s", self.commander.get_group_names())
         rospy.logdebug("MoveItWrapper(): Robot Group: %s", self.commander.get_group(group_name))

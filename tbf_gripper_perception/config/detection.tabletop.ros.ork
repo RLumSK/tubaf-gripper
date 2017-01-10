@@ -21,5 +21,7 @@ pipeline1:
   outputs: [sink1]
   parameters:
     table_detector:
+        # min_table_size: 4000
+        # plane_threshold: 0.01
         min_table_size: 4000
         plane_threshold: 0.01
