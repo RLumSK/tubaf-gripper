@@ -103,19 +103,22 @@ class ObjectFilter(object):
         if floor is None:
             rospy.logwarn("cluster_analysis::ObjectFilter._on_new_cluster(): no floor published")
         ps_floor = PoseStamped(floor.header, floor.tables[0].pose)
-        max_height = 0
+        max_height = float("-inf")
         selected_cluster = None
         selected_pose = None
+        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(len(lst_obj_cluster)) +" cluster")
         for cluster in lst_obj_cluster:
             ps_cluster = self.generate_pose(cluster)
             cluster_pose = self.transform(ps_floor.header.frame_id, ps_cluster.header.frame_id, ps_cluster.pose)
             height = cluster_pose.position.z - ps_floor.pose.position.z
+            rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: height=" + str(height))
             if(height > max_height):
                 selected_pose = ps_cluster.pose
                 selected_cluster = cluster
                 max_height = height
                 rospy.loginfo("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
                               "has a distance of " + str(max_height))
+        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(selected_cluster))
 
         # publish results
         _obj_cluster_msg = MarkerArray()
