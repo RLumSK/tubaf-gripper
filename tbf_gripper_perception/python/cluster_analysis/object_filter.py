@@ -29,6 +29,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
+from roslib import message
 import numpy as np
 import tf
 import tf.transformations
@@ -38,6 +39,8 @@ from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose
 from numpy import linalg as LA
 from object_recognition_msgs.msg import TableArray
+from sensor_msgs.msg import PointCloud2
+import sensor_msgs.point_cloud2 as pc_2
 
 
 class ObjectFilter(object):
@@ -55,12 +58,14 @@ class ObjectFilter(object):
         # parameter
         _cluster_topic = rospy.get_param('~cluster_topic', "/ork/tabletop/clusters")
         _filtered_clusters_topic = rospy.get_param('~filtered_clusters_topic', "/ork/obj_clusters")
+        _filtered_cloud_topic = rospy.get_param('~filtered_cloud_topic', "/ork/obj_cloud")
         _pose_topic = rospy.get_param('~pose_topic', "/ork/obj_poses")
         _floor_topic = rospy.get_param('~floor_topic', "/ork/floor_plane")
         self.threshold = rospy.get_param('threshold_paramter', 0.9)
         # publisher
         self._pose_publisher = rospy.Publisher(name=_pose_topic, data_class=PoseArray, queue_size=10)
         self._cluster_publisher = rospy.Publisher(name=_filtered_clusters_topic, data_class=MarkerArray, queue_size=10)
+        self._pointcloud_publisher = rospy.Publisher(name=_filtered_cloud_topic, data_class=PointCloud2, queue_size=10)
         # subscriber
         rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray, callback=self._on_new_cluster)
         self._tf = tf.TransformListener()
@@ -106,7 +111,8 @@ class ObjectFilter(object):
         max_height = float("-inf")
         selected_cluster = None
         selected_pose = None
-        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(len(lst_obj_cluster)) +" cluster")
+        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(len(lst_obj_cluster)) +
+                       " clusters")
         for cluster in lst_obj_cluster:
             ps_cluster = self.generate_pose(cluster)
             cluster_pose = self.transform(ps_floor.header.frame_id, ps_cluster.header.frame_id, ps_cluster.pose)
@@ -116,7 +122,7 @@ class ObjectFilter(object):
                 selected_pose = ps_cluster.pose
                 selected_cluster = cluster
                 max_height = height
-                rospy.loginfo("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
+                rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
                               "has a distance of " + str(max_height))
         rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(selected_cluster))
 
@@ -134,6 +140,7 @@ class ObjectFilter(object):
         _obj_cluster_msg.markers.append(selected_cluster)
         self._pose_publisher.publish(_pose_array)
         self._cluster_publisher.publish(_obj_cluster_msg)
+        # self._pointcloud_publisher.publish(ObjectFilter.cluster_to_pointcloud(cluster=selected_cluster))
 
         # debugging
         # rospy.loginfo("[cluster_analysis::ObjectFilter._on_new_cluster] floor_plane frame_id:\n" +
@@ -271,6 +278,18 @@ class ObjectFilter(object):
 
         return ret_pose
 
+    @staticmethod
+    def cluster_to_pointcloud(cluster):
+        """
+        Convert a Cluster of points represented as Markers into a PointCloud
+        :param cluster: cluster of points
+        :type cluster: visualization_msgs.msg.Marker
+        :return:
+        """
+        lst = []
+        for point in cluster.points:
+            lst.append([point.x, point.y, point.z])
+        return pc_2.create_cloud_xyz32(header=cluster.header, points=lst)
 
 if __name__ == '__main__':
     rospy.init_node("object_filter")
