@@ -29,7 +29,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
-from roslib import message
 import numpy as np
 import tf
 import tf.transformations
@@ -107,6 +106,7 @@ class ObjectFilter(object):
         floor = self.floor_cache.getElemBeforeTime(rospy.Time.now())
         if floor is None:
             rospy.logwarn("cluster_analysis::ObjectFilter._on_new_cluster(): no floor published")
+            return
         ps_floor = PoseStamped(floor.header, floor.tables[0].pose)
         max_height = float("-inf")
         selected_cluster = None
@@ -206,15 +206,18 @@ class ObjectFilter(object):
         ret_pose.pose.position.y = np.mean(y_lst)
         ret_pose.pose.position.z = np.mean(z_lst)
 
+        a, b, c, d = 0
+        b, d = 1
+        Z = np.sqrt(a**2+b**2+c**2+d**2)
         w_05 = np.sqrt(0.5)
         base_link_pose = Pose()
         base_link_pose.position.x = 0
         base_link_pose.position.y = 0
         base_link_pose.position.z = 0
-        base_link_pose.orientation.x = 0
-        base_link_pose.orientation.y = -w_05
-        base_link_pose.orientation.z = 0
-        base_link_pose.orientation.w = 1
+        base_link_pose.orientation.x = b/Z
+        base_link_pose.orientation.y = c/Z
+        base_link_pose.orientation.z = d/Z
+        base_link_pose.orientation.w = a/Z
         _tmp = self.transform("base_link", points.header.frame_id, base_link_pose)
         ret_pose.pose.orientation = _tmp.orientation
         ret_pose.header = points.header
