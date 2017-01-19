@@ -12,11 +12,11 @@
       ggde
     </layout>
     <cmd pane="a">roslaunch julius xtion_gripper.launch</cmd>
-    <cmd pane="b">roslaunch julius kinect2.launch</cmd>
-    <cmd pane="c">roslaunch julius velodyne.launch</cmd>
-    <cmd pane="d">roslaunch julius laser_lms_front.launch</cmd>
-    <cmd pane="e">roslaunch julius laser_lms_back.launch</cmd>
-    <cmd pane="g">roslaunch tubaf_tools julius_general_laser.launch</cmd>
+    <cmd pane="b" noexec="true">roslaunch julius kinect2.launch</cmd>
+    <cmd pane="c" noexec="true">roslaunch julius velodyne.launch</cmd>
+    <cmd pane="d" noexec="true">roslaunch julius laser_lms_front.launch</cmd>
+    <cmd pane="e" noexec="true">roslaunch julius laser_lms_back.launch</cmd>
+    <cmd pane="g" noexec="true">roslaunch tubaf_tools julius_general_laser.launch</cmd>
   </window>
   <window name="hand_and_haf" directory="~">
     <layout>
