@@ -206,8 +206,10 @@ class ObjectFilter(object):
         ret_pose.pose.position.y = np.mean(y_lst)
         ret_pose.pose.position.z = np.mean(z_lst)
 
-        a, b, c, d = 0
-        b, d = 1
+        a = 0
+        c = 0
+        b = 1
+        d = 1
         Z = np.sqrt(a**2+b**2+c**2+d**2)
         w_05 = np.sqrt(0.5)
         base_link_pose = Pose()
