@@ -8,15 +8,15 @@
 
     <layout>
       aabb
-      ccde
-      ggde
+      <!--ccde-->
+      <!--ggde-->
     </layout>
     <cmd pane="a">roslaunch julius xtion_gripper.launch</cmd>
-    <cmd pane="b" noexec="true">roslaunch julius kinect2.launch</cmd>
-    <cmd pane="c" noexec="true">roslaunch julius velodyne.launch</cmd>
-    <cmd pane="d" noexec="true">roslaunch julius laser_lms_front.launch</cmd>
-    <cmd pane="e" noexec="true">roslaunch julius laser_lms_back.launch</cmd>
-    <cmd pane="g" noexec="true">roslaunch tubaf_tools julius_general_laser.launch</cmd>
+    <!--<cmd pane="b" noexec="true">roslaunch julius kinect2.launch</cmd>-->
+    <!--<cmd pane="c" noexec="true">roslaunch julius velodyne.launch</cmd>-->
+    <!--<cmd pane="d" noexec="true">roslaunch julius laser_lms_front.launch</cmd>-->
+    <!--<cmd pane="e" noexec="true">roslaunch julius laser_lms_back.launch</cmd>-->
+    <!--<cmd pane="g" noexec="true">roslaunch tubaf_tools julius_general_laser.launch</cmd>-->
   </window>
   <window name="hand_and_haf" directory="~">
     <layout>
@@ -47,14 +47,5 @@
       a
     </layout>
     <cmd pane="a" noexec="true">roslaunch tbf_gripper_autonomy controller.launch</cmd>
-  </window>
-  <window name="logging" directory="~">
-    <layout>
-      ab
-      cd
-    </layout>
-    <cmd pane="a" noexec="true">rosrun tubaf_common demo.py</cmd>
-    <cmd pane="b" noexec="true">rostopic list</cmd>
-    <cmd pane="c" noexec="true">rosnode list</cmd>
   </window>
 </muxify>
