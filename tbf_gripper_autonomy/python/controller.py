@@ -198,16 +198,29 @@ class Controller(object):
         :return: -
         :rtype: None
         """
-        now = rospy.Time.now()
-        try:
-            self.tf_listener.waitForTransform(hover_pose.header.frame_id, self.base_link, now, rospy.Duration(10))
-            self.hover_pose = self.tf_listener.transformPose(self.base_link, ps=hover_pose)
-        except Exception as ex:
-            rospy.logwarn("[tbf_gripper_autonomy::Controller.to_hover_pose] Couldn't Transform from " + hover_pose.header.frame_id +
-                          " to " + self.base_link)
-            rospy.logwarn(ex.message)
+        frame_from = hover_pose.header.frame_id
+        frame_to = self.base_link
+        # see:  http://wiki.ros.org/tf/TfUsingPython#TransformerROS_and_TransformListener
+        #       http://wiki.ros.org/tf/Tutorials/tf%20and%20Time%20(Python)
+        if self.tf_listener.frameExists(frame_from) and self.tf_listener.frameExists(frame_to):
+            ps = hover_pose
+            self.tf_listener.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4))
+            tf_found = False
+            while tf_found:
+                try:
+                    self.hover_pose = self.tf_listener.transformPose(frame_to, ps)
+                    tf_found = True
+                except Exception as ex:
+                    rospy.logwarn("[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from +
+                                  " to " + frame_to)
+                    rospy.logwarn(ex.message)
+                    tf_found = False
+        else:
+            rospy.logwarn(
+                "[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from + " to " +
+                frame_to)
 
-        self.hover_pose.pose.position.z += 0.8
+        # self.hover_pose.pose.position.z += 0.8
         quat = tf.transformations.quaternion_from_euler(0, numpy.pi / 2.0, 0)
         self.hover_pose.pose.orientation.x = quat[0]
         self.hover_pose.pose.orientation.y = quat[1]
@@ -362,12 +375,14 @@ class Controller(object):
         while not self.moveit_controller.plan_to_pose(pose):
             # rospy.loginfo("Controller.move_to_pose(): couldn't calculate a plan")
             answer = raw_input("Controller.move_to_pose(): couldn't calculate a plan - Plan again (p)?"
-                               " Clear Octomap and plan again (c)? Abort (a)? (p/c/a)")
+                               " Clear Octomap and plan again (c)? Abort (a)? Skip (s) ? (p/c/a/s)")
             if answer == 'p' or answer == 'c':
                 if answer == 'c':
                     rospy.wait_for_service("clear_octomap")
                     clear_octomap = rospy.ServiceProxy('clear_octomap', Empty)
                     clear_octomap()
+            elif answer == 's':
+                return True
             else:
                 if origin is not None:
                     self.move_to_pose(origin, pose)
@@ -412,6 +427,6 @@ class Controller(object):
 
 if __name__ == '__main__':
     print "Hello World"
-    rospy.init_node("tubaf_grasping_controller", anonymous=False)
+    rospy.init_node("tubaf_grasping_controller", anonymous=False, log_level=rospy.DEBUG)
     cntrl = Controller()
     rospy.spin()

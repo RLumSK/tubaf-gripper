@@ -58,20 +58,19 @@ class MoveItWrapper(object):
         moveit_commander.roscpp_initialize(sys.argv)
         nodes2 = set(rosnode.get_node_names())
 
-        params = rospy.get_param("/tbf_gripper_autonomy_controller/kinematics")
+        params = rospy.get_param("/tbf_gripper_autonomy_controller/manipulator")
         for n in nodes2 - nodes1:
             if n.startswith("/move_group_commander_wrappers_"):
                 rospy.set_param(n+"/", params)
+                rospy.logdebug("tbf_gripper_autonomy.controller.py MoveItWrapper.init(): ")
         group_name = rospy.get_param("~group_name", "UR5")
         planned_path_publisher = rospy.get_param("~planned_path_publisher", "/move_group/display_planned_path")
         self.ee_links = rospy.get_param("~ee_links", [])
 
         self.scene = moveit_commander.PlanningSceneInterface()
         # rospy.loginfo("MoveItWrapper(): type of self.scene: %s\n%s", type(self.scene), dir(self.scene))
-        rospy.loginfo("tbf_gripper_autonomy.controller.py MoveItWrapper.init(): here")
         self.commander = moveit_commander.RobotCommander()  # controller of the robot (arm)
-        rospy.loginfo("tbf_gripper_autonomy.controller.py MoveItWrapper.init(): There")
-        self.group = moveit_commander.MoveGroupCommander(group_name)
+        self.group = moveit_commander.MoveGroupCommander(group_name, robot_description="robot_description")
         self.display_trajectory_publisher = rospy.Publisher(planned_path_publisher, moveit_msgs.msg.DisplayTrajectory,
                                                             queue_size=1)
         self.tf_listener = tf.TransformListener()
@@ -130,7 +129,7 @@ class MoveItWrapper(object):
 
         ## http://docs.ros.org/jade/api/moveit_commander/html/classmoveit__commander_1_1move__group_1_1MoveGroupCommander.html#a55db2d061bbf73d05b9a06df7f31ea39
         self.group.set_start_state(self.commander.get_current_state())
-        rospy.logdebug("MoveItWrapper.plan_to_pose() pose_stamped: %s", pose_stamped)
+        rospy.logdebug("MoveItWrapper.plan_to_pose() target pose: %s", pose_stamped)
         try:
             self.group.set_joint_value_target(pose_stamped)
         except:
@@ -209,7 +208,11 @@ class MoveItWrapper(object):
         :return: pose of the current end effector
         :rtype: PoseStamped
         """
-        ret_ps = self.group.get_current_pose()
+        eel = self.group.get_end_effector_link()
+        if eel == "":
+            eel = self.ee_link
+        rospy.logdebug("MoveItWrapper.get_current_pose(): end-effector link = " + eel)
+        ret_ps = self.group.get_current_pose(end_effector_link=eel)
         rospy.logdebug("MoveItWrapper.get_current_pose(): ret_ps=%s", ret_ps)
         now = rospy.Time.now()
         self.tf_listener.waitForTransform(ret_ps.header.frame_id, frame_id, now, rospy.Duration(4))

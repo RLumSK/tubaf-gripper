@@ -228,11 +228,12 @@ class HAFClient(object):
             # state = self.ac_haf.get_state()
             result = self.ac_haf.get_result()
             if result.graspOutput.eval <= -20:
-                rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point")
+                rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point (" +
+                              str(result.graspOutput.eval)+")")
                 if self.graspingcenter.x > 1.0:
                     self.graspingcenter.x = 0.4
                 else:
-                    self.graspingcenter.x += 0.05
+                    self.graspingcenter.x += 0.025
             # else:
             #     rospy.logdebug("HAFClient.get_grasp_cb(): Found grasp point Result: %s", result)
             # rospy.logdebug("HAFClient.get_grasp_cb(): Action finished: %s", state)

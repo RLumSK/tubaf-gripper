@@ -1,16 +1,16 @@
 haf_server_name: "/haf_server"
-grasp_search_center: [0.4, 0.0 , 0.0]
-grasp_search_max: 0.8
-grasp_search_inc: 0.1
+grasp_search_center: [0.2, 0.0 , 0.0]
+grasp_search_max: 0.6
+grasp_search_inc: 0.05
 gripper_approach_vector: [-1.0, 0.0, 0.0]
-grasp_search_size_x: 60
-grasp_search_size_y: 60
-max_calculation_time: 10
-show_only_best_grasp: true
-base_frame_default: "gripper_camera_rgb_frame"
+grasp_search_size_x: 100
+grasp_search_size_y: 100
+max_calculation_time: 100
+show_only_best_grasp: false
+base_frame_default: "gripper_robotiq_palm_planning"
 gripper_width: 1
-input_pc_topic: "/gripper_camera/depth_registered/points"
+input_pc_topic: "/ork/obj_clouds"
 
 grasp_quality_threshold: 50.0
 grasp_search_timeout: 50.0
-grasp_offset: 0.05
+grasp_offset: 0.0
