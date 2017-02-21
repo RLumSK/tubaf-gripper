@@ -179,9 +179,9 @@ class Controller(object):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("Controller.to_hover_pose(): starting")
+        rospy.loginfo("Controller.to_hover_marker_pose(): starting")
         if len(msg.markers) < 1:
-            rospy.loginfo("Controller.to_hover_pose(): no pose")
+            rospy.loginfo("Controller.to_hover_marker_pose(): no pose")
             rospy.sleep(1.0)
             return
         self._setup()
@@ -228,9 +228,9 @@ class Controller(object):
         self.hover_pose.pose.orientation.w = quat[3]
 
         # Move to Target
-        rospy.loginfo("Controller.to_hover_ork_pose(): to hover_pose")
+        rospy.loginfo("Controller.to_hover_pose(): to hover_pose")
         if not self.move_to_pose(self.hover_pose, self.origin_pose):
-            rospy.logwarn("Controller.to_hover_ork_pose(): Moving to hover_pose failed")
+            rospy.logwarn("Controller.to_hover_pose(): Moving to hover_pose failed")
             self.toggle_perception(True)
             return
 

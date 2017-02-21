@@ -42,7 +42,7 @@ import dynamic_reconfigure.client
 
 class MoveItWrapper(object):
     """
-    This class wrappes the MoveIt! functionalities for a real world robot. An impression how the functions can be called
+    This class wraps the MoveIt! functionality for a real world robot. An impression how the functions can be called
     is given at this website:
     http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/scripts/doc/move_group_python_interface_tutorial.html
     """
@@ -98,21 +98,22 @@ class MoveItWrapper(object):
         self.move_group_client.update_configuration(params)
 
         # Some information
-        rospy.logdebug("--- RobotCommander Info ---")
-        rospy.logdebug("MoveItWrapper(): Robot Joints: %s", self.commander.get_joint_names())
-        rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
-        rospy.logdebug("MoveItWrapper(): Robot Groups: %s", self.commander.get_group_names())
-        rospy.logdebug("MoveItWrapper(): Robot Group: %s", self.commander.get_group(group_name))
-        rospy.logdebug("MoveItWrapper(): Planning Frame: %s", self.commander.get_planning_frame())
-        rospy.logdebug("--- MoveGroupCommander Info ---")
-        rospy.logdebug("MoveItWrapper(): group_name: %s", group_name)
-        rospy.logdebug("MoveItWrapper(): group_ee: %s", self.group.get_end_effector_link())
-        rospy.logdebug("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
-        rospy.logdebug("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
-        rospy.logdebug("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
-        rospy.logdebug("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s",
-                       self.group.get_goal_tolerance())
-        rospy.logdebug("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
+        # rospy.logdebug("--- MoveGroupCommander Info ---")
+        # rospy.logdebug("MoveItWrapper(): group_name: %s", group_name)
+        # rospy.logdebug("MoveItWrapper(): group_ee: %s", self.group.get_end_effector_link())
+        # rospy.logdebug("MoveItWrapper(): Robot State: %s", self.commander.get_current_state())
+        # rospy.logdebug("MoveItWrapper(): Planing Frame: %s", self.group.get_planning_frame())
+        # rospy.logdebug("MoveItWrapper(): Path Constraints: %s", self.group.get_path_constraints())
+        # rospy.logdebug("MoveItWrapper(): Goal tolerance (joints, position, orientation): %s",
+        #                self.group.get_goal_tolerance())
+        # rospy.logdebug("MoveItWrapper(): Planning time: %s", self.group.get_planning_time())
+        # rospy.logdebug("--- RobotCommander Info ---")
+        # rospy.logdebug("MoveItWrapper(): Robot Joints: %s", self.commander.get_joint_names())
+        # rospy.logdebug("MoveItWrapper(): Robot Links: %s", self.commander.get_link_names())
+        # rospy.logdebug("MoveItWrapper(): Robot Groups: %s", self.commander.get_group_names())
+        # rospy.logdebug("MoveItWrapper(): Robot Group: %s", self.commander.get_group(group_name))
+        # rospy.logdebug("MoveItWrapper(): Planning Frame: %s", self.commander.get_planning_frame())
+
 
     def plan_to_pose(self, pose_stamped):
         """
@@ -122,7 +123,7 @@ class MoveItWrapper(object):
         :return: return if a plan could be calculated successful
         :rtype: Boolean
         """
-        rospy.loginfo("MoveItWrapper.plan_to_pose(): begin planning")
+        rospy.logdebug("MoveItWrapper.plan_to_pose(): begin planning")
         self.group.clear_pose_targets()
         rospy.logdebug("MoveItWrapper.plan_to_pose() current state - commander: %s", self.commander.get_current_state())
         rospy.logdebug("MoveItWrapper.plan_to_pose() current state - group: %s", self.group.get_current_joint_values())
