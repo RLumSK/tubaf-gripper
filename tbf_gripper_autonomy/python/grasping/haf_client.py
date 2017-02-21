@@ -229,14 +229,6 @@ class HAFClient(object):
             # state = self.ac_haf.get_state()
             result = self.ac_haf.get_result()
             rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result: %s", result)
-            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.eval: %d", result.graspOutput.eval)
-            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.avgPoint[x]: %d",
-                           result.graspOutput.averagedGraspPoint.x)
-            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.avgPoint[y]: %d",
-                           result.graspOutput.averagedGraspPoint.y)
-            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.avgPoint[z]: %d",
-                           result.graspOutput.averagedGraspPoint.z)
-            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.roll: %d", result.graspOutput.roll)
             if result.graspOutput.eval <= -20:
                 rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point (" +
                               str(result.graspOutput.eval)+")")
@@ -250,9 +242,8 @@ class HAFClient(object):
 
         else:
             rospy.logdebug("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
-            self.register_pc_callback()
-            return
         self.rate.sleep()
+        self.register_pc_callback()
 
     # Parameter Services Callbacks
     def set_grasp_center(self, request):
