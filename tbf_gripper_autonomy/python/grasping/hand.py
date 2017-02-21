@@ -43,10 +43,10 @@ then manages to grasp the object by making use of MoveIt! and a HandController.
 
 class HandController(object):
     """
-    The HandController manages the communication with a robotiq 3 finger gripper (s-model) vi an action server on a
+    The HandController manages the communication with a robotiq 3 finger gripper (s-model) via an action server on a
     basic level. The complexity of the hand interface itself is shadowed in this server, so that this client can provide
     basic, straight forward functions and commands.
-    Further functionality ma be added in the future is needed.
+    Further functionality may be added in the future if needed.
     """
     def __init__(self):
         """
@@ -61,6 +61,7 @@ class HandController(object):
         self.ac.wait_for_server()
         self.action_pending = False
         self.restHand()
+        rospy.sleep(10.0)
 
     def closeHand(self):
         """
@@ -88,7 +89,7 @@ class HandController(object):
         # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
-        self.action_pending = False;
+        self.action_pending = False
 
     def openHand(self):
         """
