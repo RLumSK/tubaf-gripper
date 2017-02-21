@@ -203,12 +203,13 @@ class HAFClient(object):
         :return: -
         :rtype: -
         """
+        self.unregister_pc_callback()
         rospy.logdebug("HAFClient.get_grasp_cb(): point cloud received")
         rospy.logdebug("HAFClient.get_grasp_cb(): Waiting for action server to start.")
         self.ac_haf.wait_for_server()
         rospy.logdebug("HAFClient.get_grasp_cb(): Action server started, sending goal.")
         goal = haf_grasping.msg.CalcGraspPointsServerGoal()
-
+        #TODO unsubscribe point cloud msges to avoid flooting the server!??!?
         goal.graspinput.input_pc = msg
         goal.graspinput.grasp_area_center = self.graspingcenter
         goal.graspinput.approach_vector = self.approach_vector
@@ -227,6 +228,15 @@ class HAFClient(object):
         if finished_before_timeout:
             # state = self.ac_haf.get_state()
             result = self.ac_haf.get_result()
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result: %s", result)
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.eval: %d", result.graspOutput.eval)
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.avgPoint[x]: %d",
+                           result.graspOutput.averagedGraspPoint.x)
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.avgPoint[y]: %d",
+                           result.graspOutput.averagedGraspPoint.y)
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.avgPoint[z]: %d",
+                           result.graspOutput.averagedGraspPoint.z)
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action finished - Result.roll: %d", result.graspOutput.roll)
             if result.graspOutput.eval <= -20:
                 rospy.logwarn("HAFClient.get_grasp_cb(): Worst quality of the estimated grasp point (" +
                               str(result.graspOutput.eval)+")")
@@ -234,11 +244,14 @@ class HAFClient(object):
                     self.graspingcenter.x = 0.4
                 else:
                     self.graspingcenter.x += 0.025
-            # else:
-            #     rospy.logdebug("HAFClient.get_grasp_cb(): Found grasp point Result: %s", result)
-            # rospy.logdebug("HAFClient.get_grasp_cb(): Action finished: %s", state)
-        # else:
-        #     rospy.logdebug("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
+            else:
+                # found grasp
+                rospy.loginfo("HAFClient.get_grasp_cb(): Found valid grasp.")
+
+        else:
+            rospy.logdebug("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
+            self.register_pc_callback()
+            return
         self.rate.sleep()
 
     # Parameter Services Callbacks
