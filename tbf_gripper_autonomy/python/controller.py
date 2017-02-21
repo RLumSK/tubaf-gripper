@@ -169,7 +169,9 @@ class Controller(object):
         _hover_pose.pose = msg.poses[0]
         _hover_pose.header = msg.header
 
-        self.to_hover_pose(_hover_pose)
+        # self.to_hover_pose(_hover_pose)
+        # Skip one step
+        self.haf_client.register_pc_callback()
 
     def to_hover_marker_pose(self, msg):
         """
