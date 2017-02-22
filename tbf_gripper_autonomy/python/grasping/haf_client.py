@@ -337,10 +337,12 @@ class HAFClient(object):
         #                     val gp1(x,    y,   z)     gp2(x,   y,     z )   av(x,y,z) gcp(x,    y,    z)    roll
         self.grasp_quality_threshold = rospy.get_param("~grasp_quality_threshold", self.grasp_quality_threshold)  # worst [-20, 99] best
         if result.graspOutput.eval >= self.grasp_quality_threshold:
-            rospy.logdebug("HAFClient.evaluate_grasp_result(): Grasp good enough %f > %f", (result.graspOutput.eval, self.grasp_quality_threshold))
+            rospy.logdebug("HAFClient.evaluate_grasp_result(): Grasp good enough %f > %f",
+                           result.graspOutput.eval, self.grasp_quality_threshold)
             return True
         else:
-            rospy.logdebug("HAFClient.evaluate_grasp_result(): Grasp good not enough %f < %f", (result.graspOutput.eval, self.grasp_quality_threshold))
+            rospy.logdebug("HAFClient.evaluate_grasp_result(): Grasp good not enough %f < %f",
+                           result.graspOutput.eval, self.grasp_quality_threshold)
             return False
 
     # Grasp Calculation Action Server Callbacks
@@ -406,7 +408,7 @@ class HAFClient(object):
         pass
 
     def grasp_feedback_cb(self, feedback):
-        rospy.logdebug("HAFClient.grasp_feedback_cb(): feedback[%s] = %s", type(feedback), feedback)
+        rospy.logdebug("HAFClient.grasp_feedback_cb(): feedback[%s] = %f", type(feedback), feedback.data)
         pass
 
     def changeMarker(self, feedback):
