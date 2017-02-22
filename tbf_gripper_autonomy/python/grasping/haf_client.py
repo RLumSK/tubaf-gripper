@@ -165,6 +165,7 @@ class HAFClient(object):
         :rtype: -
         """
         self.pc_sub.unregister()
+        rospy.loginfo("HAFClient.unregister_pc_callback(): unsubscribed from pointcloud topic: %s", self.input_pc_topic)
 
     def set_graspingcenter(self, x=0, y=0, z=0):
         """
