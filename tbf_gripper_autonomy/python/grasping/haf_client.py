@@ -245,6 +245,7 @@ class HAFClient(object):
 
         else:
             rospy.logdebug("HAFClient.get_grasp_cb(): Action did not finish before the time out.")
+        self.ac_haf.cancel_all_goals()
         self.rate.sleep()
         # no valid grasp found -> continue grasp search
         self.register_pc_callback()
