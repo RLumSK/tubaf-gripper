@@ -337,8 +337,10 @@ class HAFClient(object):
         #                     val gp1(x,    y,   z)     gp2(x,   y,     z )   av(x,y,z) gcp(x,    y,    z)    roll
         self.grasp_quality_threshold = rospy.get_param("~grasp_quality_threshold", self.grasp_quality_threshold)  # worst [-20, 99] best
         if result.graspOutput.eval >= self.grasp_quality_threshold:
+            rospy.logdebug("HAFClient.evaluate_grasp_result(): Grasp good enough %f > %f", (result.graspOutput.eval, self.grasp_quality_threshold))
             return True
         else:
+            rospy.logdebug("HAFClient.evaluate_grasp_result(): Grasp good not enough %f < %f", (result.graspOutput.eval, self.grasp_quality_threshold))
             return False
 
     # Grasp Calculation Action Server Callbacks
@@ -394,6 +396,10 @@ class HAFClient(object):
                     rospy.logdebug("haf_client.py:HAFClient.grasp_received_cb(): passing poses")
                     function(grasp_pose)
                 pass
+        else:
+            # grasp is not good enough
+            rospy.logdebug("HAFClient.grasp_received_cb(): Grasp not good enough - register point cloud callback")
+            self.register_pc_callback()
 
     def grasp_calculation_active_cb(self):
         rospy.logdebug("HAFClient.grasp_calculation_active_cb(): alive")
