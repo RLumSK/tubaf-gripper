@@ -408,7 +408,7 @@ class HAFClient(object):
         pass
 
     def grasp_feedback_cb(self, feedback):
-        rospy.logdebug("HAFClient.grasp_feedback_cb(): feedback[%s] = %f", type(feedback), feedback)
+        rospy.logdebug("HAFClient.grasp_feedback_cb(): %s", feedback)
         pass
 
     def changeMarker(self, feedback):
