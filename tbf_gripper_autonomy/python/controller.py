@@ -260,7 +260,7 @@ class Controller(object):
 
         # Calculate the target pose
         rospy.logdebug("Controller.to_target_pose(): Pose.Frame: %s", msg.header.frame_id)
-        msg.pose.position.z -= 0.07 # offset planning frame gripper
+        msg.pose.position.x -= 0.015  # offset planning frame gripper -> gripper_robotiq_palm_planning
         self.toggle_perception(False)
         self.hand_controller.openHand()
 
