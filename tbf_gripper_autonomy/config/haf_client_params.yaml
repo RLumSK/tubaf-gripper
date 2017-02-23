@@ -11,6 +11,6 @@ base_frame_default: "gripper_robotiq_palm_planning"
 gripper_width: 1
 input_pc_topic: "/ork/obj_clouds"
 
-grasp_quality_threshold: 50.0
+grasp_quality_threshold: 10.0
 grasp_search_timeout: 50.0
 grasp_offset: 0.0
