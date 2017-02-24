@@ -133,8 +133,9 @@ class MoveItWrapper(object):
         rospy.logdebug("MoveItWrapper.plan_to_pose() target pose: %s", pose_stamped)
         try:
             self.group.set_joint_value_target(pose_stamped)
-        except:
-            rospy.logerr("MoveItWrapper.plan_to_pose(): No plan calculated as given pose couldn't be set as target")
+        except moveit_commander.MoveItCommanderException as ex:
+            rospy.logerr("MoveItWrapper.plan_to_pose(): No plan calculated as given pose couldn't be set as target"
+                         " - %s", ex.message)
             return False
         self.plan = self.group.plan()
         if not self.plan.joint_trajectory.points:
