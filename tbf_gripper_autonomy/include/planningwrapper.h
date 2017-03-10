@@ -3,6 +3,7 @@
 
 #include <pluginlib/class_loader.h>
 #include <ros/ros.h>
+#include <ros/console.h>
 
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>

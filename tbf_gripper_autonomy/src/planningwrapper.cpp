@@ -2,6 +2,7 @@
 
 PlanningWrapper::PlanningWrapper():
   planner_plugin_loader(),
+  planner_instance(),
   // Tolerances for the target pose during motion planning
   tolerance_pose(3, 0.01),
   tolerance_angle(3, 0.01)
@@ -16,26 +17,29 @@ PlanningWrapper::PlanningWrapper():
   this->nh.param("ee_link", ee_link, std::string("gripper_ee_link"));
   this->nh.param("planner_plugin_name", planner_plugin_name, std::string("ompl_interface/OMPLPlanner"));
   this->nh.param("name_space", name_space, std::string(""));
+  ROS_DEBUG_STREAM("PlanningWrapper::PlanningWrapper paramter imported");
 
 
   this->robot_model_loader = new robot_model_loader::RobotModelLoader(robot_description);
   this->kinematic_model = this->robot_model_loader->getModel();
-  this->planning_scene = (new planning_scene::PlanningScene(this->kinematic_model))->shared_from_this();
+  this->planning_scene = boost::make_shared<planning_scene::PlanningScene>(this->kinematic_model);
   this->update_current_state();
   this->group_name = group_name;
   this->ee_link = ee_link;
   this->allowed_collision_matrix = this->planning_scene->getAllowedCollisionMatrix();
 
-//  try
-//  {
-//    this->planner_plugin_loader = new pluginlib::ClassLoader<planning_interface::PlannerManager>("moveit_core", "planning_interface::PlannerManager");
-//  }
-//  catch(pluginlib::PluginlibException& ex)
-//  {
-//    ROS_FATAL_STREAM("PlanningWrapper::PlanningWrapper: Exception while creating planning plugin loader " << ex.what());
-//  }
+  ROS_DEBUG_STREAM("PlanningWrapper::PlanningWrapper: Starting pluginlib class loading");
   try
   {
+    this->planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>("moveit_core", "planning_interface::PlannerManager"));
+  }
+  catch(pluginlib::PluginlibException& ex)
+  {
+    ROS_FATAL_STREAM("PlanningWrapper::PlanningWrapper: Exception while creating planning plugin loader " << ex.what());
+  }
+  try
+  {
+
     this->planner_instance.reset(this->planner_plugin_loader->createUnmanagedInstance(planner_plugin_name));
     if (!this->planner_instance->initialize(this->kinematic_model, name_space))
       ROS_FATAL_STREAM("PlanningWrapper::PlanningWrapper:Could not initialize planner instance");
@@ -50,6 +54,7 @@ PlanningWrapper::PlanningWrapper():
     ROS_ERROR_STREAM("PlanningWrapper::PlanningWrapper: Exception while loading planner '" << planner_plugin_name << "': " << ex.what() << std::endl
                      << "Available plugins: " << ss.str());
   }
+  ROS_DEBUG_STREAM("PlanningWrapper::PlanningWrapper: Finished pluginlib class loading");
 
   this->planning_scene_diff_publisher = this->nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
   this->planning_scene_diff_client = this->nh.serviceClient<moveit_msgs::ApplyPlanningScene>("apply_planning_scene");
