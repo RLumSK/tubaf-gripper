@@ -5,14 +5,21 @@ project(tbf_gripper_autonomy)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-    rospy
     roscpp
-    geometry_msgs
-    sensor_msgs
-    haf_grasping
-    ur_kinematics
+    eigen_conversions
+    moveit_core
+    moveit_ros_planning
+    moveit_ros_planning_interface
+    pluginlib
+    cmake_modules
+    geometric_shapes
+    moveit_msgs
 )
+
+find_package(Boost REQUIRED system)
+
 catkin_python_setup()
+# generate_messages(DEPENDENCIES geometry_msgs sensor_msgs moveit_msgs)
 
 ###################################
 ## catkin specific configuration ##
@@ -27,11 +34,17 @@ catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES tbf_gripper_autonomy
   CATKIN_DEPENDS
+    moveit_core
+    moveit_ros_planning_interface
+    interactive_markers
     ur_kinematics
 #  DEPENDS system_lib
 )
 
+find_package(Eigen REQUIRED)
+
 include_directories(include ${catkin_INCLUDE_DIRS})
-# add_executable(test_ik src/test/test_ik.cpp)
-# target_link_libraries(test_ik ${catkin_LIBRARIES})
-# add_dependencies(test_ik ur_kinematics)
+#add_library(planningwrapper src/planningwrapper.cpp)
+add_executable(planning src/planning.cpp src/planningwrapper.cpp)
+target_link_libraries(planning ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_dependencies(planning ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
