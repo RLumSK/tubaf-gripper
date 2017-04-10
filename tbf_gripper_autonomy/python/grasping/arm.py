@@ -132,10 +132,28 @@ class MoveItWrapper(object):
         self.group.set_start_state(self.commander.get_current_state())
         rospy.logdebug("MoveItWrapper.plan_to_pose() target pose: %s", pose_stamped)
         try:
-            self.group.set_joint_value_target(pose_stamped)
+            # from: http://docs.ros.org/jade/api/moveit_commander/html/move__group_8py_source.html
+            # Specify a target joint configuration for the group.
+            # - if the type of arg1 is one of the following: dict, list, JointState message, then no other arguments should be provided.
+            # The dict should specify pairs of joint variable names and their target values, the list should specify all the variable values
+            # for the group. The JointState message specifies the positions of some single-dof joints.
+            # - if the type of arg1 is string, then arg2 is expected to be defined and be either a real value or a list of real values. This is
+            # interpreted as setting a particular joint to a particular value.
+            # - if the type of arg1 is Pose or PoseStamped, both arg2 and arg3 could be defined. If arg2 or arg3 are defined, their types must
+            # be either string or bool. The string type argument is interpreted as the end-effector the pose is specified for (default is to use
+            # the default end-effector), and the bool is used to decide whether the pose specified is approximate (default is false). This situation
+            # allows setting the joint target of the group by calling IK. This does not send a pose to the planner and the planner will do no IK.
+            # Instead, one IK solution will be computed first, and that will be sent to the planner.
+            arg1 = pose_stamped
+            arg2 = "gripper_ur5_wrist_3_joint"
+            arg3 = False
+            rospy.logdebug("MoveItWrapper.plan_to_pose(): set_joint_value_target(arg1=%s, arg2=%s, arg3=%s)"
+                           , type(arg1), arg2, arg3)
+            # self.group.set_joint_value_target(arg1=pose_stamped, arg2=self.group.get_end_effector_link(), arg3=True)
+            self.group.set_joint_value_target(arg1=arg1, arg2=arg2, arg3=arg3)
         except moveit_commander.MoveItCommanderException as ex:
-            rospy.logerr("MoveItWrapper.plan_to_pose(): No plan calculated as given pose couldn't be set as target"
-                         " - %s", ex.message)
+            rospy.logerr("MoveItWrapper.plan_to_pose() - %s: No plan calculated as given pose couldn't be set as target"
+                         " - %s", type(ex), ex.message)
             return False
         self.plan = self.group.plan()
         if not self.plan.joint_trajectory.points:
