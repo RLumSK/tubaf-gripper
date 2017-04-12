@@ -39,6 +39,8 @@ from geometry_msgs.msg import PoseStamped, PoseArray, Pose
 from numpy import linalg as LA
 from object_recognition_msgs.msg import TableArray
 from sensor_msgs.msg import PointCloud2
+from moveit_msgs.msg import PlanningScene, CollisionObject
+from shape_msgs.msg import SolidPrimitive
 import sensor_msgs.point_cloud2 as pc_2
 
 
@@ -60,17 +62,30 @@ class ObjectFilter(object):
         _filtered_cloud_topic = rospy.get_param('~filtered_cloud_topic', "/ork/obj_cloud")
         _pose_topic = rospy.get_param('~pose_topic', "/ork/obj_poses")
         _floor_topic = rospy.get_param('~floor_topic', "/ork/floor_plane")
+        _planning_scene_topic = rospy.get_param('~planning_scene_topic', "/julius_moveit/planning_scene")
         self.threshold = rospy.get_param('threshold_paramter', 0.9)
         # publisher
         self._pose_publisher = rospy.Publisher(name=_pose_topic, data_class=PoseArray, queue_size=10)
         self._cluster_publisher = rospy.Publisher(name=_filtered_clusters_topic, data_class=MarkerArray, queue_size=10)
         self._pointcloud_publisher = rospy.Publisher(name=_filtered_cloud_topic, data_class=PointCloud2, queue_size=10)
+        self._planning_scene_diff_publisher = rospy.Publisher(name=_planning_scene_topic, data_class=PlanningScene,
+                                                              queue_size=1)
         # subscriber
-        rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray, callback=self._on_new_cluster)
+        self.marker_array_subscriber = rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray,
+                                                        callback=self._on_new_cluster)
         self._tf = tf.TransformListener()
         # cache
         _floor_msgsub = message_filters.Subscriber(_floor_topic, TableArray)
         self.floor_cache = message_filters.Cache(_floor_msgsub, 1)
+        # object
+        _primitive = SolidPrimitive()
+        _primitive.type = SolidPrimitive.SPHERE
+        _primitive.dimensions.append(0.2)
+        self.co_wlan_station = CollisionObject()
+        self.co_wlan_station.id = "wlan_box"
+        # TODO determine and add mesh of the object here
+        self.co_wlan_station.operation = CollisionObject.ADD
+        self.co_wlan_station.primitives.append(_primitive)
 
     def _on_new_cluster(self, msg):
         """
@@ -96,10 +111,12 @@ class ObjectFilter(object):
             # (http://docs.ros.org/indigo/api/visualization_msgs/html/msg/Marker.html)
             rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] has " +
                            str(len(cluster.points)) + " points")
-            if len(cluster.points) > _threshold:
+            if len(cluster.points) >= _threshold:
                 lst_obj_cluster.append(cluster)
 
         if len(lst_obj_cluster) == 0:
+            rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster don't has enough points by a "
+                           "threshold of" + str(_threshold))
             return
 
         # get the cluster farthest away from the floor plane
@@ -117,14 +134,14 @@ class ObjectFilter(object):
             ps_cluster = self.generate_pose(cluster)
             cluster_pose = self.transform(ps_floor.header.frame_id, ps_cluster.header.frame_id, ps_cluster.pose)
             height = cluster_pose.position.z - ps_floor.pose.position.z
-            rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: height=" + str(height))
+            # rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: height=" + str(height))
             if(height > max_height):
                 selected_pose = ps_cluster.pose
                 selected_cluster = cluster
                 max_height = height
-                rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
-                              "has a distance of " + str(max_height))
-        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(selected_cluster))
+                # rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
+                #              "has a distance of " + str(max_height))
+        # rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(selected_cluster))
 
         # publish results
         _obj_cluster_msg = MarkerArray()
@@ -151,6 +168,16 @@ class ObjectFilter(object):
         #               str(ps.header.frame_id))
         # rospy.loginfo("[cluster_analysis::ObjectFilter._on_new_cluster] obj_pose orientation:\n" +
         #               str(ps.pose.orientation))
+
+        # publish object
+        _scene = PlanningScene()
+        self.co_wlan_station.header = _pose_array.header
+        self.co_wlan_station.primitive_poses.append(selected_pose)
+        _scene.is_diff = True
+        _scene.world.collision_objects.append(self.co_wlan_station)
+        self._planning_scene_diff_publisher.publish(_scene)
+        rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] published update to planning_scene")
+        # TODO add also transform between "_object.link_name" o-o "_pose_array.header.frame_id" ???
 
     def transform(self, frame_from, frame_to, pose):
         """
@@ -297,6 +324,6 @@ class ObjectFilter(object):
         return pc_2.create_cloud_xyz32(header=cluster.header, points=lst)
 
 if __name__ == '__main__':
-    rospy.init_node("object_filter")
+    rospy.init_node("object_filter", log_level=rospy.INFO)
     obj = ObjectFilter()
     rospy.spin()
