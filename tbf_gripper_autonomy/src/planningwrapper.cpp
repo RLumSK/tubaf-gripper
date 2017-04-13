@@ -14,6 +14,7 @@ PlanningWrapper::PlanningWrapper():
   std::string robot_description, group_name, ee_link, planner_plugin_name, name_space;
   this->nh.param("robot_description", robot_description, std::string("robot_description"));
   this->nh.param("group_name", group_name, std::string("UR5"));
+  this->nh.param("eef_group_name", eef_group_name, std::string("Hand"));
   this->nh.param("ee_link", ee_link, std::string("gripper_ee_link"));
   this->nh.param("planner_plugin_name", planner_plugin_name, std::string("ompl_interface/OMPLPlanner"));
   this->nh.param("name_space", name_space, std::string(""));
@@ -25,6 +26,7 @@ PlanningWrapper::PlanningWrapper():
   this->planning_scene = boost::make_shared<planning_scene::PlanningScene>(this->kinematic_model);
   this->update_current_state();
   this->group_name = group_name;
+  this->eef_group_name= eef_group_name;
   this->ee_link = ee_link;
   this->allowed_collision_matrix = this->planning_scene->getAllowedCollisionMatrix();
 
@@ -56,11 +58,11 @@ PlanningWrapper::PlanningWrapper():
   }
   ROS_DEBUG_STREAM("PlanningWrapper::PlanningWrapper: Finished pluginlib class loading");
 
-  this->planning_scene_diff_publisher = this->nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
-  this->planning_scene_diff_client = this->nh.serviceClient<moveit_msgs::ApplyPlanningScene>("apply_planning_scene");
+  this->planning_scene_diff_publisher = this->nh.advertise<moveit_msgs::PlanningScene>("/julius_moveit/planning_scene", 1);
+  this->planning_scene_diff_client = this->nh.serviceClient<moveit_msgs::ApplyPlanningScene>("/julius_moveit/apply_planning_scene");
   this->planning_scene_diff_client.waitForExistence();
 
-  this->display_publisher = this->nh.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
+  this->display_publisher = this->nh.advertise<moveit_msgs::DisplayTrajectory>("julius_moveit/move_group/display_planned_path", 1, true);
 
 
   /* Sleep a little to allow time to startup rviz, etc. */
@@ -188,7 +190,7 @@ void PlanningWrapper::sense_object() const{
   ROS_INFO("PlanningWrapper::sense_object(): finished");
 }
 
-void PlanningWrapper::attach_object() const{
+void PlanningWrapper::attach_object(){
   ROS_INFO("PlanningWrapper::attach_object(): started");
 //Attaching an object requires two operations
 //  - Removing the original object from the environment
@@ -198,6 +200,8 @@ void PlanningWrapper::attach_object() const{
   remove_object.id = this->attached_object.object.id;
   remove_object.header.frame_id = this->attached_object.link_name;
   remove_object.operation = moveit_msgs::CollisionObject::REMOVE;
+  // Note that attaching an object to the robot requires the corresponding operation to be specified as an ADD operation
+  this->attached_object.object.operation = moveit_msgs::CollisionObject::ADD;
   /* Carry out the REMOVE + ATTACH operation */
   ROS_INFO("PlanningWrapper::attach_object(): Attaching the object to the robot and removing it from the world.");
   moveit_msgs::PlanningScene planning_scene;
@@ -217,7 +221,7 @@ void PlanningWrapper::detach_object() const{
   /* First, define the DETACH object message*/
   moveit_msgs::AttachedCollisionObject detach_object;
   detach_object.object.id = this->attached_object.object.id;
-  detach_object.link_name = "object_link";
+  detach_object.link_name =  this->attached_object.link_name;
   detach_object.object.operation = moveit_msgs::CollisionObject::REMOVE;
   /* Carry out the DETACH + ADD operation */
   ROS_INFO("PlanningWrapper::detach_object(): Detaching the object from the robot and returning it to the world.");
@@ -246,6 +250,12 @@ void PlanningWrapper::remove_object() const{
   planning_scene.world.collision_objects.push_back(remove_object);
   this->update_planning_scene_diff(planning_scene);
   ROS_INFO("PlanningWrapper::remove_object(): started");
+}
+
+const std::vector<std::string>& PlanningWrapper::get_end_effector_links() const{
+  ROS_DEBUG("PlanningWrapper::get_end_effector_links(): started");
+  const robot_state::JointModelGroup* jmg = this->current_state->getJointModelGroup(this->eef_group_name);
+  return jmg->getLinkModelNames();
 }
 
 //Visualization

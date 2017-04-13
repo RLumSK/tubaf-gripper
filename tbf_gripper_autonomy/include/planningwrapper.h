@@ -32,6 +32,7 @@ private:
   planning_scene::PlanningScenePtr planning_scene;         // (kinematic_model);
   robot_state::RobotState* current_state;                  // = planning_scene.getCurrentStateNonConst();
   std::string group_name;
+  std::string eef_group_name;
   std::string ee_link;
   ros::Publisher planning_scene_diff_publisher;            // for asynchr. updates
   ros::ServiceClient planning_scene_diff_client;           // for synchr. updates
@@ -160,7 +161,7 @@ public:
   /**
    * @brief attach_object attache the prior defined object
    */
-  void attach_object() const;
+  void attach_object();
 
   /**
    * @brief detach_object detach the prior attached object
@@ -171,6 +172,12 @@ public:
    * @brief remove_object remove the object from the entire world
    */
   void remove_object() const;
+
+  /**
+   * @brief get_end_effector_links Returns the end effector links, which are allowed to touch the object
+   * @return reference to a vector with the names of the end-effector links
+   */
+  const std::vector<std::string>& get_end_effector_links(void) const;
 };
 
 #endif // PLANNINGWRAPPER_H

@@ -1,4 +1,4 @@
-planned_path_publisher: "move_group/display_planned_path"
+planned_path_publisher: "julius_moveit/move_group/display_planned_path"
 group_name: "UR5"
 planning_frame: "/base_link"
 planning_time: 5

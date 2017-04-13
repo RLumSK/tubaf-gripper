@@ -60,11 +60,12 @@ class MoveItWrapper(object):
 
         params = rospy.get_param("/tbf_gripper_autonomy_controller/manipulator")
         for n in nodes2 - nodes1:
-            if n.startswith("/move_group_commander_wrappers_"):
+            if n.startswith("julius_moveit/move_group_commander_wrappers_"):
                 rospy.set_param(n+"/", params)
                 rospy.logdebug("tbf_gripper_autonomy.controller.py MoveItWrapper.init(): ")
         group_name = rospy.get_param("~group_name", "UR5")
-        planned_path_publisher = rospy.get_param("~planned_path_publisher", "/move_group/display_planned_path")
+        planned_path_publisher = rospy.get_param("~planned_path_publisher",
+                                                 "/julius_moveit/move_group/display_planned_path")
         self.ee_links = rospy.get_param("~ee_links", [])
 
         self.scene = moveit_commander.PlanningSceneInterface()
@@ -90,7 +91,7 @@ class MoveItWrapper(object):
         self.group.set_workspace(ws=[-2, -1, -0.40, 0, 1, 1.6])
 
         # Unlock Planning Frame ( MoveIt)
-        self.move_group_client = dynamic_reconfigure.client.Client("/move_group/planning_scene_monitor")
+        self.move_group_client = dynamic_reconfigure.client.Client("/julius_moveit/move_group/planning_scene_monitor")
         params = {'publish_planning_scene': True, 'publish_planning_scene_hz': 2.0,
                   'publish_geometry_updates': True, 'publish_state_updates': True, 'publish_transforms_updates': True}
         # cfg = moveit_ros_planning.cfg.PlanningSceneMonitorDynamicReconfigureConfig()
