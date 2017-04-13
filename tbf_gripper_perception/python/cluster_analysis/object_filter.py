@@ -63,7 +63,7 @@ class ObjectFilter(object):
         _pose_topic = rospy.get_param('~pose_topic', "/ork/obj_poses")
         _floor_topic = rospy.get_param('~floor_topic', "/ork/floor_plane")
         _planning_scene_topic = rospy.get_param('~planning_scene_topic', "/julius_moveit/planning_scene")
-        self.threshold = rospy.get_param('threshold_paramter', 0.9)
+        self.threshold = rospy.get_param('threshold_parameter', 0.9)
         # publisher
         self._pose_publisher = rospy.Publisher(name=_pose_topic, data_class=PoseArray, queue_size=10)
         self._cluster_publisher = rospy.Publisher(name=_filtered_clusters_topic, data_class=MarkerArray, queue_size=10)
@@ -157,7 +157,7 @@ class ObjectFilter(object):
         _obj_cluster_msg.markers.append(selected_cluster)
         self._pose_publisher.publish(_pose_array)
         self._cluster_publisher.publish(_obj_cluster_msg)
-        # self._pointcloud_publisher.publish(ObjectFilter.cluster_to_pointcloud(cluster=selected_cluster))
+        self._pointcloud_publisher.publish(ObjectFilter.cluster_to_pointcloud(cluster=selected_cluster))
 
         # debugging
         # rospy.loginfo("[cluster_analysis::ObjectFilter._on_new_cluster] floor_plane frame_id:\n" +
@@ -172,16 +172,22 @@ class ObjectFilter(object):
         # publish object
         _scene = PlanningScene()
         self.co_wlan_station.header = _pose_array.header
-        self.co_wlan_station.primitive_poses.append(selected_pose)
+        if len(self.co_wlan_station.primitive_poses) == 0:
+            self.co_wlan_station.primitive_poses.append(selected_pose)
+        else:
+            self.co_wlan_station.primitive_poses[0] = selected_pose
         _scene.is_diff = True
         _scene.world.collision_objects.append(self.co_wlan_station)
         self._planning_scene_diff_publisher.publish(_scene)
         rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] published update to planning_scene")
         # TODO add also transform between "_object.link_name" o-o "_pose_array.header.frame_id" ???
 
-    def transform(self, frame_from, frame_to, pose):
+    @staticmethod
+    def transform(tf, frame_from, frame_to, pose):
         """
         Transform a given pose into another frame using the transform library (tf)
+        :param tf: transformation object
+        :type tf: TransfromListener
         :param frame_from: frame in which the orientation is valid
         :type frame_from: string
         :param frame_to:target frame for the transformation
@@ -193,16 +199,16 @@ class ObjectFilter(object):
         """
         # see:  http://wiki.ros.org/tf/TfUsingPython#TransformerROS_and_TransformListener
         #       http://wiki.ros.org/tf/Tutorials/tf%20and%20Time%20(Python)
-        if self._tf.frameExists(frame_from) and self._tf.frameExists(frame_to):
+        if tf.frameExists(frame_from) and tf.frameExists(frame_to):
             ps = PoseStamped()
             ps.header.frame_id = frame_from
             ps.pose = pose
             # t = self._tf.getLatestCommonTime(frame_from, frame_to)
             # position, quaternion = self._tf.lookupTransform(frame_from, frame_to, t)
             # print position, quaternion
-            self._tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4))
+            tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4))
             try:
-                ret_ps = self._tf.transformPose(frame_to, ps)
+                ret_ps = tf.transformPose(frame_to, ps)
                 return ret_ps.pose
             except Exception as ex:
                 rospy.logwarn("[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from +
@@ -212,10 +218,13 @@ class ObjectFilter(object):
             "[cluster_analysis::ObjectFilter.transform] Couldn't Transform from " + frame_from + " to " + frame_to)
         return None
 
-    def generate_pose(self, points):
+    @staticmethod
+    def generate_pose(tf, points):
         """
         Generate a ROS pose from a given set of points - in the context of the package typical a cluster the orientation
         of the base_link is used as orientation for the pose
+        :param tf:transformation object
+        :type tf: TransfromListener
         :param points: Points
         :type points: visualization_msgs.msg.Marker
         :return: Pose of the cluster - mean
@@ -247,7 +256,7 @@ class ObjectFilter(object):
         base_link_pose.orientation.y = c/Z
         base_link_pose.orientation.z = d/Z
         base_link_pose.orientation.w = a/Z
-        _tmp = self.transform("base_link", points.header.frame_id, base_link_pose)
+        _tmp = ObjectFilter.transform(tf, "base_link", points.header.frame_id, base_link_pose)
         ret_pose.pose.orientation = _tmp.orientation
         ret_pose.header = points.header
 

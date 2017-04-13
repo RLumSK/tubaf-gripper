@@ -33,3 +33,7 @@ This package is used in an object recognition process. Given cluster of points a
 determine their poses. Mainly the clusters produced by the tabletop-pipline are used, see: http://wg-perception.github.io/tabletop/index.html#tabletop
 @author: Steve Grehl
 """
+
+from floor_filter import *
+from object_classifier import *
+from object_filter import *
