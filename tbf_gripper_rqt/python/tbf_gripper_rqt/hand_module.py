@@ -549,8 +549,9 @@ class RobotiqHandModel(QtCore.QObject):
         msg.rPRS = self.mdl_fingerS.rPR
         msg.rSPS = self.mdl_fingerS.rSP
         msg.rFRS = self.mdl_fingerS.rFR
-        rospy.loginfo("hand_module.py@RobotiqHandModel.sendROSMessage(): \n msg="+str(msg))
-        rospy.loginfo("hand_module.py@RobotiqHandModel.sendROSMessage(): at topic="+str(self.publisher.name))
+        rospy.logdebug("tbf_gripper_rqt.hand_module.py@RobotiqHandModel.sendROSMessage(): \n msg="+str(msg))
+        rospy.logdebug("tbf_gripper_rqt.hand_module.py@RobotiqHandModel.sendROSMessage(): at topic=" +
+                       str(self.publisher.name))
         self.publisher.publish(msg)
 
     def onReceivedROSMessage(self, data):
