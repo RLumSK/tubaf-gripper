@@ -286,7 +286,7 @@ class RobotiqFingerModel(QtCore.QObject):
         @param msg: ROS message of the type 'SModelRobotInput'
         @return: None
         """
-        rospy.loginfo("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(msg))
+        rospy.logdebug("tbf_gripper_rqt.finger_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message="+str(msg))
         self.dctActionAtReceive.get(self.strID)(msg)
         self.afterReceivedROSMessage()
 
@@ -295,7 +295,8 @@ class RobotiqFingerModel(QtCore.QObject):
         update the GUI, or other listening classes, via Qt-signals
         @return: None
         """
-        rospy.loginfo("hand_module.py@RobotiqFingerModel.afterReceivedROSMessage(): sending signals to Qt")
+        rospy.logdebug("tbf_gripper_rqt.finger_module.py@RobotiqFingerModel.afterReceivedROSMessage(): "
+                      "sending signals to Qt")
         self.atNewPR[int].emit(self.gPR)
         self.atNewDT[str].emit(self.gDT)
         self.atNewPO[int].emit(self.gPO)
