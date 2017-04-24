@@ -197,7 +197,7 @@ class PickAndPlaceWlanDemo:
         # Set station on top of the robot
         self.move_wait(WAYPOINTS['front_up'], move_cmd="movel")
         self.move_wait(WAYPOINTS['top_up'], v=spd)
-        self.move_wait(WAYPOINTS['top_pickup'], move_cmd="movel")
+        self.move_wait(WAYPOINTS['top_pickup'], goal_tolerance=0.1, move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
 
