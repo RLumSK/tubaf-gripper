@@ -1,0 +1,43 @@
+<muxify>
+  <!--
+  author: grehl
+
+  -->
+  <session name="grasping_from_bags" mode="o" size="240x60"/>
+  <window name="robot" directory="~">
+    <layout>
+      cc
+      ab
+    </layout>
+    <cmd pane="c">roscore</cmd>
+    <cmd pane="a">sleep 1;roslaunch julius description.launch</cmd>
+    <cmd pane="b">sleep 1;roslaunch julius joint_state_pub.launch</cmd>
+  </window>
+  <window name="haf" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">sleep 2;roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
+  </window>
+  <window name="perception" directory="~">
+    <layout>
+      a
+      b
+    </layout>
+    <cmd pane="a">sleep 3;roslaunch tbf_gripper_perception ork_tabletop.launch</cmd>
+    <cmd pane="b">sleep 3;roslaunch tbf_gripper_perception recognition.launch</cmd>
+  </window>
+  <window name="arm" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">sleep 2;roslaunch julius ur5_modern_ros_control.launch robot_ip:=192.168.1.150</cmd>
+    <cmd pane="b">sleep 2;roslaunch julius moveit.launch</cmd>
+  </window>
+  <window name="stuff" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">cd ~/bags</cmd>
+  </window>
+</muxify>

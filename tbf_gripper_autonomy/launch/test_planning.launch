@@ -1,0 +1,11 @@
+<launch>
+
+  
+
+  <!--<include file="$(find julius_moveit)/launch/demo.launch"/>-->
+
+  <node name="planning_test" pkg="tbf_gripper_autonomy" type="planning" respawn="false" output="screen">
+
+  </node>
+
+</launch>

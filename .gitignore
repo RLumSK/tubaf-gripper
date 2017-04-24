@@ -1,1 +1,8 @@
+*.idea
 *.pyc
+CMakeLists.txt.user
+.catkin_tools
+*.files
+*.includes
+*.workspace
+*.user

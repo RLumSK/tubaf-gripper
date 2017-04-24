@@ -1,0 +1,7 @@
+<launch>
+  <node name="tbf_gripper_perception_planing_interface" pkg="tbf_gripper_perception" type="pl_interface.py" respawn="false" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_perception)/config/planing_interface.yaml" ns=""/>
+    <param name="model_path" value="$(find tbf_gripper_perception)/meshes/wlan_box.stl" />
+    <param name="model_scale_factor" value="0.0011" />
+    </node>
+</launch>

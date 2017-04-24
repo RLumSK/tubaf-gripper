@@ -1,0 +1,27 @@
+# http://wg-perception.github.io/tabletop/
+source1:
+  type: RosKinect
+  module: 'object_recognition_ros.io'
+  parameters:
+    rgb_frame_id: gripper_camera_rgb_optical_frame
+    rgb_camera_info: /gripper_camera/rgb/camera_info
+    rgb_image_topic: /gripper_camera/rgb/image_raw
+    depth_image_topic: /gripper_camera/depth/image_raw
+    depth_camera_info: /gripper_camera/depth/camera_info
+
+sink1:
+  type: TablePublisher
+  module: 'object_recognition_tabletop'
+  inputs: [source1]
+
+pipeline1:
+  type: TabletopTableDetector
+  module: 'object_recognition_tabletop'
+  inputs: [source1]
+  outputs: [sink1]
+  parameters:
+    table_detector:
+        # min_table_size: 4000
+        # plane_threshold: 0.01
+        min_table_size: 4000
+        plane_threshold: 0.01

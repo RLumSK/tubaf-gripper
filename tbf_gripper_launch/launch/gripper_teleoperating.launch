@@ -21,7 +21,7 @@
     <arg name="ur5_set_goal_outside" default="false" />
 
     <!-- Xtion RGB-D camera -->
-    <arg name="start_rgbd" default="false" />
+    <arg name="start_rgbd" default="true" />
     <arg name="device_id" default=""/>
     <arg name="cam" default="gripper_camera"/>
     <arg name="data_skip" default="1"/>
@@ -36,6 +36,9 @@
 
     <!-- MoveIt settings-->
     <arg name="start_moveit" default="false"/>
+
+    <!--RtabMap-->
+    <arg name="start_rtab" default="true"/>
 
     <!-- General Software Settings-->
     <arg name="debug" default="false"/>
@@ -60,14 +63,14 @@
        value="$(find tbf_gripper_launch)/config/rosconsole.conf"/>
 
     <!-- 0. Set-Up -->
-    <include file="$(find julius)/launch/description.launch" if="$(arg start_description)" />
-    <node name="jsp" pkg="joint_state_publisher" type="joint_state_publisher" if="$(arg start_jsp)">
-        <rosparam subst_value="true">
-            source_list:
-            - /$(arg gripper_prefix)joint_states
-            - /$(arg gripper_hand_prefix)hand_joint_states
-        </rosparam>
-    </node>
+    <!--<include file="$(find julius)/launch/description.launch" if="$(arg start_description)" />-->
+    <!--<node name="jsp" pkg="joint_state_publisher" type="joint_state_publisher" if="$(arg start_jsp)">-->
+        <!--<rosparam subst_value="true">-->
+            <!--source_list:-->
+            <!-- - /$(arg gripper_prefix)joint_states-->
+            <!-- - /$(arg gripper_hand_prefix)hand_joint_states-->
+        <!--</rosparam>-->
+    <!--</node>-->
 
     <!-- 2. 3F Gripper -->
     <group if="$(arg start_hand)">
@@ -76,7 +79,14 @@
             <arg name="hand_ip" value="$(arg hand_ip)"/>
             <arg name="prefix" value="$(arg gripper_hand_prefix)"/>
         </include>
+
+        <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
+        <node name="imod_hand_tcp_controller" pkg="tbf_gripper_hand" type="HandTcpInterface.py">
+            <param name="server_ip" value="192.168.1.238"/>
+            <param name="port" value="59995"/>
+        </node>
     </group>
+
     <!-- 3. RGB-D camera -->
     <group if="$(arg start_rgbd)">
         <include file="$(find tubaf_common)/launch/fix/fix_openni2.launch">
@@ -102,17 +112,43 @@
 
     </group>
 
-    <!-- Teleoperating Interface-->
-    <node name="jsp_from_imod" pkg="tubaf_imod" type="imod_ur5_listener.py">
-        <param name="prefix" type="String" value="$(arg gripper_prefix)"/>
-    </node>
+    <group if="$(arg start_rtab)" ns="rtabmap">
+    <!--http://wiki.ros.org/rtabmap_ros/Tutorials/SetupOnYourRobot-->
+    <!-- Odometry -->
+        <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="screen">
+            <remap from="rgb/image"       to="/gripper_camera/rgb/image_rect_color"/>
+            <remap from="depth/image"     to="/gripper_camera/depth_registered/image_raw"/>
+            <remap from="rgb/camera_info" to="/gripper_camera/rgb/camera_info"/>
 
-    <!-- 6. RVis -->
-    <group if="$(arg use_gui)">
-        <!-- Launch moveit-Rviz -->
-        <include file="$(find tbf_gripper_julius_move_it)/launch/moveit_rviz.launch">
-            <arg name="config" default="true"/>
-        </include>
+            <param name="frame_id" type="string" value="base_link"/>
+
+            <param name="Odom/Strategy"            type="string" value="0"/> <!-- Strategy: 0=BOW (bag-of-words) 1=Optical Flow -->
+            <param name="Odom/FeatureType"         type="string" value="6"/> <!-- Feature type: 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK -->
+        </node>
+
+        <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="--delete_db_on_start">
+              <param name="frame_id" type="string" value="base_link"/>
+              <param name="subscribe_depth" type="bool" value="true"/>
+
+              <remap from="odom" to="odom"/>
+              <remap from="rgb/image" to="/gripper_camera/rgb/image_rect_color"/>
+              <remap from="depth/image" to="/gripper_camera/depth_registered/image_raw"/>
+              <remap from="rgb/camera_info" to="/gripper_camera/rgb/camera_info"/>
+
+              <param name="queue_size" type="int" value="10"/>
+
+              <!-- RTAB-Map's parameters -->
+              <param name="RGBD/AngularUpdate" type="string" value="0.01"/>
+              <param name="RGBD/LinearUpdate" type="string" value="0.01"/>
+              <param name="Rtabmap/TimeThr" type="string" value="700"/>
+              <param name="Mem/RehearsalSimilarity" type="string" value="0.45"/>
+              <param name="RGBD/OptimizeFromGraphEnd" type="string" value="true"/>
+        </node>
     </group>
+
+    <include file="$(find tubaf_imod)/launch/ur5_listener.launch">
+        <arg name="prefix" value="gripper_ur5_"/>
+        <arg name="port" value="33997"/>
+    </include>
 
 </launch>

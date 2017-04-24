@@ -1,0 +1,16 @@
+haf_server_name: "/haf_server"
+grasp_search_center: [0.2, 0.0 , 0.0]
+grasp_search_max: 0.9
+grasp_search_inc: 0.2
+gripper_approach_vector: [-1.0, 0.0, 0.0] # relativ to base_frame_default
+grasp_search_size_x: 20
+grasp_search_size_y: 20
+max_calculation_time: 20
+show_only_best_grasp: true
+base_frame_default: "gripper_robotiq_palm_planning"
+gripper_width: 1
+input_pc_topic: "/ork/obj_clouds"
+
+grasp_quality_threshold: 10.0
+grasp_search_timeout: 50.0
+grasp_offset: 0.0

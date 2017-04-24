@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="water_sample_task" pkg="tbf_gripper_tools" type="water_sample_task.py" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_tools)/config/water_sample_task.yaml" />
+  </node>
+</launch>

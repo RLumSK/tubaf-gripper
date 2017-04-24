@@ -1,0 +1,51 @@
+<muxify>
+  <!--
+  author: grehl
+
+  -->
+  <session name="grasping" mode="o" size="240x60"/>
+    <window name="cameras_and_lasers" directory="~">
+
+    <layout>
+      aabb
+      <!--ccde-->
+      <!--ggde-->
+    </layout>
+    <cmd pane="a">roslaunch julius xtion_gripper.launch</cmd>
+    <!--<cmd pane="b" noexec="true">roslaunch julius kinect2.launch</cmd>-->
+    <!--<cmd pane="c" noexec="true">roslaunch julius velodyne.launch</cmd>-->
+    <!--<cmd pane="d" noexec="true">roslaunch julius laser_lms_front.launch</cmd>-->
+    <!--<cmd pane="e" noexec="true">roslaunch julius laser_lms_back.launch</cmd>-->
+    <!--<cmd pane="g" noexec="true">roslaunch tubaf_tools julius_general_laser.launch</cmd>-->
+  </window>
+  <window name="hand_and_haf" directory="~">
+    <layout>
+      ab
+      cd
+    </layout>
+    <cmd pane="a">roslaunch julius robotiq_hand.launch</cmd>
+    <cmd pane="b">sleep 1;roslaunch tbf_gripper_autonomy hand.launch</cmd>
+    <cmd pane="d">roslaunch tbf_gripper_autonomy haf_server.launch</cmd>
+  </window>
+  <window name="perception" directory="~">
+    <layout>
+      a
+      b
+    </layout>
+    <cmd pane="a">roslaunch tbf_gripper_perception ork_tabletop.launch</cmd>
+    <cmd pane="b">roslaunch tbf_gripper_perception recognition.launch</cmd>
+  </window>
+  <window name="arm" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">roslaunch julius ur5_modern_plain_driver.launch</cmd>
+    <cmd pane="b">roslaunch julius moveit.launch</cmd>
+  </window>
+  <window name="controller" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a" noexec="true">roslaunch tbf_gripper_autonomy controller.launch</cmd>
+  </window>
+</muxify>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="skip" default="10" />
+  <param name="robot_description" command="$(find xacro)/xacro.py '$(find tbf_gripper_perception)/urdf/wlanbox_model.urdf.xacro'"/>
+  <node name="dummy_robot_state_publisher" pkg="robot_state_publisher" type="state_publisher">
+  </node>
+</launch>
