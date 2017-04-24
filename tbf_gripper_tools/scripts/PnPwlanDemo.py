@@ -49,8 +49,8 @@ HOME_POS = [0.0, -90, 0, -90, 0, 0]
 WAYPOINTS = {
     'home':             HOME_POS,
     'top_up':           [-176,  -78,  15,  61,  87,  45],
-    'top_pickup':       [-176, -102,  76,  24,  87,  45],
-    'top_up2':          [-176,  -78,  15,  61,  87,  45],
+    'top_pickup':       [-175.77, -95.28,  65.95,  31.31,  89.64,  45],
+    # 'top_up2':          [-176,  -78,  15,  61,  87,  45],
     'front_up':         [-2.5,  -79,  38,  37,  85,  45],
     # 'front_place':    [-2.3,  -7.8,   95.65,  -91.32, 84.42, 45],
     'front_pickup':     [-2.3,   -6,  94, -92,  84,  45],
@@ -172,7 +172,7 @@ class PickAndPlaceWlanDemo:
         # Grasp station
         self.hand.closeGripper()
         rospy.sleep(2.)
-        self.move_wait(WAYPOINTS['top_up2'], t=1.6, move_cmd="movel")
+        self.move_wait(WAYPOINTS['top_up'], t=1.6, move_cmd="movel")
 
         # Set station
         self.move_wait(WAYPOINTS['front_up'], v=spd)
@@ -196,7 +196,7 @@ class PickAndPlaceWlanDemo:
 
         # Set station on top of the robot
         self.move_wait(WAYPOINTS['front_up'], move_cmd="movel")
-        self.move_wait(WAYPOINTS['top_up2'], v=spd)
+        self.move_wait(WAYPOINTS['top_up'], v=spd)
         self.move_wait(WAYPOINTS['top_pickup'], move_cmd="movel")
         self.hand.openGripper()
         rospy.sleep(2.)
