@@ -260,16 +260,49 @@ class PickAndPlaceWlanDemo:
                 rospy.loginfo("starting demo...")
             else:
                 rospy.logwarn("demo is already running, ignoring start command!")
-
-
         rospy.loginfo("Not executing Pick and Place Demo - received:" + msg.data)
 
 
+class PlaceWlanDemo(PickAndPlaceWlanDemo):
+    """
+    Class to perform just the place task of the demo
+    """
+    def __init__(self):
+        super(PickAndPlaceWlanDemo, self).__init__()
+
+    def perform_demo(self):
+        spd = 20
+        self.demo_monitor.set_status(DemoState.running)
+        # Move to Station on top of the Robot starting at HOME position
+        self.move_wait(WAYPOINTS['home'], v=45, a=20)
+        self.hand.openGripper()
+        self.move_wait(WAYPOINTS['top_up'], v=spd)
+        self.move_wait(WAYPOINTS['top_pickup'], t=2.4, move_cmd="movel")
+
+        # Grasp station
+        self.hand.closeGripper()
+        rospy.sleep(2.)
+        self.move_wait(WAYPOINTS['top_up'], t=1.6, move_cmd="movel")
+
+        # Set station
+        self.move_wait(WAYPOINTS['front_up'], v=spd)
+        # self.move_wait(WAYPOINTS['front_place'], move_cmd="movel")
+        self.move_wait(WAYPOINTS['front_pickup'], move_cmd="movel")
+        self.hand.openGripper()
+        rospy.sleep(2.)
+
+        # Move to HOME position
+        self.move_wait(WAYPOINTS['front_up'], move_cmd="movel")
+        self.move_wait(WAYPOINTS['home'], v=spd, a=20)
+
+        self.demo_monitor.set_status(DemoState.stop)
+        self.exec_thread = None
 
 if __name__ == '__main__':
-    print("Hello world")
-    rospy.init_node("PnPwlanDemo")
-    obj = PickAndPlaceWlanDemo()
+    # rospy.init_node("PnPwlanDemo")
+    # obj = PickAndPlaceWlanDemo()
+    rospy.init_node("PlaceWlanDemo")
+    obj = PlaceWlanDemo()
     if (rospy.get_param("~autostart",True)):
         rospy.loginfo("autostart is true, waiting for controller to initialise, then starting demo")
         while not obj.demo_monitor.get_status() == DemoState.initialized:
