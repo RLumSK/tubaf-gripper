@@ -2,8 +2,17 @@
 <launch>
   <arg name="mesh_name" default="wlan_box_bin"/>
 
+<!--
   <node name="wlan_box_stl_importer" pkg="tbf_gripper_tools" type="mesh_importer" output="screen">
     <param name="mesh_path" value="package://tbf_gripper_tools/resources/mesh/$(arg mesh_name).stl" />
     <param name="mesh_name" value="$(arg mesh_name)" />
+  </node>
+-->
+  <node name="mesh_importer" pkg="tbf_gripper_tools" type="mesh_importer" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_tools)/config/meshes.yaml" />
+  </node>
+
+  <node name="mesh_interface" pkg="tbf_gripper_tools" type="MeshImporter.py" output="screen">
+  	<rosparam command="load" file="$(find tbf_gripper_tools)/config/meshes.yaml" />
   </node>
 </launch>

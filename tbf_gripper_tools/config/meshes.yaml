@@ -1,0 +1,7 @@
+mesh_name:
+  - wlan_box
+  - wlan_box_bin
+
+mesh_path:
+  - package://tbf_gripper_tools/resources/mesh/wlan_box.stl
+  - package://tbf_gripper_tools/resources/mesh/wlan_box_bin.stl

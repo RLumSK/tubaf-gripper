@@ -55,6 +55,7 @@ class MeshImporter(object):
         :type msg: shape_msgs.msg.Mesh
         :return: None
         """
+        rospy.logdebug("[MeshImporter._onNewMeshMsg()] received msg for mesh_name: %s", self.name)
         self.mesh = msg
 
     def get_name(self):
@@ -71,8 +72,8 @@ class MeshImporter(object):
 
 if __name__ == '__main__':
     rospy.init_node("mesh_importer_python")
-    if rospy.has_param("mesh_name"):
-        mesh_name = rospy.get_param("mesh_name")
+    if rospy.has_param("~mesh_name"):
+        mesh_name = rospy.get_param("~mesh_name")
         if type(mesh_name) is str:
             obj = MeshImporter(mesh_name)
             rospy.spin()
