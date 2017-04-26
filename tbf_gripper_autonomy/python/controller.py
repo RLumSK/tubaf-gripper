@@ -47,9 +47,9 @@ from tbf_gripper_perception.srv import *
 from geometry_msgs.msg import PoseArray, PoseStamped
 
 """@package grasping
-This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
-camera. The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This
-then manages to grasp the object by making use of MoveIt! and a HandController.
+This package is made to handle a grasping task. Assuming the object of interest is within vision of a defined camera.
+The position of a grasp on this object is computed by the haf_grasping package and hand to a controller. This then
+manages to grasp the object by making use of MoveIt! and a HandController.
 @author: Steve Grehl
 """
 
@@ -430,7 +430,7 @@ class Controller(object):
             self.sub_ork_poses.unregister()
 
 if __name__ == '__main__':
-    print "Hello World"
+    print "Hello World: Starting controller.py"
     rospy.init_node("tubaf_grasping_controller", anonymous=False, log_level=rospy.DEBUG)
     cntrl = Controller()
     rospy.spin()
