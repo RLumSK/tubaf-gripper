@@ -40,8 +40,9 @@ from numpy import linalg as LA
 from object_recognition_msgs.msg import TableArray
 from sensor_msgs.msg import PointCloud2
 from moveit_msgs.msg import PlanningScene, CollisionObject
-from shape_msgs.msg import SolidPrimitive
+from shape_msgs.msg import SolidPrimitive, Mesh
 import sensor_msgs.point_cloud2 as pc_2
+import tbf_gripper_tools.MeshImporter
 
 
 class ObjectFilter(object):
@@ -70,9 +71,6 @@ class ObjectFilter(object):
         self._pointcloud_publisher = rospy.Publisher(name=_filtered_cloud_topic, data_class=PointCloud2, queue_size=10)
         self._planning_scene_diff_publisher = rospy.Publisher(name=_planning_scene_topic, data_class=PlanningScene,
                                                               queue_size=1)
-        # subscriber
-        self.marker_array_subscriber = rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray,
-                                                        callback=self._on_new_cluster)
         self._tf = tf.TransformListener()
         # cache
         _floor_msgsub = message_filters.Subscriber(_floor_topic, TableArray)
@@ -81,11 +79,24 @@ class ObjectFilter(object):
         _primitive = SolidPrimitive()
         _primitive.type = SolidPrimitive.SPHERE
         _primitive.dimensions.append(0.2)
+        # mesh
+        mesh_name = rospy.get_param('~object_mesh', "wlan_box")
+        dct_meshes = tbf_gripper_tools.MeshImporter.get_meshes_in_dict()
+        # dct_meshes = {}
         self.co_wlan_station = CollisionObject()
-        self.co_wlan_station.id = "wlan_box"
-        # TODO determine and add mesh of the object here
+        self.co_wlan_station.id = mesh_name + "_0"
         self.co_wlan_station.operation = CollisionObject.ADD
-        self.co_wlan_station.primitives.append(_primitive)
+
+        if (mesh_name not in dct_meshes) or (type(dct_meshes[mesh_name]) is None):
+            rospy.loginfo("[cluster_analysis::ObjectFilter.__init__()] Using primitives")
+            self.co_wlan_station.primitives.append(_primitive)
+        else:
+            rospy.loginfo("[cluster_analysis::ObjectFilter.__init__()] Using meshes")
+            self.co_wlan_station.meshes.append(dct_meshes[mesh_name])  # shape_msgs/Mesh
+
+        # subscriber
+        self.marker_array_subscriber = rospy.Subscriber(name=_cluster_topic, data_class=MarkerArray,
+                                                        callback=self._on_new_cluster)
 
     def _on_new_cluster(self, msg):
         """
@@ -128,20 +139,19 @@ class ObjectFilter(object):
         max_height = float("-inf")
         selected_cluster = None
         selected_pose = None
+
         rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(len(lst_obj_cluster)) +
                        " clusters")
         for cluster in lst_obj_cluster:
-            ps_cluster = self.generate_pose(cluster)
-            cluster_pose = self.transform(ps_floor.header.frame_id, ps_cluster.header.frame_id, ps_cluster.pose)
+            ps_cluster = ObjectFilter.generate_pose(self._tf, cluster)
+            cluster_pose = ObjectFilter.transform(self._tf, ps_floor.header.frame_id, ps_cluster.header.frame_id,
+                                                  ps_cluster.pose)
             height = cluster_pose.position.z - ps_floor.pose.position.z
             # rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: height=" + str(height))
-            if(height > max_height):
+            if height > max_height:
                 selected_pose = ps_cluster.pose
                 selected_cluster = cluster
                 max_height = height
-                # rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster] cluster[" + str(cluster.id) + "] "
-                #              "has a distance of " + str(max_height))
-        # rospy.logdebug("[cluster_analysis::ObjectFilter._on_new_cluster]: got " + str(selected_cluster))
 
         # publish results
         _obj_cluster_msg = MarkerArray()
@@ -172,10 +182,18 @@ class ObjectFilter(object):
         # publish object
         _scene = PlanningScene()
         self.co_wlan_station.header = _pose_array.header
-        if len(self.co_wlan_station.primitive_poses) == 0:
-            self.co_wlan_station.primitive_poses.append(selected_pose)
-        else:
-            self.co_wlan_station.primitive_poses[0] = selected_pose
+        if len(self.co_wlan_station.primitives) != 0:
+            if len(self.co_wlan_station.primitive_poses) == 0:
+                self.co_wlan_station.primitive_poses.append(selected_pose)
+            else:
+                self.co_wlan_station.primitive_poses[0] = selected_pose
+
+        if len(self.co_wlan_station.meshes) != 0:
+            if len(self.co_wlan_station.mesh_poses) == 0:
+                self.co_wlan_station.mesh_poses.append(selected_pose)
+            else:
+                self.co_wlan_station.mesh_poses[0] = selected_pose
+
         _scene.is_diff = True
         _scene.world.collision_objects.append(self.co_wlan_station)
         self._planning_scene_diff_publisher.publish(_scene)
