@@ -38,3 +38,4 @@ from DemoStatus import *
 from GripperInterface import *
 from GripperState import *
 from TrajectoryExecutor import *
+from MeshImporter import *

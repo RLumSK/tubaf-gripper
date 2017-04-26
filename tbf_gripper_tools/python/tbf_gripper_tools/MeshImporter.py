@@ -46,7 +46,7 @@ class MeshImporter(object):
         """
         self.mesh = None
         self.name = mesh_name
-        self.sub = rospy.Subscriber(mesh_name, Mesh, self._onNewMeshMsg)
+        self.sub = rospy.Subscriber("/"+mesh_name, Mesh, self._onNewMeshMsg)
 
     def _onNewMeshMsg(self, msg):
         """
@@ -68,26 +68,47 @@ class MeshImporter(object):
         """
         :return: mesh of the object
         """
+        while self.mesh is None:
+            rospy.logdebug("[MeshImporter.get_mesh()] Mesh is None - waiting for mesh with name: %s", self.name)
+            rospy.sleep(3.)
+        rospy.logdebug("[MeshImporter.get_mesh()] Got a Mesh ")
         return self.mesh
+
+    def __del__(self):
+        self.sub.unregister()
+
+    @staticmethod
+    def get_meshes_in_dict():
+        """
+        Read parameters from server and init MeshImporter objects
+        :return: dictionary with MeshImporter objects - key=name
+        :rtype: dict
+        """
+        dict_mesh_importer = {}
+        if rospy.has_param("~mesh_name"):
+            mesh_name = rospy.get_param("~mesh_name")
+            if type(mesh_name) is str:
+                obj = MeshImporter(mesh_name)
+                dict_mesh_importer[obj.get_name()] = obj.get_mesh()
+                del obj
+            elif type(mesh_name) is list:
+                if type(mesh_name[0]) is str:
+                    for name in mesh_name:
+                        obj = MeshImporter(name)
+                        dict_mesh_importer[obj.get_name()] = obj.get_mesh()
+                        del obj
+                else:
+                    rospy.logwarn("[MeshImporter.get_meshes_in_dict] 'mesh_name' is a list with type: %s elements",
+                                  type(mesh_name[0]))
+            else:
+                rospy.logwarn("[MeshImporter.get_meshes_in_dict] 'mesh_name' is of type: %s ",
+                              type(mesh_name[0]))
+        else:
+            rospy.logwarn("[MeshImporter.get_meshes_in_dict] No 'mesh_name' set as parameter")
+        return dict_mesh_importer
+
 
 if __name__ == '__main__':
     rospy.init_node("mesh_importer_python")
-    if rospy.has_param("~mesh_name"):
-        mesh_name = rospy.get_param("~mesh_name")
-        if type(mesh_name) is str:
-            obj = MeshImporter(mesh_name)
-            rospy.spin()
-        elif type(mesh_name) is list:
-            if type(mesh_name[0]) is str:
-                objs = []
-                for name in mesh_name:
-                    objs.append(MeshImporter(name))
-                rospy.spin()
-            else:
-                rospy.logwarn("[MeshImporter.main] 'mesh_name' is a list with type: %s elements",
-                              type(mesh_name[0]))
-        else:
-            rospy.logwarn("[MeshImporter.main] 'mesh_name' is of type: %s ",
-                          type(mesh_name[0]))
-    else:
-        rospy.logwarn("[MeshImporter.main] No 'mesh_name' set as parameter")
+    MeshImporter.get_meshes_in_dict()
+
