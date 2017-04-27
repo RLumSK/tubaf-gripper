@@ -69,7 +69,6 @@ class WlanSetTask(autonomy.Task.SetTask):
         self.waypoints = rospy.get_param("~waypoints_station_"+str(station_nr))
         self.exec_thread = None
 
-
     def perform(self):
         """
         Hard coded task to pickup a water sample station from the robot, take a sample and return it to the robot
