@@ -122,8 +122,10 @@ class WaterSampleTask(autonomy.Task.SetTask):
         self.move_wait(self.waypoints["pre_pickup"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
         self.move_wait(self.waypoints["home_pose"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
         self.hand_controller.closeHand()
-        self.exec_thread = None
 
+        # self.exec_thread = None
+        rospy.sleep(2.0)
+        self.perform()
 
     def start(self):
         """
@@ -133,6 +135,7 @@ class WaterSampleTask(autonomy.Task.SetTask):
         """
         rospy.loginfo("SetTask.start():")
         self.run_as_process(WaterSampleTask.perform)
+
 
 if __name__ == '__main__':
     rospy.init_node("WaterSampleTask")

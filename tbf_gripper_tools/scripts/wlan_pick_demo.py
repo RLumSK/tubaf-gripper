@@ -35,9 +35,6 @@ press demo at 16.12.2015
 
 import sys
 import signal
-import copy
-import math
-import time
 import numpy
 import rospy
 import moveit_commander
@@ -48,7 +45,6 @@ import numpy as np
 import tf.transformations as tt
 import std_msgs.msg
 from std_msgs.msg import Int8
-import tf.transformations as transform
 import tbf_gripper_rqt.gripper_module as gm
 
 # joint_init_values = {'gripper_ur5_base_link-base_fixed_joint': 0, 'gripper_ur5_shoulder_pan_joint': 0, 'gripper_ur5_shoulder_lift_joint': -numpy.pi/4, 'gripper_ur5_elbow_joint': 0, 'gripper_ur5_wrist_1_joint': -numpy.pi/4, 'gripper_ur5_wrist_2_joint': 0, 'gripper_ur5_wrist_3_joint': 0, 'gripper_ur5_ee_fixed_joint': 0, 'gripper_ur5_wrist_3_link-tool0_fixed_joint': 0}
