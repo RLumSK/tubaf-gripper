@@ -7,7 +7,7 @@
 shape_msgs::Mesh create_mesh_msg(std::string path){
   // http://answers.ros.org/question/245995/adding-collision-object-in-moveit/
   shapes::Mesh* m = shapes::createMeshFromResource(path);
-  m->scale(0.1);
+  //m->scale(0.1);
   shapes::ShapeMsg mesh_msg;
   shapes::constructMsgFromShape(m, mesh_msg);
 
