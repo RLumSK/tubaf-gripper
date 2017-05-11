@@ -268,7 +268,7 @@ class PlaceWlanDemo(PickAndPlaceWlanDemo):
     Class to perform just the place task of the demo
     """
     def __init__(self):
-        super(PickAndPlaceWlanDemo, self).__init__()
+        PickAndPlaceWlanDemo.__init__(self)
 
     def perform_demo(self):
         spd = 20
