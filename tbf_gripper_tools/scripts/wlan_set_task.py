@@ -96,6 +96,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.loginfo("WlanSetTask.perform(): Release station")
         self.hand_controller.openHand()
         rospy.sleep(5.)
+        self.move_wait(self.waypoints["set_down"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
 
         rospy.loginfo("WlanSetTask.perform(): Return to home pose")
         # Move back to home station
