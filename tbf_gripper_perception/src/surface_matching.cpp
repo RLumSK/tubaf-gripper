@@ -24,10 +24,14 @@ int main(int argc, char** argv)
                     " standard output." << endl <<
                     "****************************************************" << endl);
 
-    ros::param::param<std::string>("ply_model_path", model_path, "/home/grehl/robots/julius_util_ws/src/tubaf_gripper/tbf_gripper_perception/meshes/");
-    ros::param::param<std::string>("ply_model_name", model_name, "wlan_box_pv");
-    ros::param::param<std::string>("pcl_topic", pcl_topic, "/camera/depth/points");
-    ros::NodeHandle nh;
+    ros::NodeHandle nh("~");
+    if (!nh.hasParam("ply_model_path"))
+     {
+       ROS_INFO("No param named 'ply_model_path'");
+     }
+    nh.param<std::string>("ply_model_path", model_path, "/home/grehl/robots/julius_util_ws/src/tubaf_gripper/tbf_gripper_perception/meshes/");
+    nh.param<std::string>("ply_model_name", model_name, "wlan_box_pv");
+    nh.param<std::string>("pcl_topic", pcl_topic, "/camera/depth/points");
     ROS_INFO_STREAM("Using file: " << model_path + model_name + ".ply");
     DrostObjectSearch perception(nh, model_path + model_name + ".ply", pcl_topic);
 
