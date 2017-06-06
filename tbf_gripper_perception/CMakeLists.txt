@@ -10,10 +10,15 @@ find_package(catkin REQUIRED COMPONENTS
    message_generation
    shape_msgs
    geometry_msgs
+   roscpp
+   pcl_conversions
+   pcl_ros
+   sensor_msgs
    )
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
+find_package(OpenCV REQUIRED)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -108,7 +113,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES tbf_gripper_perception
-CATKIN_DEPENDS message_runtime std_msgs
+CATKIN_DEPENDS message_runtime std_msgs cv_bridge
 #  DEPENDS system_lib
 )
 
@@ -118,3 +123,11 @@ CATKIN_DEPENDS message_runtime std_msgs
 
 catkin_install_python(PROGRAMS scripts/pl_interface.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+
+include_directories(include
+  ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  )
+add_executable(surface_matching src/surface_matching.cpp src/drostobjectsearch.cpp src/helperfunctions.cpp)
+target_link_libraries(surface_matching ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
