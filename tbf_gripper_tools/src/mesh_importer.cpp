@@ -4,6 +4,12 @@
 #include <geometric_shapes/shape_operations.h>
 #include <XmlRpcValue.h>
 
+#include <iostream>
+
+using namespace std;
+//using namespace cv;
+//using namespace ppf_match_3d;
+
 shape_msgs::Mesh create_mesh_msg(std::string path){
   // http://answers.ros.org/question/245995/adding-collision-object-in-moveit/
   shapes::Mesh* m = shapes::createMeshFromResource(path);

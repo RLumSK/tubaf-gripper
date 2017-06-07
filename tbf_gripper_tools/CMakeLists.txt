@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
 	)
 
 find_package(Boost REQUIRED system)
+find_package(OpenCV 3 REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -26,9 +27,13 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
-include_directories(include ${catkin_INCLUDE_DIRS})
+include_directories(include
+  ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  )
+
 add_executable(mesh_importer src/mesh_importer.cpp)
-target_link_libraries(mesh_importer ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(mesh_importer ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 #############
 ## Install ##
 #############
