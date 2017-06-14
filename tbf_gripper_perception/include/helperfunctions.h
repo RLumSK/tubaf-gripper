@@ -18,6 +18,10 @@
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/visualization/cloud_viewer.h>
 
+using namespace cv;
+using namespace ppf_match_3d;
+
+
 class HelperFunctions
 {
 private:
@@ -76,12 +80,15 @@ static geometry_msgs::Pose toROSPose(cv::ppf_match_3d::Pose3DPtr cv_pose);
 /** Generate a debug print of a OpenCV matrix and some parameter (rows, channels, ...)
  * @brief debug_print debug print of two matrixes
  */
-static void debug_print(cv::Mat&, cv::Mat&);
+static void debug_print(const cv::Mat&, const cv::Mat&);
 
 /** Generate a debug print of a OpenCV matrix and some parameter (rows, channels, ...)
  * @brief debug_print debug print of two matrixes
  */
-static void debug_print(cv::Mat&);
+static void debug_print(const cv::Mat&);
+
+//static int computeNormalsCV(const Mat&, Mat&, const int, const bool, const Vec3d&);
+
 };
 
 #endif // HELPERFUNCTIONS_H

@@ -1,10 +1,12 @@
 #include "../include/helperfunctions.h"
+#include <typeinfo>
 
 using namespace std;
 
-void HelperFunctions::debug_print(cv::Mat &points, cv::Mat &pointsAndNormals){
+void HelperFunctions::debug_print(const cv::Mat &points,const cv::Mat &pointsAndNormals){
 
   ROS_INFO_STREAM("HelperFunctions::debug_print():" << std::endl <<
+                  "points <type>" << typeid(points.at<float>(0,0)).name() <<
                   "points.rows=" << points.rows << std::endl <<
                   "points.cols=" << points.cols << std::endl <<
                   "points.channels=" << points.channels() << std::endl <<
@@ -21,7 +23,7 @@ void HelperFunctions::debug_print(cv::Mat &points, cv::Mat &pointsAndNormals){
 
 }
 
-void HelperFunctions::debug_print(cv::Mat &points){
+void HelperFunctions::debug_print(const cv::Mat &points){
   ROS_INFO_STREAM("HelperFunctions::debug_print():" << std::endl <<
                   "points.rows=" << points.rows << std::endl <<
                   "points.cols=" << points.cols << std::endl <<
@@ -174,3 +176,96 @@ void HelperFunctions::computeOrganisedNormalsPCL(pcl::PointCloud<pcl::PointXYZ>:
     ne.setInputCloud(cloud);
     ne.compute(*cloud_normals);
 }
+
+//int HelperFunctions::computeNormalsCV(const Mat& PC, Mat& PCNormals, const int NumNeighbors, const bool FlipViewpoint, const Vec3d& viewpoint)
+//{
+//    int i;
+
+//    if (PC.cols!=3 && PC.cols!=6) // 3d data is expected
+//    {
+//      //return -1;
+//      CV_Error(cv::Error::BadImageSize, "PC should have 3 or 6 elements in its columns");
+//    }
+
+//    int sizes[2] = {PC.rows, 3};
+//    int sizesResult[2] = {PC.rows, NumNeighbors};
+//    float* dataset = new float[PC.rows*3];
+//    float* distances = new float[PC.rows*NumNeighbors];
+//    int* indices = new int[PC.rows*NumNeighbors];
+
+//    for (i=0; i<PC.rows; i++)
+//    {
+//      const float* src = PC.ptr<float>(i);
+//      float* dst = (float*)(&dataset[i*3]);
+
+//      dst[0] = src[0];
+//      dst[1] = src[1];
+//      dst[2] = src[2];
+//    }
+
+//    Mat PCInput(2, sizes, CV_32F, dataset, 0);
+
+//    void* flannIndex = indexPCFlann(PCInput);
+
+//    Mat Indices(2, sizesResult, CV_32S, indices, 0);
+//    Mat Distances(2, sizesResult, CV_32F, distances, 0);
+
+//    queryPCFlann(flannIndex, PCInput, Indices, Distances, NumNeighbors);
+//    destroyFlann(flannIndex);
+//    flannIndex = 0;
+
+//    PCNormals = Mat(PC.rows, 6, CV_32F);
+
+//    for (i=0; i<PC.rows; i++)
+//    {
+//      double C[3][3], mu[4];
+//      const float* pci = &dataset[i*3];
+//      float* pcr = PCNormals.ptr<float>(i);
+//      double nr[3];
+
+//      int* indLocal = &indices[i*NumNeighbors];
+
+//      // compute covariance matrix
+//      meanCovLocalPCInd(dataset, indLocal, 3, NumNeighbors, C, mu);
+
+//      // eigenvectors of covariance matrix
+//      Mat cov(3, 3, CV_64F), eigVect, eigVal;
+//      double* covData = (double*)cov.data;
+//      covData[0] = C[0][0];
+//      covData[1] = C[0][1];
+//      covData[2] = C[0][2];
+//      covData[3] = C[1][0];
+//      covData[4] = C[1][1];
+//      covData[5] = C[1][2];
+//      covData[6] = C[2][0];
+//      covData[7] = C[2][1];
+//      covData[8] = C[2][2];
+//      eigen(cov, eigVal, eigVect);
+//      Mat lowestEigVec;
+//      //the eigenvector for the lowest eigenvalue is in the last row
+//      eigVect.row(eigVect.rows - 1).copyTo(lowestEigVec);
+//      double* eigData = (double*)lowestEigVec.data;
+//      nr[0] = eigData[0];
+//      nr[1] = eigData[1];
+//      nr[2] = eigData[2];
+
+//      pcr[0] = pci[0];
+//      pcr[1] = pci[1];
+//      pcr[2] = pci[2];
+
+//      if (FlipViewpoint)
+//      {
+//        flipNormalViewpoint(pci, viewpoint[0], viewpoint[1], viewpoint[2], &nr[0], &nr[1], &nr[2]);
+//      }
+
+//      pcr[3] = (float)nr[0];
+//      pcr[4] = (float)nr[1];
+//      pcr[5] = (float)nr[2];
+//    }
+
+//    delete[] indices;
+//    delete[] distances;
+//    delete[] dataset;
+
+//    return 1;
+//}
