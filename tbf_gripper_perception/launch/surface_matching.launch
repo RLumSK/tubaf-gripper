@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
+  <node pkg="tbf_gripper_tools" type="markerarray_to_pointcloud" name="convert_marker_to_pcl" />
+
   <node pkg="tbf_gripper_perception" type="surface_matching" name="surface_matching_test" output="screen">
-  	<param name ="ply_model_path" value="/home/heros/util_ws/src/tubaf_gripper/tbf_gripper_perception/meshes/"/>
-  	<param name ="ply_model_name" value="wlan_box_pv"/>
-  	<param name ="pcl_topic" value ="/gripper_camera/depth/points" />
+  	<param name ="ply_model_path" value="/home/grehl/robots/julius_util_ws/src/tubaf_gripper/tbf_gripper_perception/meshes/"/>
+  	<param name ="ply_model_name" value="wlan_blender"/>
+  	<param name ="pcl_topic" value ="/ork/obj_clouds" />
   </node>
 </launch>
