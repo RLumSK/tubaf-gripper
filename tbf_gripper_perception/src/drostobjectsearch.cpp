@@ -1,15 +1,29 @@
-#include "../include/drostobjectsearch.h"
+#include "tbf_gripper_perception/drostobjectsearch.h"
 
 using namespace std;
 
 DrostObjectSearch::DrostObjectSearch(ros::NodeHandle& handle, const string& model_path, const  string& pcl_topic):
-  detector(0.5, 0.05),
-  pub_model_topic("/perception/model_pcl"),
-  pub_pose_topic("/perception/obj_pose"),
-  msg(new sensor_msgs::PointCloud2)
+  nh(handle),
+  pcl_sub(nh.subscribe(pcl_topic, 1, &DrostObjectSearch::pcl_callback, this)),
+  pose_pub(nh.advertise<geometry_msgs::PoseStamped>("/perception/obj_pose", 1)),
+  model_pub(nh.advertise<moveit_msgs::CollisionObject>("/perception/model_pcl", 1)),
+  msg(new sensor_msgs::PointCloud2),
+  pc_model(cv::ppf_match_3d::loadPLYSimple((model_path+".ply").c_str(), 1)),
+  ros_model_msg()
 {
+  nh.param<float>("sm_relSampleStep", sm_relSampleStep, 0.5);
+  nh.param<float>("sm_relDistanceStep", sm_relDistanceStep, 0.05);
+  nh.param<float>("sm_icp_tolerance", sm_icp_tolerance, 0.05);
+  nh.param<float>("sm_icp_rejectionScale", sm_icp_rejectionScale, 2.5);
+  nh.param<int>("sm_numAngles", sm_numAngles, 30);
+  nh.param<int>("sm_icp_iterations", sm_icp_iterations, 30);
+  nh.param<int>("sm_icp_numLevels", sm_icp_numLevels, 30);
+  ros_model_msg.id = "object";
+  ros_model_msg.operation = moveit_msgs::CollisionObject::ADD;
+  ros_model_msg.meshes.push_back(HelperFunctions::import_model(model_path+".stl"));
+  ros_model_msg.mesh_poses.push_back(geometry_msgs::Pose());
+  detector = new cv::ppf_match_3d::PPF3DDetector(sm_relSampleStep, sm_relDistanceStep, sm_numAngles);
 
-  this->pc_model = cv::ppf_match_3d::loadPLYSimple(model_path.c_str(), 1);
   ROS_DEBUG_STREAM("[DrostObjectSearch::DrostObjectSearch()] " << "Model: " << model_path << endl <<
                   "Columns: " << pc_model.cols << endl <<
                   "MatSize: "<< *this->pc_model.size);
@@ -19,33 +33,31 @@ DrostObjectSearch::DrostObjectSearch(ros::NodeHandle& handle, const string& mode
   ROS_INFO_STREAM("[DrostObjectSearch::DrostObjectSearch()] " << "Training...");
   int64 tick1 = cv::getTickCount();
   //this->pc_model.convertTo(this->pc_model, CV_32FC1);
-  this->detector.trainModel(this->pc_model);
+  this->detector->trainModel(this->pc_model);
   int64 tick2 = cv::getTickCount();
   ROS_DEBUG_STREAM("[DrostObjectSearch::DrostObjectSearch()] " << "Training complete in "
        << (double)(tick2-tick1)/ cv::getTickFrequency()
        << " sec");
   // Convert model to PointCLoud2 message
   HelperFunctions::debug_print(this->pc_model);
-  DrostObjectSearch::cv_mat_to_point_cloud(this->pc_model, *this->msg);
+  DrostObjectSearch::cvMat_to_pointcloud(this->pc_model, *this->msg);
   this->msg->header.stamp = ros::Time::now();
   this->msg->header.frame_id = "base_link";
+}
 
-  // ROS
-  this->nh = handle;
-  this->pose_pub = this->nh.advertise<geometry_msgs::PoseStamped>(this->pub_pose_topic, 1);
-  this->model_pub = this->nh.advertise<sensor_msgs::PointCloud2>(this->pub_model_topic, 1);
-  this->pcl_sub = this->nh.subscribe(pcl_topic, 1, &DrostObjectSearch::pcl_callback, this);
+DrostObjectSearch::~DrostObjectSearch()
+{
+  delete this->detector;
 }
 
 void DrostObjectSearch::pcl_callback(const sensor_msgs::PointCloud2& pcl_msg)
 {
   this->pcl_sub.shutdown();
-  this->model_pub.publish(this->msg);
   ROS_DEBUG_STREAM("[DrostObjectSearch::pcl_callback()] " << "It's a point cloud");
 
   // Convert the scene (Adding normals)
   cv::Mat pcTest;
-  if(!DrostObjectSearch::pointcloud_as_scene(pcl_msg, pcTest)){
+  if(!DrostObjectSearch::pointcloud_to_cvMat(pcl_msg, pcTest)){
     // Error during conversion
     ROS_WARN_STREAM("[DrostObjectSearch::pcl_callback()] " << "Convertion from the point cloud to scene failed [OpenCV]" );
     if(!HelperFunctions::wrapper_pcl_normals_computation(pcl_msg, pcTest)){
@@ -64,7 +76,7 @@ void DrostObjectSearch::pcl_callback(const sensor_msgs::PointCloud2& pcl_msg)
   ROS_INFO_STREAM("[DrostObjectSearch::pcl_callback()] " << "Starting matching..." );
   vector<cv::ppf_match_3d::Pose3DPtr> results;
   int64 tick1 = cv::getTickCount();
-  this->detector.match(pcTest, results, 1.0/40.0, 0.05);
+  this->detector->match(pcTest, results, 1.0/40.0, 0.05);
   int64 tick2 = cv::getTickCount();
 
   // Some informations about the matching
@@ -82,11 +94,14 @@ void DrostObjectSearch::pcl_callback(const sensor_msgs::PointCloud2& pcl_msg)
     }
 
     // publish Pose with the most votes
-    geometry_msgs::Pose retPose =  HelperFunctions::toROSPose(pose_max_votes);
-    geometry_msgs::PoseStamped pubPose;
-    pubPose.pose = retPose;
-    pubPose.header = pcl_msg.header;
-    this->pose_pub.publish(pubPose);
+//    geometry_msgs::Pose retPose =  HelperFunctions::toROSPose(pose_max_votes);
+//    geometry_msgs::PoseStamped pubPose;
+//    pubPose.pose = retPose;
+//    pubPose.header = pcl_msg.header;
+//    this->pose_pub.publish(pubPose);
+//    this->ros_model_msg.header = pcl_msg.header;
+//    this->ros_model_msg.mesh_poses[0] = retPose;
+//    this->model_pub.publish(this->ros_model_msg);
   }
 
   // from: https://github.com/opencv/opencv_contrib/issues/464
@@ -94,30 +109,45 @@ void DrostObjectSearch::pcl_callback(const sensor_msgs::PointCloud2& pcl_msg)
   // Another option is to use point to point ICP, since your surface normals are not describing much
   // (they are similar all over the place).
 
-//  // Create an instance of ICP
-//  cv::ppf_match_3d::ICP icp(100, 0.005f, 2.5f, 8);
-//  int64 t1 = cv::getTickCount();
+  // Create an instance of ICP
+  try{
+    cv::ppf_match_3d::ICP icp(this->sm_icp_iterations,    // 100
+                              this->sm_icp_tolerance,     // 0.005f
+                              this->sm_icp_rejectionScale,// 2.5f
+                              this->sm_icp_numLevels);    // 8
+    int64 t1 = cv::getTickCount();
 
-//  // Register for all selected poses
-//  ROS_INFO_STREAM("[DrostObjectSearch::pcl_callback()] " << "Performing ICP on " << results.size() << " poses...");
-//  HelperFunctions::debug_print(this->pc_model);
-//  HelperFunctions::debug_print(pcTest);
-//  icp.registerModelToScene(this->pc_model, pcTest, results); // fails due to bad initial pose?!
+    // Register for all selected poses
+    ROS_INFO_STREAM("[DrostObjectSearch::pcl_callback()] " << "Performing ICP on " << results.size() << " poses...");
+    HelperFunctions::debug_print(this->pc_model);
+    HelperFunctions::debug_print(pcTest);
+    icp.registerModelToScene(this->pc_model, pcTest, results); // fails due to bad initial pose?!
+    int64 t2 = cv::getTickCount();
 
-//  int64 t2 = cv::getTickCount();
-
-//  ROS_INFO_STREAM("[DrostObjectSearch::pcl_callback()] " << "ICP Elapsed Time " <<
-//       (t2-t1)/cv::getTickFrequency() << " sec" << endl);
-
-
+    ROS_INFO_STREAM("[DrostObjectSearch::pcl_callback()] " << "ICP Elapsed Time " <<
+         (t2-t1)/cv::getTickFrequency() << " sec" << endl);
+    //publish pose
+    geometry_msgs::Pose retPose =  HelperFunctions::toROSPose(results[0]);
+    geometry_msgs::PoseStamped pubPose;
+    pubPose.pose = retPose;
+    pubPose.header = pcl_msg.header;
+    this->pose_pub.publish(pubPose);
+    //publish model
+    this->ros_model_msg.header = pcl_msg.header;
+    this->ros_model_msg.mesh_poses[0] = retPose;
+    this->model_pub.publish(this->ros_model_msg);
+  }
+  catch(...){
+    ROS_WARN_STREAM("[DrostObjectSearch::pcl_callback] ICP failed");
+  }
   //Restart subscriber
   this->pcl_sub = this->nh.subscribe(this->pcl_sub.getTopic(), 1, &DrostObjectSearch::pcl_callback, this);
 
 }
 
-bool DrostObjectSearch::pointcloud_as_scene(const sensor_msgs::PointCloud2 &point_cloud, cv::Mat& pointsAndNormals)
+bool DrostObjectSearch::pointcloud_to_cvMat(const sensor_msgs::PointCloud2 &point_cloud, cv::Mat& pointsAndNormals)
 {
-  ROS_INFO_STREAM("DrostObjectSearch::pointcloud_as_scene(): " << "Start" << endl);
+  ROS_DEBUG_STREAM("DrostObjectSearch::pointcloud_to_cvMat(): " << "Start" << endl);
   // unstructured point cloud
   cv::Mat points = cv::Mat(point_cloud.height* point_cloud.width, 3, // 3 columns with 1 channel -> [x, y, z; x, y, z; ...]
                                CV_32FC1, (void*) &point_cloud.data[0] // with C++ 11:   static_cast<void*>(point_cloud.data())
@@ -133,10 +163,11 @@ bool DrostObjectSearch::pointcloud_as_scene(const sensor_msgs::PointCloud2 &poin
   //  //ERROR HERE ?
   int retValue = cv::ppf_match_3d::computeNormalsPC3d(points, pointsAndNormals, num_neighbors, b_flip_viewpoint, viewpoint);
   HelperFunctions::debug_print(points, pointsAndNormals);
+  ROS_DEBUG_STREAM("DrostObjectSearch::pointcloud_to_cvMat(): " << "End" << endl);
   return retValue == 1;
 }
 
-void DrostObjectSearch::cv_mat_to_point_cloud(const cv::Mat cv_pcl, sensor_msgs::PointCloud2 &msg)
+void DrostObjectSearch::cvMat_to_pointcloud(const cv::Mat &cv_pcl, sensor_msgs::PointCloud2 &msg)
 {
   HelperFunctions::debug_print(cv_pcl);
   //reshape?
@@ -151,4 +182,3 @@ void DrostObjectSearch::cv_mat_to_point_cloud(const cv::Mat cv_pcl, sensor_msgs:
   }
   pcl::toROSMsg(*cloud, msg);
 }
-

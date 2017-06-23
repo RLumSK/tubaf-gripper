@@ -5,14 +5,14 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
 
-#include "drostobjectsearch.h"
+#include "tbf_gripper_perception/drostobjectsearch.h"
 
 using namespace std;
 
 
 int main(int argc, char** argv)
 {
-    string model_path, model_name, modelFileName, pcl_topic;
+    string model_path, model_name, pcl_topic;
     //ROS
     ros::init(argc, argv, "surface_matching");
 
@@ -32,8 +32,8 @@ int main(int argc, char** argv)
     nh.param<std::string>("ply_model_path", model_path, "/home/grehl/robots/julius_util_ws/src/tubaf_gripper/tbf_gripper_perception/meshes/");
     nh.param<std::string>("ply_model_name", model_name, "wlan_blender");
     nh.param<std::string>("pcl_topic", pcl_topic, "/ork/obj_clouds");
-    ROS_INFO_STREAM("Using file: " << model_path + model_name + ".ply");
-    DrostObjectSearch perception(nh, model_path + model_name + ".ply", pcl_topic);
+    ROS_INFO_STREAM("[surface_matching.main] Using file: " << model_path + model_name);
+    DrostObjectSearch perception(nh, model_path + model_name, pcl_topic);
 
     ros::spin();
     return 0;

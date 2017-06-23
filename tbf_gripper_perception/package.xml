@@ -44,6 +44,13 @@
   <build_depend>urdfdom-py</build_depend>
   <build_depend>cv_bridge</build_depend>
   <build_depend>libpcl-all-dev</build_depend>
+  <build_depend>shape_msgs</build_depend>
+  <build_depend>geometric_shapes</build_depend>
+  <build_depend>tbf_gripper_tools</build_depend>
+
+  <run_depend>tbf_gripper_tools</run_depend>
+  <run_depend>shape_msgs</run_depend>
+  <run_depend>geometric_shapes</run_depend>
   <run_depend>libpcl-all</run_depend>
   <run_depend>urdfdom-py</run_depend>
   <run_depend>message_generation</run_depend>
