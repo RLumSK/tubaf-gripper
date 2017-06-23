@@ -8,32 +8,39 @@ find_package(catkin REQUIRED COMPONENTS
 	roscpp
 	shape_msgs
 	geometric_shapes
+        pcl_conversions
+        pcl_ros
+        cv_bridge
 	)
 
 find_package(Boost REQUIRED system)
-find_package(OpenCV 3 REQUIRED)
+find_package(OpenCV)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
 catkin_python_setup()
 
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES tbf_gripper_autonomy
-  CATKIN_DEPENDS
-    shape_msgs
-    geometric_shapes
-#  DEPENDS system_lib
-)
-
-include_directories(include
+include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   )
 
+catkin_package(
+ INCLUDE_DIRS include
+ LIBRARIES helperfunctions
+ CATKIN_DEPENDS
+    shape_msgs
+    geometric_shapes
+    cv_bridge
+#  DEPENDS system_lib
+)
+
 add_executable(mesh_importer src/mesh_importer.cpp)
-target_link_libraries(mesh_importer ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+add_library(helperfunctions src/helperfunctions.cpp)
+target_link_libraries(helperfunctions ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(mesh_importer helperfunctions ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES} )
 #############
 ## Install ##
 #############
@@ -52,3 +59,11 @@ install(DIRECTORY scripts
 install(DIRECTORY python
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
+
+install(DIRECTORY include/${PROJECT_NAME}/
+        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+
+install(TARGETS helperfunctions
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
