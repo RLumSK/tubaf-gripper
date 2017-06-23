@@ -1,0 +1,7 @@
+sm_relSampleStep: 0.5
+sm_relDistanceStep: 0.05
+sm_numAngles: 30
+sm_icp_iterations: 100
+sm_icp_tolerance: 0.005
+sm_icp_rejectionScale: 2.5
+sm_icp_numLevels: 8
