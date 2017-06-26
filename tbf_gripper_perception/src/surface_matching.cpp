@@ -4,6 +4,7 @@
 #include <ros/console.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <ros/package.h>
 
 #include "tbf_gripper_perception/drostobjectsearch.h"
 
@@ -29,11 +30,12 @@ int main(int argc, char** argv)
      {
        ROS_INFO("No param named 'ply_model_path'");
      }
-    nh.param<std::string>("ply_model_path", model_path, "/home/grehl/robots/julius_util_ws/src/tubaf_gripper/tbf_gripper_perception/meshes/");
     nh.param<std::string>("ply_model_name", model_name, "wlan_blender");
     nh.param<std::string>("pcl_topic", pcl_topic, "/ork/obj_clouds");
-    ROS_INFO_STREAM("[surface_matching.main] Using file: " << model_path + model_name);
-    DrostObjectSearch perception(nh, model_path + model_name, pcl_topic);
+    ROS_INFO_STREAM("[surface_matching.main] ply_model_path " << model_path);
+    ROS_INFO_STREAM("[surface_matching.main] ply_model_name " << model_name);
+    ROS_INFO_STREAM("[surface_matching.main] pcl_topic " << pcl_topic);
+    DrostObjectSearch perception(nh, model_name, pcl_topic);
 
     ros::spin();
     return 0;

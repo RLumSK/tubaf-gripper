@@ -12,6 +12,7 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <object_recognition_msgs/ObjectType.h>
 #include <geometry_msgs/Pose.h>
+#include <ros/package.h>
 
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
@@ -32,24 +33,25 @@ private:
   // ROS
   ros::NodeHandle nh;
   ros::Subscriber pcl_sub;
-  ros::Publisher pose_pub, model_pub;
+  ros::Publisher pose_pub, model_pub, marker_pub;
 
   sensor_msgs::PointCloud2Ptr msg;
 
   // surface_matching
   // parameter
-  float sm_relSampleStep, sm_relDistanceStep, sm_icp_tolerance ,sm_icp_rejectionScale;
+  double sm_relSampleStep, sm_relDistanceStep, sm_relSceneSampleStep, sm_relSceneDistance, sm_icp_tolerance ,sm_icp_rejectionScale;
   int sm_numAngles, sm_icp_iterations, sm_icp_numLevels;
 
   // data and object
   cv::Mat pc_model;
   moveit_msgs::CollisionObject ros_model_msg;
+  visualization_msgs::Marker ros_marker_msg;
   cv::ppf_match_3d::PPF3DDetector* detector;
 
 
 
 public:
-  DrostObjectSearch(ros::NodeHandle& handle,const std::string& model_path,const std::string& pcl_topic);
+  DrostObjectSearch(ros::NodeHandle& handle,const std::string& model_name,const std::string& pcl_topic);
   ~DrostObjectSearch();
 
   /** Callback of the Pointcloud Subscriber with the current scene
