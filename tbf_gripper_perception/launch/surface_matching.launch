@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-  <node pkg="tbf_gripper_tools" type="markerarray_to_pointcloud.py" name="convert_marker_to_pcl" />
+  <!-- <node pkg="tbf_gripper_tools" type="markerarray_to_pointcloud.py" name="convert_marker_to_pcl" /> -->
 
   <node pkg="tbf_gripper_perception" type="surface_matching" name="surface_matching_test" output="screen">
-  	<param name ="ply_model_name" value="wlan_blender"/> <!-- ply and stl needed -->
+  	<param name ="ply_model_name" value="wlan_blender_origin_is_mass"/> <!-- ply and stl needed -->
   	<param name ="pcl_topic" value ="/ork/obj_clouds" />
 
   	<rosparam command="load" file="$(find tbf_gripper_perception)/config/surface_matching.yaml" />
