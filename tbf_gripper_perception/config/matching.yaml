@@ -1,0 +1,11 @@
+# Those are only the initial parameter, later changed by their dynamic_reconfigure representatives
+sm_relSampleStep: 0.10        # 0.03 - Decreasing this value leads to a denser model, and a more accurate pose estimation but the larger the model, the slower the training.
+sm_relDistanceStep: 0.10      # 0.03 (=sm_relSampleStep) - Using small values would lead to too fine discretization, and thus ambiguity in the bins of hashtable. Too large values would lead to no discrimination over the feature vectors and different point pair features would be assigned to the same bin.
+sm_numAngles: 30              # 30   -  Increasing the value increases the precision of the matching but decreases the robustness against incorrect normal directions. Decreasing the value decreases the precision of the matching but increases the robustness against incorrect normal directions.
+sm_relSceneSampleStep: 0.05   # 0.20 - Increasing the value leads to less points being used and in turn to a faster but less accurate pose computation.
+sm_relSceneDistance: 0.20     # 0.03 - This parameter is equivalent to sm_relSampleStep in the training stage. This parameter acts like a prior sampling with the sm_relSceneSampleStep parameter.
+cv_icp_iterations: 100
+cv_icp_tolerance: 0.005
+cv_icp_rejectionScale: 2.5
+cv_icp_numLevels: 8
+

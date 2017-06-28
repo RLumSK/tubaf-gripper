@@ -47,7 +47,9 @@
   <build_depend>shape_msgs</build_depend>
   <build_depend>geometric_shapes</build_depend>
   <build_depend>tbf_gripper_tools</build_depend>
+  <build_depend>dynamic_reconfigure</build_depend>
 
+  <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>tbf_gripper_tools</run_depend>
   <run_depend>shape_msgs</run_depend>
   <run_depend>geometric_shapes</run_depend>

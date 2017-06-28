@@ -13,9 +13,16 @@
 #include <object_recognition_msgs/ObjectType.h>
 #include <geometry_msgs/Pose.h>
 #include <ros/package.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <tf/transform_listener.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_ros/transforms.h>
+
+// Parameter
+#include <dynamic_reconfigure/server.h>
+#include <tbf_gripper_perception/SurfaceMatchingConfig.h>
 
 // PCL specific includes
-#include <sensor_msgs/PointCloud2.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/features/normal_3d.h>
@@ -27,26 +34,43 @@
 
 #include <tbf_gripper_tools/helperfunctions.h>
 
+class DebugDetector: public cv::ppf_match_3d::PPF3DDetector{
+public:
+  DebugDetector (const double relativeSamplingStep, const double relativeDistanceStep=0.05, const double numAngles=30)
+    :cv::ppf_match_3d::PPF3DDetector(relativeSamplingStep, relativeDistanceStep, numAngles)
+  {
+
+  }
+
+  cv::Mat getSampledPC(){
+    return this->sampled_pc;
+  }
+};
+
 class DrostObjectSearch
 {
 private:
   // ROS
   ros::NodeHandle nh;
   ros::Subscriber pcl_sub;
-  ros::Publisher pose_pub, model_pub, marker_pub;
-
+  ros::Publisher pose_pub, model_pub, model_pcl_pub, scene_pcl_pub,  marker_pub, marker_array_pub;
+  tf::TransformListener tf_listener;
   sensor_msgs::PointCloud2Ptr msg;
 
   // surface_matching
   // parameter
   double sm_relSampleStep, sm_relDistanceStep, sm_relSceneSampleStep, sm_relSceneDistance, sm_icp_tolerance ,sm_icp_rejectionScale;
   int sm_numAngles, sm_icp_iterations, sm_icp_numLevels;
+  dynamic_reconfigure::Server<tbf_gripper_perception::SurfaceMatchingConfig> server;
+  dynamic_reconfigure::Server<tbf_gripper_perception::SurfaceMatchingConfig>::CallbackType f;
 
   // data and object
   cv::Mat pc_model;
   moveit_msgs::CollisionObject ros_model_msg;
   visualization_msgs::Marker ros_marker_msg;
-  cv::ppf_match_3d::PPF3DDetector* detector;
+  visualization_msgs::MarkerArray ros_marker_array_msg;
+  visualization_msgs::Marker dummy_marker;
+  DebugDetector* detector;
 
 
 
@@ -65,21 +89,17 @@ public:
    */
   void publish_model();
 
-  /** Convert a given point cloud message to a scene representation by computing the normals for each point
-   * @brief pointcloud_to_cvMat convert PointCloud2 to cv::Mat, interpret as scene
-   * @param point_cloud sensor_msgs::PointCloud2
-   * @param scene point cloud with normals as OpenCV matrix
-   * @return true if succeddful
+  /** Train the detector with the provided model and a set of parameters
+   * @brief trainDetector Train the detector
    */
-  static bool pointcloud_to_cvMat(const sensor_msgs::PointCloud2& point_cloud, cv::Mat& scene);
+  void trainDetector();
 
-  /** Convert a point cloud saved as Nx3 or Nx6 cv::Mat to a ROS message
-   * @brief cvMat_to_pointcloud Convert a cv:Mat to PointCloud2
-   * @param pcl cv::Mat point cloud (only first three columns/channels are used)
-   * @param msg PointCloud2 message
+  /** Pass parameter changes to the node; see dynamic_reconfigure tutorials
+   * @brief config_callback Change parameters
+   * @param config new cofiguration
+   * @param level level, which is the result of ORing together all of level values of the parameters that have changed
    */
-  static void cvMat_to_pointcloud(const cv::Mat& pcl, sensor_msgs::PointCloud2& msg);
-
+  void config_callback(tbf_gripper_perception::SurfaceMatchingConfig &config, uint32_t level);
 
 };
 

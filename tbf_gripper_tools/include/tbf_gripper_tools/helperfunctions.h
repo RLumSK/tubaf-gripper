@@ -105,6 +105,21 @@ static void debug_print(const cv::Mat&);
  */
 static shape_msgs::Mesh import_model(const std::string& path);
 
+/** Convert a given point cloud message to a scene representation by computing the normals for each point
+ * @brief pointcloud_to_cvMat convert PointCloud2 to cv::Mat, interpret as scene
+ * @param point_cloud sensor_msgs::PointCloud2
+ * @param scene point cloud with normals as OpenCV matrix
+ * @return true if succeddful
+ */
+static bool pointcloud_to_cvMat(const sensor_msgs::PointCloud2& point_cloud, cv::Mat& scene);
+
+/** Convert a point cloud saved as Nx3 or Nx6 cv::Mat to a ROS message
+ * @brief cvMat_to_pointcloud Convert a cv:Mat to PointCloud2
+ * @param pcl cv::Mat point cloud (only first three columns/channels are used)
+ * @param msg PointCloud2 message
+ */
+static void cvMat_to_pointcloud(const cv::Mat& pcl, sensor_msgs::PointCloud2& msg);
+
 };
 
 #endif // HELPERFUNCTIONS_H

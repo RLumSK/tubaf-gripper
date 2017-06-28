@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
    pcl_ros
    sensor_msgs
    tbf_gripper_tools
+   dynamic_reconfigure
    )
 
 ## System dependencies are found with CMake's conventions
@@ -96,10 +97,10 @@ generate_messages(
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+generate_dynamic_reconfigure_options(
+  config/surface_matching.cfg
+  config/icp_matching.cfg
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -140,9 +141,15 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   )
 add_executable(surface_matching src/surface_matching.cpp)
+add_executable(icp_matching src/icp_matching.cpp)
 add_library(drostobjectsearch src/drostobjectsearch.cpp)
+add_dependencies(drostobjectsearch ${PROJECT_NAME}_gencfg)
+add_library(icpobjectsearch src/icpobjectsearch.cpp)
+add_dependencies(icpobjectsearch ${PROJECT_NAME}_gencfg)
 target_link_libraries(drostobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
+target_link_libraries(icpobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
 target_link_libraries(surface_matching drostobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
+target_link_libraries(icp_matching icpobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
 
 install(TARGETS surface_matching
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
