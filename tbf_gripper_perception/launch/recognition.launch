@@ -3,16 +3,16 @@
     <node pkg="tbf_gripper_perception" ns="/ork" name="tbf_floor_detection" output="screen" type="floor_filter.py">
       <rosparam file="$(find tbf_gripper_perception)/config/floor_filter.yaml" command="load"/>
     </node>
-    <node pkg="tbf_gripper_perception" ns="/ork" name="tbf_object_detection" output="screen" type="object_filter.py">
-      <rosparam file="$(find tbf_gripper_perception)/config/object_filter.yaml" command="load"/>
-      <rosparam file="$(find tbf_gripper_tools)/config/meshes.yaml" command="load"  />
-    </node>
+    <!--<node pkg="tbf_gripper_perception" ns="/ork" name="tbf_object_detection" output="screen" type="object_filter.py">-->
+      <!--<rosparam file="$(find tbf_gripper_perception)/config/object_filter.yaml" command="load"/>-->
+      <!--<rosparam file="$(find tbf_gripper_tools)/config/meshes.yaml" command="load"  />-->
+    <!--</node>-->
     <node pkg="tbf_gripper_tools" ns="/ork" name="marker_array_converter" output="screen" type="markerarray_to_pointcloud.py">
       <rosparam file="$(find tbf_gripper_perception)/config/object_filter.yaml" command="load"/>
     </node>
 
-    <!--Import the meshes from the filesystem using C++ and communication them using ROS Topics with the mesh name-->
-<!--     <node name="mesh_importer" pkg="tbf_gripper_tools" type="mesh_importer" output="screen">
-      <rosparam command="load" file="$(find tbf_gripper_tools)/config/meshes.yaml" />
-    </node> -->
+    <!--Import the meshes from the filesystem using C++ and communicate them using ROS Topics with the mesh name-->
+    <!--<node name="mesh_importer" pkg="tbf_gripper_tools" type="mesh_importer" output="screen">-->
+      <!--<rosparam command="load" file="$(find tbf_gripper_tools)/config/meshes.yaml" />-->
+    <!--</node>-->
 </launch>
