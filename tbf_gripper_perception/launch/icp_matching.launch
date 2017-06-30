@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- use in combination with tbf_gripper_perception/launch/recognition.launch -->
+  <node pkg="tbf_gripper_perception" type="icp_matching" ns="/perception" name="icp_matching_test" output="screen">
+  	<param name ="ply_model_name" value="wlan_blender_origin_is_mass"/> <!-- ply and stl needed -->
+        <param name ="pcl_topic" value ="/ork/obj_clouds" />
+
+  	<rosparam command="load" file="$(find tbf_gripper_perception)/config/matching.yaml" />
+  </node>
+
+  <!-- Write point clouds to file  -->
+<!--    <node pkg="point_cloud_io" type="write" name="write_scene" output="screen">
+    <param name="topic"                  value="/perception/scene_pcl" />
+    <param name="folder_path"            value="$(find tbf_gripper_perception)/output" />
+    <param name="file_prefix"            value="scene" />
+    <param name="file_ending"            value="ply" />
+    <param name="add_counter_to_path"    value="true" />
+    <param name="add_frame_id_to_path"   value="false" />
+    <param name="add_stamp_sec_to_path"  value="false" />
+    <param name="add_stamp_nsec_to_path" value="false" />
+  </node>
+
+  <node pkg="point_cloud_io" type="write" name="write_model" output="screen">
+    <param name="topic"                  value="/perception/model_pcl" />
+    <param name="folder_path"            value="$(find tbf_gripper_perception)/output" />
+    <param name="file_prefix"            value="model" />
+    <param name="file_ending"            value="ply" />
+    <param name="add_counter_to_path"    value="true" />
+    <param name="add_frame_id_to_path"   value="false" />
+    <param name="add_stamp_sec_to_path"  value="false" />
+    <param name="add_stamp_nsec_to_path" value="false" />
+  </node> -->
+
+</launch>

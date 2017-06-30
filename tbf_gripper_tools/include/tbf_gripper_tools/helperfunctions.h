@@ -9,6 +9,7 @@
 #include <ros/console.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <typeinfo>
+#include <sensor_msgs/PointCloud2.h>>
 
 #include "shape_msgs/Mesh.h"
 #include <geometric_shapes/shape_operations.h>
@@ -25,6 +26,8 @@
 #include <pcl/visualization/cloud_viewer.h>
 
 #include "a.out.h"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 using namespace std;
 using namespace cv;
@@ -58,14 +61,14 @@ public:
  */
 static int ros_pcl_to_opencv_datatype(int ros_type);
 
-/**Remove all row entries with a nan from the matrix
+/** Remove all row entries with a nan from the matrix
  * @brief removeNaN delete rows with nan
  * @param points reference to a point cloud matrix
  * @return a matrix without the nan rows
  */
 static cv::Mat removeNaN(cv::Mat& points);
 
-/**Replace all NaN entries in this matrix with a given number, therefore a mask is build and every refering entrie is substituted by the scalar
+/** Replace all NaN entries in this matrix with a given number, therefore a mask is build and every refering entrie is substituted by the scalar
  * @brief replaceNan replace NaN in matrix with scalar
  * @param points matrix containing NaN's
  * @param scalar substitute value
@@ -120,6 +123,19 @@ static bool pointcloud_to_cvMat(const sensor_msgs::PointCloud2& point_cloud, cv:
  */
 static void cvMat_to_pointcloud(const cv::Mat& pcl, sensor_msgs::PointCloud2& msg);
 
+/** Convert a transformation stated in affine coordinates into a ROS pose
+ * @brief eigenMatrix4f_to_pose Eigen Matrix Transformation to ROS pose
+ * @param mat affine transformation in a 4x4 matrix
+ * @param pose output of the ROS pose
+ */
+static void eigenMatrix4f_to_pose(const Eigen::Matrix4f& mat, geometry_msgs::Pose& pose);
+
+/** Convert a transformation stated in affine coordinates into a ROS pose
+ * @brief double16_to_pose double[16] to ROS pose
+ * @param dbl_array array with 16 doubles refering to 4x4 matrix of an affine transformation
+ * @param pose output of the ROS pose
+ */
+static void double16_to_pose(const double* dbl_array, geometry_msgs::Pose& pose);
 };
 
 #endif // HELPERFUNCTIONS_H

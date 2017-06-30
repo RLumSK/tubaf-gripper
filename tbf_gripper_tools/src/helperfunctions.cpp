@@ -229,3 +229,36 @@ void HelperFunctions::cvMat_to_pointcloud(const cv::Mat &cv_pcl, sensor_msgs::Po
   pcl::toROSMsg(*cloud, msg);
 }
 
+void HelperFunctions::eigenMatrix4f_to_pose(const Eigen::Matrix4f &mat, geometry_msgs::Pose &pose)
+{
+  if(mat(3,3) != 1.0){
+    ROS_WARN_STREAM("[HelperFunctions::eigenMatrix4f_to_pose] " << "mat(3,3) = " << mat(3,3) << " but should be 1");
+  }
+  pose.position.x = mat(0,3);
+  pose.position.y = mat(1,3);
+  pose.position.z = mat(2,3);
+  Eigen::Quaternionf quat(mat.block<3,3>(0,0));
+  pose.orientation.x = quat.x();
+  pose.orientation.y = quat.y();
+  pose.orientation.z = quat.z();
+  pose.orientation.w = quat.w();
+}
+
+void HelperFunctions::double16_to_pose(const double *dbl_array, geometry_msgs::Pose &pose)
+{
+  if(dbl_array[15] != 1.0){
+    ROS_WARN_STREAM("[HelperFunctions::double16_to_pose] " << "dbl_array[15] = " << dbl_array[15] << " but should be 1");
+  }
+  pose.position.x = static_cast<float>(dbl_array[3]);
+  pose.position.y = static_cast<float>(dbl_array[7]);
+  pose.position.z = static_cast<float>(dbl_array[11]);
+  Eigen::Matrix3f mat;
+  mat << static_cast<float>(dbl_array[0]) , static_cast<float>(dbl_array[1]), static_cast<float>(dbl_array[2]),
+      static_cast<float>(dbl_array[4]) , static_cast<float>(dbl_array[5]), static_cast<float>(dbl_array[6]),
+      static_cast<float>(dbl_array[8]) , static_cast<float>(dbl_array[9]), static_cast<float>(dbl_array[10]);
+  Eigen::Quaternionf quat(mat);
+  pose.orientation.x = quat.x();
+  pose.orientation.y = quat.y();
+  pose.orientation.z = quat.z();
+  pose.orientation.w = quat.w();
+}
