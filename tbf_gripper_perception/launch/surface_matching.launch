@@ -9,12 +9,12 @@
   	<rosparam command="load" file="$(find tbf_gripper_perception)/config/matching.yaml" />
   </node>
 
-    <node pkg="tbf_gripper_perception" type="icp_matching" ns="/perception" name="icp_matching_test" output="screen">
-  	<param name ="ply_model_name" value="wlan_blender_origin_is_mass"/> <!-- ply and stl needed -->
+<!--    <node pkg="tbf_gripper_perception" type="icp_matching" ns="/perception" name="icp_matching_test" output="screen">
+        <param name ="ply_model_name" value="wlan_blender_origin_is_mass"/>  ply and stl needed
         <param name ="pcl_topic" value ="/ork/obj_clouds" />
 
   	<rosparam command="load" file="$(find tbf_gripper_perception)/config/matching.yaml" />
-  </node>
+  </node>-->
 
   <!-- Write point clouds to file  -->
 <!--    <node pkg="point_cloud_io" type="write" name="write_scene" output="screen">

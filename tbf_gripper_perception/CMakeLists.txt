@@ -142,14 +142,11 @@ include_directories(
   )
 add_executable(surface_matching src/surface_matching.cpp)
 add_executable(icp_matching src/icp_matching.cpp)
-add_library(drostobjectsearch src/drostobjectsearch.cpp)
-add_dependencies(drostobjectsearch ${PROJECT_NAME}_gencfg)
-add_library(icpobjectsearch src/icpobjectsearch.cpp)
-add_dependencies(icpobjectsearch ${PROJECT_NAME}_gencfg)
-target_link_libraries(drostobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
-target_link_libraries(icpobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
-target_link_libraries(surface_matching drostobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
-target_link_libraries(icp_matching icpobjectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
+add_library(objectsearch src/drostobjectsearch.cpp src/cvicpobjectsearch.cpp src/pclicpobjectsearch.cpp src/icpobjectsearch.cpp src/objectsearch.cpp)
+add_dependencies(objectsearch ${PROJECT_NAME}_gencfg)
+target_link_libraries(objectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
+target_link_libraries(surface_matching objectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
+target_link_libraries(icp_matching objectsearch ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES}  )
 
 install(TARGETS surface_matching
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

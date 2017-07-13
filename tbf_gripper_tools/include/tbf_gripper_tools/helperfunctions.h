@@ -9,7 +9,7 @@
 #include <ros/console.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <typeinfo>
-#include <sensor_msgs/PointCloud2.h>>
+#include <sensor_msgs/PointCloud2.h>
 
 #include "shape_msgs/Mesh.h"
 #include <geometric_shapes/shape_operations.h>
