@@ -11,6 +11,7 @@ CvIcpObjectSearch::CvIcpObjectSearch(ros::NodeHandle& handle,const std::string& 
         icp_numLevels
         );
   //HelperFunctions::cvMat_to_pointcloud(this->cv_model, model_msg);
+
   this->subscribe();
 }
 

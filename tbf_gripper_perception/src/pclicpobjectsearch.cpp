@@ -1,14 +1,18 @@
 #include <tbf_gripper_perception/pclicpobjectsearch.h>
 
 PclIcpObjectSearch::PclIcpObjectSearch(ros::NodeHandle& handle,const std::string& model_name,const std::string& pcl_topic):
-  IcpObjectSearch(handle,  model_name, pcl_topic)
+  IcpObjectSearch(handle,  model_name, pcl_topic),
+  pcl_model(new  pcl::PointCloud<pcl::PointXYZ>),
+  pcl_scene(new  pcl::PointCloud<pcl::PointXYZ>)
 { // PCL
+  ROS_DEBUG_STREAM("[PclIcpObjectSearch::PclIcpObjectSearch()] " << "Constructor called");
   pcl::PLYReader reader;
   pcl::PCLPointCloud2 cloud;
   reader.read((ros::package::getPath("tbf_gripper_perception") +"/meshes/" + model_name +".ply").c_str(), cloud);
-  pcl::fromPCLPointCloud2(cloud, *this->pcl_model);
+  pcl::fromPCLPointCloud2<pcl::PointXYZ>(cloud, *this->pcl_model); //Assertion error
   this->pcl_icp.setInputSource(this->pcl_model);
   this->subscribe();
+  ROS_DEBUG_STREAM("[PclIcpObjectSearch::PclIcpObjectSearch()] " << "Constructor finished");
 }
 
 void PclIcpObjectSearch::subscribe(){
@@ -20,15 +24,16 @@ void PclIcpObjectSearch::unsubscribe(){
 }
 
 void PclIcpObjectSearch::pcl_callback(const sensor_msgs::PointCloud2& pcl_msg){
+  ROS_DEBUG_STREAM("[PclIcpObjectSearch::pcl_callback()] " << "started");
   if(pcl_msg.data.empty())
   {
     ROS_WARN_STREAM("[PclIcpObjectSearch::pcl_callback()] " << "Received an empty cloud message. Skipping further processing");
     return;
   }
   this->unsubscribe();
-  // Convert ROS message to PCL-compatible data structure - see: https://github.com/aleksandaratanasov/pmd_camboard_nano/blob/master/src/pmd_camboard_nano_cloud_icp.cpp
+   // Convert ROS message to PCL-compatible data structure - see: https://github.com/aleksandaratanasov/pmd_camboard_nano/blob/master/src/pmd_camboard_nano_cloud_icp.cpp
   ROS_INFO_STREAM("[PclIcpObjectSearch::pcl_callback()] " << "Received a cloud message with " << pcl_msg.height * pcl_msg.width << " points");
-  ROS_INFO_STREAM("[PclIcpObjectSearch::pcl_callback()] " << "Converting ROS cloud message to PCL compatible data structure");
+  ROS_DEBUG_STREAM("[PclIcpObjectSearch::pcl_callback()] " << "Converting ROS cloud message to PCL compatible data structure");
   pcl::fromROSMsg(pcl_msg, *this->pcl_scene);
 
   this->pcl_icp.setMaximumIterations(this->icp_iterations);
@@ -50,4 +55,6 @@ void PclIcpObjectSearch::pcl_callback(const sensor_msgs::PointCloud2& pcl_msg){
 
   //Restart subscriber
   this->subscribe();
+  ROS_INFO_STREAM("[PclIcpObjectSearch::pcl_callback()] " << "finished");
+
 }

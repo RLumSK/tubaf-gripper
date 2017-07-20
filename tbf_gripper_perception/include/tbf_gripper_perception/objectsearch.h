@@ -14,6 +14,9 @@
 
 #include <tbf_gripper_tools/helperfunctions.h>
 
+/** Abstract base class of the Object Search in ROS, it takes care of the publishing and gives a construct for the subscribing
+ * @brief The ObjectSearch class abstract object search base class
+ */
 class ObjectSearch
 {
 
@@ -33,13 +36,26 @@ protected:
 
   std::string pcl_topic;
 
+  /** Subscribe to a PointCloud topic by connecting the pcl_callback
+   * @brief subscribe start pcl_callback
+   */
   virtual void subscribe() = 0;
+
+  /** Shutdown the PointCloud subscribtion and therefore stop the pcl_callback invocation
+   * @brief unsubscribe stop pcl_callback
+   */
   virtual void unsubscribe() = 0;
 
 public:
+  /* Standart constructor
+   * @brief ObjectSearch
+   * @param handle ROS node handle
+   * @param model_name path to the model to be tracked
+   * @param pcl_topic topic of the point cloud representing the scene
+   */
   ObjectSearch(ros::NodeHandle& handle,const std::string& model_name,const std::string& pcl_topic);
 
-  /** Bin thhis callback of the Pointcloud Subscriber with the current scene
+  /** Bind this callback of the Pointcloud Subscriber with the current scene using the subscribe/unsubscribe methods
    * @brief pcl_callback current scene as point cloud
    * @param pcl_msg sensor_msgs::PointCloud2
    */

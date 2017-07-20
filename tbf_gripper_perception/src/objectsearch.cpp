@@ -15,6 +15,7 @@ ObjectSearch::ObjectSearch(ros::NodeHandle& handle,const std::string& model_name
     ros_marker_array_msg(),
     pcl_topic(pcl_topic)
   {
+    ROS_DEBUG_STREAM("[ObjectSearch::ObjectSearch()] " << "Constructor called");
     ros_model_msg.id = "object";
     ros_model_msg.operation = moveit_msgs::CollisionObject::ADD;
     ros_model_msg.meshes.push_back(HelperFunctions::import_model(ros::package::getPath("tbf_gripper_perception") +"/meshes/" + model_name + ".stl"));
@@ -47,9 +48,9 @@ ObjectSearch::ObjectSearch(ros::NodeHandle& handle,const std::string& model_name
     this->msg->header.frame_id = "gripper_camera_rgb_optical_frame";
     this->model_pcl_pub.publish(this->msg);
 
-    ros::Duration(2.0).sleep();
-    this->pcl_sub = this->nh.subscribe(pcl_topic, 1, &ObjectSearch::pcl_callback, this);
-     ROS_DEBUG_STREAM("[ObjectSearch::ObjectSearch()] " << "Constructor finished" );
+//    ros::Duration(2.0).sleep();
+//    this->pcl_sub = this->nh.subscribe(pcl_topic, 1, &ObjectSearch::pcl_callback, this);
+    ROS_DEBUG_STREAM("[ObjectSearch::ObjectSearch()] " << "Constructor finished" );
   }
 
 void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const geometry_msgs::Pose& pose){
@@ -68,9 +69,11 @@ void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const g
 }
 
 void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::Matrix4f& transformation){
+    ROS_INFO_STREAM("[ObjectSearch::publish_pose()]" << " started");
     geometry_msgs::Pose pose;
     HelperFunctions::eigenMatrix4f_to_pose(transformation, pose);
     ObjectSearch::publish_pose(pcl_msg, pose);
+    ROS_INFO_STREAM("[ObjectSearch::publish_pose()]" << " finished");
 }
 void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation){
     geometry_msgs::Pose pose;
