@@ -66,10 +66,10 @@ public:
    * @param pcl_msg point cloud message used
    * @param pose estimated object pose
    */
-  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const geometry_msgs::Pose& pose);
-  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::Matrix4f& transformation);
-  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation);
- // void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* position, double* quaternion);
+  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const geometry_msgs::Pose& pose, bool invert=false);
+  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::Matrix4f& transformation, bool invert=false);
+  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation, bool invert=false);
+ // void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* position, double* quaternion, bool invert=false);
 
 
 };

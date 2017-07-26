@@ -10,7 +10,7 @@ CvIcpObjectSearch::CvIcpObjectSearch(ros::NodeHandle& handle,const std::string& 
         icp_iterations,
         icp_numLevels
         );
-  //HelperFunctions::cvMat_to_pointcloud(this->cv_model, model_msg);
+  HelperFunctions::pointcloud_to_cvMat(*this->msg,this->cv_model);
 
   this->subscribe();
 }
@@ -42,8 +42,8 @@ if(pcl_msg.data.empty())
         return;
     }
   }
-  HelperFunctions::debug_print(this->cv_model);
-  HelperFunctions::debug_print(this->cv_scene);
+  // HelperFunctions::debug_print(this->cv_model);
+  // HelperFunctions::debug_print(this->cv_scene);
 
 
 //  int cv::ppf_match_3d::ICP::registerModelToScene	(	const Mat & 	srcPC,
@@ -53,12 +53,24 @@ if(pcl_msg.data.empty())
 //  )
   double residual;
   double pose[16];
+  // From: http://docs.opencv.org/trunk/dc/d9b/classcv_1_1ppf__match__3d_1_1ICP.html#accd9744cedf9cd9cd175d2c5bd77951e
+  // It is assumed that the model is registered on the scene. Scene remains static, while the model transforms.
+  // The output poses transform the models onto the scene. Because of the point to plane minimization,
+  // the scene is expected to have the normals available. Expected to have the normals (Nx6).
+  // -- On successful termination, the function returns 0.--
   int retValue = this->cv_icp.registerModelToScene(
-          this->cv_model,
-          this->cv_scene,
-          residual,
-          pose
-        );
+    //[in]	srcPC	The input point cloud for the model. Expected to have the normals (Nx6). Currently, CV_32F is the only supported data type.
+      this->cv_model,
+    //[in]	dstPC	The input point cloud for the scene. It is assumed that the model is registered on the scene. Scene remains static.
+    //Expected to have the normals (Nx6). Currently, CV_32F is the only supported data type.
+      this->cv_scene,
+    //[out]	residual	The output registration error.
+      residual,
+    //[out]	pose	Transformation between srcPC and dstPC.
+      pose
+         );
+
+
   ROS_INFO_STREAM("[CvIcpObjectSearch::pcl_callback()] " << " ICP finised" << endl <<
                   "retValue: " << retValue << " Residual: "<< residual << endl <<
                   "pose:\t" << pose[0] << " "<< pose[1] << " "<< pose[2] << " "<< pose[3] << endl <<
@@ -66,7 +78,8 @@ if(pcl_msg.data.empty())
                   "pose:\t" << pose[8] << " "<< pose[9] << " "<< pose[10] << " "<< pose[11] << endl <<
                   "pose:\t" << pose[12] << " "<< pose[13] << " "<< pose[14] << " "<< pose[15] << endl
                   );
-  ObjectSearch::publish_pose(pcl_msg, pose);
+
+  ObjectSearch::publish_pose(pcl_msg, pose, true);
 
   //Restart subscriber
   this->subscribe();

@@ -1,0 +1,28 @@
+<muxify>
+  <!--
+     Local debugging environment using a bagfile
+      author: grehl
+      mail: steve.grehl@informatik.tu-freiberg.de
+  -->
+  <session name="object_search" mode="o" size="240x60"/>
+  <window name="core" directory="~">
+    <layout>
+      ac
+      ad
+      be
+      bf
+    </layout>
+    <cmd pane="a">roscore</cmd>
+    <cmd pane="c">sleep 3; roslaunch julius description.launch</cmd>
+    <cmd pane="d">sleep 3; rosbag play /data/bags/object_recognition/2017-07-12-10-09-14.bag --clock --loop</cmd>
+    <cmd pane="e">sleep 2; rosparam set use_sim_time true </cmd>
+    <cmd pane="f">sleep 3; roslaunch julius joint_state_pub.launch</cmd>
+  </window>
+    <window name="visualization" directory="~">
+    <layout>
+      ab
+    </layout>
+    <cmd pane="a">sleep 4; rviz</cmd>
+    <cmd pane="b">sleep 4; roslaunch tbf_gripper_perception icp_matching.launch</cmd>
+  </window>
+</muxify>

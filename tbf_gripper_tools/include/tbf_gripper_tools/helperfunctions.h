@@ -10,6 +10,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <typeinfo>
 #include <sensor_msgs/PointCloud2.h>
+#include <tf/transform_datatypes.h>
 
 #include "shape_msgs/Mesh.h"
 #include <geometric_shapes/shape_operations.h>
@@ -136,6 +137,13 @@ static void eigenMatrix4f_to_pose(const Eigen::Matrix4f& mat, geometry_msgs::Pos
  * @param pose output of the ROS pose
  */
 static void double16_to_pose(const double* dbl_array, geometry_msgs::Pose& pose);
+
+/** Invert a given pose
+ * @brief invert_pose invert a given 3D pose
+ * @param pose pose to invert
+ * @return inverted pose
+ */
+static geometry_msgs::Pose invert_pose(const geometry_msgs::Pose& pose);
 };
 
 #endif // HELPERFUNCTIONS_H

@@ -53,9 +53,14 @@ ObjectSearch::ObjectSearch(ros::NodeHandle& handle,const std::string& model_name
     ROS_DEBUG_STREAM("[ObjectSearch::ObjectSearch()] " << "Constructor finished" );
   }
 
-void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const geometry_msgs::Pose& pose){
+void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const geometry_msgs::Pose& pose, bool invert){
   geometry_msgs::PoseStamped pubPose;
-  pubPose.pose = pose;
+  if(invert){
+    pubPose.pose = HelperFunctions::invert_pose(pose);
+  }
+  else{
+    pubPose.pose = pose;
+  }
   pubPose.header = pcl_msg.header;
   this->pose_pub.publish(pubPose);
   //publish collision model
@@ -68,15 +73,15 @@ void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const g
   this->marker_pub.publish(this->ros_marker_msg);
 }
 
-void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::Matrix4f& transformation){
+void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::Matrix4f& transformation, bool invert){
     ROS_INFO_STREAM("[ObjectSearch::publish_pose()]" << " started");
     geometry_msgs::Pose pose;
     HelperFunctions::eigenMatrix4f_to_pose(transformation, pose);
-    ObjectSearch::publish_pose(pcl_msg, pose);
+    ObjectSearch::publish_pose(pcl_msg, pose, invert);
     ROS_INFO_STREAM("[ObjectSearch::publish_pose()]" << " finished");
 }
-void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation){
+void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation, bool invert){
     geometry_msgs::Pose pose;
     HelperFunctions::double16_to_pose(affine_transformation, pose);
-    ObjectSearch::publish_pose(pcl_msg, pose);
+    ObjectSearch::publish_pose(pcl_msg, pose, invert);
 }

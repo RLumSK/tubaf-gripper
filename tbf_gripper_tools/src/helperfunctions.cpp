@@ -262,3 +262,21 @@ void HelperFunctions::double16_to_pose(const double *dbl_array, geometry_msgs::P
   pose.orientation.z = quat.z();
   pose.orientation.w = quat.w();
 }
+
+geometry_msgs::Pose HelperFunctions::invert_pose(const geometry_msgs::Pose& pose){
+  const tf::Vector3 translation(pose.position.x, pose.position.y, pose.position.z);
+  const tf::Quaternion quaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+  const tf::Transform transform(quaternion, translation);
+  const tf::Transform inverse = transform.inverse();
+  geometry_msgs::Pose ret_pose;
+  const tf::Vector3 inv_trans = inverse.getOrigin();
+  const tf::Quaternion inv_quat = inverse.getRotation();
+  ret_pose.orientation.x = inv_quat.getX();
+  ret_pose.orientation.y = inv_quat.getY();
+  ret_pose.orientation.z = inv_quat.getZ();
+  ret_pose.orientation.w = inv_quat.getW();
+  ret_pose.position.x = inv_trans.getX();
+  ret_pose.position.y = inv_trans.getY();
+  ret_pose.position.z = inv_trans.getZ();
+  return ret_pose;
+}

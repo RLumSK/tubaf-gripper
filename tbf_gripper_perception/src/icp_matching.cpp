@@ -18,7 +18,7 @@ int main(int argc, char** argv)
     nh.param<std::string>("pcl_topic", pcl_topic, "/ork/obj_clouds");
     ROS_INFO_STREAM("[icp_matching.main] ply_model_name " << model_name);
     ROS_INFO_STREAM("[icp_matching.main] pcl_topic " << pcl_topic);
-    PclIcpObjectSearch pcl_icp_search(nh, model_name, pcl_topic);
+    //PclIcpObjectSearch pcl_icp_search(nh, model_name, pcl_topic);
     CvIcpObjectSearch cv_icp_search(nh, model_name, pcl_topic);
 
     ros::spin();
