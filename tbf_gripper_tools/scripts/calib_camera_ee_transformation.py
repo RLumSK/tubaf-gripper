@@ -28,15 +28,30 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""@package tbf_gripper_tools
-This package provides simple demos for exhibitions and presentations
-@author: Steve Grehl
-"""
+import rospy
+import tf
+import numpy as np
+from pyquaternion import Quaternion
 
-from DemoState import *
-from DemoStatus import *
-from GripperInterface import *
-from GripperState import *
-from TrajectoryExecutor import *
-from MeshImporter import *
-from DirectLinearTransformation import *
+if __name__ == '__main__':
+    rospy.init_node("calib_camera_ee_transformation")
+    base_frame  = rospy.get_param("base_frame", "gripper_ur5_base_link")
+    ee_frame  = rospy.get_param("ee_frame", "gripper_ur5_ee_link")
+    camera_frame  = rospy.get_param("camera_frame", "gripper_camera_rgb_optical_frame")
+    listener = tf.TransformListener("camera_calib_tf_listener")
+
+    Pe_trans = []
+    Pe_rot = []
+    while not rospy.is_shutdown():
+        # Get arm base to end effector transformation
+        try:
+            (Pe_trans, Pe_rot) = listener.lookupTransform(ee_frame, base_frame, rospy.Time(0)) # return [t.x, t.y, t.z], [r.x, r.y, r.z, r.w]
+            Pe = np.diag(np.ones(4))
+            q = Quaternion(Pe_rot[3], Pe_rot[0], Pe_rot[1], Pe_rot[2])
+            R = q.rotation_matrix
+            Pe[0:3, 0:3] = R[0:3, 0:3]
+            Pe[0:3, 3] = Pe_trans[0:3]
+            rospy.loginfo(Pe)
+            rospy.sleep(2.0)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue

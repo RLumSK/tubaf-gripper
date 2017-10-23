@@ -30,6 +30,8 @@
 
 import numpy as np
 
+# sudo pip install numpy numpy-quaternion
+
 """ @DirectLinearTransformation
 implementation of a DLT for the camera calibration routine
 @author: Steve Grehl
@@ -38,7 +40,9 @@ implementation of a DLT for the camera calibration routine
 
 class DirectLinearTransformation(object):
     """
-    TODO
+    This class holds functions to extract a rigid transformation between a camera mounted on an end-effector of a
+    robotic arm. Therefore it performs a direct linear transformation using singular value decomposition (svd).
+    The public static functions however are generic and may be used for other purposes.
     """
 
     def __init__(self, Pe, Po):
@@ -56,6 +60,15 @@ class DirectLinearTransformation(object):
         self.v = DirectLinearTransformation.solveSVD(self.An)
         self.Pc = self.extractCameraPose(self.v)
         self.Pw = self.extractWorldPose(self.v)
+        Cr, Ct = DirectLinearTransformation.orthogonalR(self.Pc[0:3, 0:3], self.Pc[0:3, 3])
+        self.Pc = np.diag(np.ones(4))
+        self.Pc[0:3, 0:3] = Cr
+        self.Pc[0:3, 3] = Ct
+        Wr, Wt = DirectLinearTransformation.orthogonalR(self.Pw[0:3, 0:3], self.Pw[0:3, 3])
+        self.Pw = np.diag(np.ones(4))
+        self.Pw[0:3, 0:3] = Wr
+        self.Pw[0:3, 3] = Wt
+
 
     def extractCameraPose(self, v):
         """
@@ -103,19 +116,33 @@ class DirectLinearTransformation(object):
         W[2, 3] = v[23]
         return W
 
+    @staticmethod
+    def orthogonalR(R, t):
+        """
+        calculate a orthogonal rotation matrix and scale translation
+        :param R: rotation matrix in non orthogonal form
+        :type R: numpy.matrix
+        :param t: translation in the space of R
+        :type t: numpy.array
+        :return: orthogonal rotation matrix and the scaled translation
+        :rtype: tuple numpy.matrix, numpy.array
+        """
+        (U, S, V) = np.linalg.svd(R)
+        tt = t/S
+        return np.dot(U, V.transpose()), tt
 
     @staticmethod
     def solveSVD(A):
         """
         singular value decomposition of A
-        :param A: matrix with
-        :type A:
-        :return:
-        :rtype:
+        :param A: matrix with linear equations
+        :type A: numpy.matrix
+        :return: vector that solves the problem with min error
+        :rtype: numpy.array
         """
-        (u, s, v) = np.linalg.svd(A)
-        min_i = np.argmin(s)
-        return v[:, min_i]/v[-1, min_i]
+        (U, S, V) = np.linalg.svd(A)
+        min_i = np.argmin(S)
+        return V[:, min_i]/V[-1, min_i]
 
     @staticmethod
     def normMatrix(A):
@@ -290,3 +317,36 @@ class DirectLinearTransformation(object):
         A[12, 24] = 1
 
         return A
+
+if __name__ == '__main__':
+    Pe = np.zeros([4, 4])
+    Po = np.diag(np.ones(4))
+
+    Pe[0, 2] = 1
+    Pe[1, 1] = 1
+    Pe[2, 0] = -1
+    Pe[3, 3] = 1
+    Pe[0, 3] = 0.91
+    Pe[1, 3] = -0.11
+    Pe[2, 3] = 0.01
+    Pe[3, 3] = 1
+
+    Po[0, 0] = 0.999903
+    Po[0, 1] = 0.004703
+    Po[0, 2] = -0.013133
+    Po[0, 3] = -0.105170
+
+    Po[1, 0] = -0.005585
+    Po[1, 1] = 0.997669
+    Po[1, 2] = -0.068003
+    Po[1, 3] = -0.053813
+
+    Po[2, 0] = 0.012783
+    Po[2, 1] = 0.068070
+    Po[2, 2] = 0.997599
+    Po[2, 3] = 0.435377
+
+    transformation = DirectLinearTransformation(Pe, Po)
+
+    print transformation.Pc
+    print transformation.Pw
