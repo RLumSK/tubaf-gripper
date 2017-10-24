@@ -46,15 +46,15 @@ class InterruptError(Exception):
         super(InterruptError, self).__init__(*args, **kwargs)
 
 
-class EndEffectorMoveTask(autonomy.Task):
+class EndEffectorMoveTask(autonomy.Task.MoveTask):
     """
     Class that moves the end-effector to the next way-point
     """
-    def __init__(self, station_nr=1):
+    def __init__(self):
         """
         Default constructor
         """
-        autonomy.Task.SetTask.__init__(self)
+        autonomy.Task.MoveTask.__init__(self)
         self.waypoints = rospy.get_param("~camera_calib_path")
         self.exec_thread = None
         self.index = 0  # position index
@@ -68,12 +68,11 @@ class EndEffectorMoveTask(autonomy.Task):
         :return: -
         :rtype: -
         """
-        if self.index > len(self.waypoints)-1:
-            self.index = 0
-        else:
-            self.index += 1
         rospy.loginfo("EndEffectorMoveTask.perform(): Move to Position "+str(self.index))
         self.move_wait(self.waypoints["pos_"+str(self.index)], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movel")
+        self.index += 1
+        if self.index > len(self.waypoints)-1:
+            self.index = 0
         rospy.sleep(2.)
         self.exec_thread = None
 
@@ -94,7 +93,7 @@ class EndEffectorMoveTask(autonomy.Task):
         while not rospy.is_shutdown():
             # Get arm base to end effector transformation
             try:
-                (Pe_trans, Pe_rot) = listener.lookupTransform(ee_frame, base_frame, rospy.Time(
+                (Pe_trans, Pe_rot) = self.listener.lookupTransform(self.ee_frame, self.base_frame, rospy.Time(
                     0))  # return [t.x, t.y, t.z], [r.x, r.y, r.z, r.w]
                 q = Quaternion(Pe_rot[3], Pe_rot[0], Pe_rot[1], Pe_rot[2])
                 R = q.rotation_matrix
@@ -107,10 +106,20 @@ class EndEffectorMoveTask(autonomy.Task):
                 continue
         return Pe
 
+    def start(self):
+        """
+        Start the wlan set task
+        :return: -
+        :rtype: -
+        """
+        rospy.loginfo("EndEffectorMoveTask.start():")
+        self.run_as_process(EndEffectorMoveTask.perform)
+
+
 if __name__ == '__main__':
-    rospy.init_node("calib_camera_ee_transformation")
+    rospy.init_node("calib_camera_ee_transformation",  log_level=rospy.INFO)
     arm_task = EndEffectorMoveTask()
     while not rospy.is_shutdown():
-        arm_task.perform()
+        arm_task.start()
         arm_task.getEEtransformation()
         rospy.sleep(2.)

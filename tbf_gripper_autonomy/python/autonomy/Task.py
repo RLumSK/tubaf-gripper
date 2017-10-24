@@ -71,15 +71,14 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class SetTask(object):
+class MoveTask(object):
     """
-    Abstract class for set tasks
+    Abstract task class for the UR5
     """
     def __init__(self):
         """
-        Default constructor, start ROS, hand_model and demo_monitoring
+        Default constructor, start ROS, arm and demo_monitoring
         """
-
         # ROS Anbindung
         self.joint_sub = rospy.Subscriber("/ur5/joint_states", JointState, self.on_joint_states, queue_size=1)
         self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
@@ -88,8 +87,6 @@ class SetTask(object):
         self.last_time = time.time()
         self.last_start = time.time()
         self.exec_thread = None
-        self.hand_controller = grasping.hand.HandController()
-        rospy.loginfo("Task.py: Task(): initilized hand")
 
         self.waypoints = rospy.get_param("~waypoints", None)
         self.backup_pose = rospy.get_param("~backup_pos")
@@ -98,8 +95,21 @@ class SetTask(object):
         self.j_arm_speed = rospy.get_param("~joint_speed", 10.0)
         self.j_arm_acceleration = rospy.get_param("~joint_acceleration", 5.0)
 
-        rospy.sleep(0.5)
-        self.run_as_process(self.initialise)
+        #  wait for publisher to start/initialize
+        rospy.sleep(2.)
+
+    def initialise(self):
+        """
+        Initilise by opening the hand and moving to a given backup_pose
+        :return: -
+        :rtype: -
+        """
+        rospy.loginfo("MoveTask.initialisation(): Moving to home pose")
+        # Arm
+        rospy.loginfo("MoveTask.initialisation(): Move to backup_pose...")
+        self.move_wait(self.backup_pose, v=45, a=20)
+        rospy.loginfo("MoveTask.initialisation(): Init done")
+        self.exec_thread = None
 
     def run_as_process(self, function):
         """
@@ -110,7 +120,7 @@ class SetTask(object):
         :rtype: -
         """
         if self.exec_thread is not None:
-            rospy.logwarn("Task.run_as_process() self.exec_thread=%s", self.exec_thread)
+            rospy.logwarn("MoveTask.run_as_process() self.exec_thread=%s", self.exec_thread)
             return
         self.exec_thread = thread.start_new_thread(function, (self,))
 
@@ -122,7 +132,7 @@ class SetTask(object):
         :return: -
         :rtype: -
         """
-        # rospy.loginfo("Task.on_joint_states(): received jopint states: %s", js)
+        rospy.logdebug("MoveTask.on_joint_states(): received jopint states: %s", js)
         if time.time() - self.last_time > 0.02:
             pp = list(js.position)
 
@@ -155,7 +165,7 @@ class SetTask(object):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("Task.move_wait(): %s to:\n %s", move_cmd,  str(pose))
+        rospy.loginfo("MoveTask.move_wait(): %s to:\n %s", move_cmd,  str(pose))
         program = move_cmd + "(%s" % pos2str(pose)
         if a is not None:
             program += ", a=%f" % np.deg2rad(a)
@@ -173,10 +183,29 @@ class SetTask(object):
             max_dst = np.max(dst)
             if max_dst < goal_tolerance:
                 break
-            rospy.logdebug("Task.move_wait(): self.cur_pos=%s", self.cur_pos)
-            rospy.logdebug("Task.move_wait():         pose=%s", pose)
-            rospy.logdebug("Task.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
+            rospy.logdebug("MoveTask.move_wait(): self.cur_pos=%s", self.cur_pos)
+            rospy.logdebug("MoveTask.move_wait():         pose=%s", pose)
+            rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
             rospy.sleep(0.02)
+
+
+@six.add_metaclass(abc.ABCMeta)
+class SetTask(MoveTask):
+    """
+    Abstract class for set tasks
+    """
+    def __init__(self):
+        """
+        Default constructor, start ROS, hand_model and demo_monitoring
+        """
+        MoveTask.__init__(self)
+
+        # ROS Anbindung
+        self.hand_controller = grasping.hand.HandController()
+        rospy.loginfo("Task.py: MoveTask(): initilized hand")
+
+        rospy.sleep(0.5)
+        self.run_as_process(self.initialise)
 
     @abc.abstractmethod
     def perform(self):
@@ -193,18 +222,12 @@ class SetTask(object):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("Task.initialisation(): Moving to home pose and opening gripper")
-        # Arm
-        rospy.loginfo("Task.initialisation(): Move to backup_pose...")
-        self.move_wait(self.backup_pose, v=45, a=20)
-        rospy.loginfo("Task.initialisation(): Arrived at backup_pose, opening gripper...")
-
         # Hand
         rospy.sleep(3.0)
         self.hand_controller.openHand()
-        rospy.loginfo("Task.initialisation(): Wait 20s for the hand to initialise")
+        rospy.loginfo("SetTask.initialisation(): Wait 20s for the hand to initialise")
         rospy.sleep(20.0)
-        rospy.loginfo("Task.initialisation(): Init done")
+        rospy.loginfo("SetTask.initialisation(): Init done")
         self.exec_thread = None
 
     @abc.abstractmethod
