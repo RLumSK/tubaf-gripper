@@ -217,6 +217,7 @@ class SetTask(object):
         rospy.loginfo("SetTask.start():")
         self.run_as_process(SetTask.perform)
 
+
 if __name__ == '__main__':
     rospy.init_node("Task")
     obj = SetTask()

@@ -106,14 +106,13 @@ class WlanSetTask(autonomy.Task.SetTask):
 
         self.exec_thread = None
 
-
     def start(self):
         """
         Start the wlan set task
         :return: -
         :rtype: -
         """
-        rospy.loginfo("SetTask.start():")
+        rospy.loginfo("WlanSetTask.start():")
         self.run_as_process(WlanSetTask.perform)
 
 if __name__ == '__main__':
