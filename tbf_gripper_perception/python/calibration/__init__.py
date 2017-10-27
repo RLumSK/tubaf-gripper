@@ -28,13 +28,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import rospy
-import autonomy.CalibrationCameraEEMoveTask
+"""@package cluster_analysis
+This package stores calibration computations
+@author: Steve Grehl
+"""
 
-if __name__ == '__main__':
-    rospy.init_node("calib_camera_ee_transformation",  log_level=rospy.INFO)
-    arm_task = autonomy.CalibrationCameraEEMoveTask()
-    while not rospy.is_shutdown():
-        arm_task.start()
-        arm_task.getEEtransformation()
-        rospy.sleep(2.)
+from CalibrationCameraEEComputation import *

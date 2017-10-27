@@ -4,7 +4,7 @@
   <description>ROS packages, driver, and nodes for the TUBAF Gripper</description>
   <maintainer email="Steve.Grehl@informatik.tu-freiberg.de">Steve Grehl</maintainer>
   <license>BSD</license>
-  <url type="website">http://miningrox.informatik.tu-freiberg.de</url>
+  <url type="website">aridua.tu-freiberg.de</url>
 
   <buildtool_depend>catkin</buildtool_depend>
   <run_depend>tbf_gripper_hand</run_depend>

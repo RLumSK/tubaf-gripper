@@ -29,12 +29,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
-import autonomy.CalibrationCameraEEMoveTask
+import calibration.CalibrationCameraEEComputation
 
 if __name__ == '__main__':
-    rospy.init_node("calib_camera_ee_transformation",  log_level=rospy.INFO)
-    arm_task = autonomy.CalibrationCameraEEMoveTask()
-    while not rospy.is_shutdown():
-        arm_task.start()
-        arm_task.getEEtransformation()
-        rospy.sleep(2.)
+    rospy.init_node("calib_camera_ee_computation",  log_level=rospy.DEBUG)
+    ccc = calibration.CalibrationCameraEEComputation()

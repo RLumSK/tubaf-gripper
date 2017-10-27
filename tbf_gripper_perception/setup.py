@@ -4,10 +4,10 @@
 from distutils.core import setup
 from catkin_pkg.python_setup import generate_distutils_setup
 
-d = generate_distutils_setup(
-#    scripts=['scripts/marker_reg.py', 'scripts/model_tracker.py', 'scripts/rot_test.py', 'scripts/pl_interface.py'],
-    packages=['cluster_analysis'],
+# fetch values from package.xml
+setup_args = generate_distutils_setup(
+    packages=['cluster_analysis', 'calibration'],
     package_dir={'': 'python'}
 )
 
-setup(**d)
+setup(**setup_args)
