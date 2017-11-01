@@ -29,6 +29,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
+import numpy as np
 import autonomy.CalibrationCameraEEMoveTask
 import calibration.CalibrationCameraEEComputation
 from geometry_msgs.msg import PoseStamped, Pose
@@ -76,8 +77,17 @@ if __name__ == '__main__':
             computation.get_checkerboard_pose()  # set_Po
             computation.set_transformation()     # set_Pe
             computation.compute()                # calculate Pc, Pw
+            if computation.Pc is None or computation.Pw is None:
+                rospy.loginfo("Calibrate_camera_end_effector_transformation.py: either Pc or Pw wasn't computed")
+                continue
             rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pc\n"+str(computation.Pc))
+            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pc) = "+str(np.linalg.det(computation.Pc)))
             rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pw\n"+str(computation.Pw))
+            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pw) = "+str(np.linalg.det(computation.Pw)))
+            # Orthogonale Matrizen, deren Determinante eins ist, entsprechen Drehungen. Man spricht dann auch von einer
+            # eigentlich orthogonalen Matrix. Orthogonale Matrizen, deren Determinante minus eins ist, stellen
+            # Drehspiegelungen dar. Man spricht dann auch von einer uneigentlich orthogonalen Matrix.
+
         except Exception as ex:
             rospy.logerr("Calibrate_camera_end_effector_transformation.py: Error during computation "
                          "\n" + ex.message)
@@ -85,6 +95,7 @@ if __name__ == '__main__':
             ps = PoseStamped()
             ps.header.stamp = computation.ts
             ps.header.frame_id = camera_frame
+
             ps.pose = matrix_to_pose(computation.Pc)
             pub_camera.publish(ps)
             ps.header.frame_id = base_frame

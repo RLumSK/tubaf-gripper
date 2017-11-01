@@ -29,7 +29,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-
+import rospy
 # sudo pip install numpy numpy-quaternion
 
 """ @DirectLinearTransformation
@@ -45,7 +45,7 @@ class DirectLinearTransformation(object):
     The public static functions however are generic and may be used for other purposes.
     """
 
-    def __init__(self, Pe0, Po0, Pe1, Po1):
+    def __init__(self, lst_Pe, lst_Po):
         """
         construct the optimal camera transformation problem with a end effector pose and object pose
         :param Pe: end effector pose
@@ -53,24 +53,29 @@ class DirectLinearTransformation(object):
         :param Po: object pose
         :type Po: numpy.matrix
         """
-        self.Pe0 = Pe0
-        self.Po0 = Po0
-        self.Pe1 = Pe1
-        self.Po1 = Po1
-        self.A0 = DirectLinearTransformation.__createA(self.Pe0, self.Po0)
-        self.A1 = DirectLinearTransformation.__createA(self.Pe1, self.Po1)
-        self.An = DirectLinearTransformation.normMatrix(np.matrix(np.concatenate((self.A0, self.A1), 0)))
-        self.v = DirectLinearTransformation.solveSVD(self.An)
-        self.Pc = self.extractCameraPose(self.v)
-        self.Pw = self.extractWorldPose(self.v)
-        Cr, Ct = DirectLinearTransformation.orthogonalR(self.Pc[0:3, 0:3], self.Pc[0:3, 3])
-        self.Pc = np.diag(np.ones(4))
-        self.Pc[0:3, 0:3] = Cr
-        self.Pc[0:3, 3] = Ct
-        Wr, Wt = DirectLinearTransformation.orthogonalR(self.Pw[0:3, 0:3], self.Pw[0:3, 3])
-        self.Pw = np.diag(np.ones(4))
-        self.Pw[0:3, 0:3] = Wr
-        self.Pw[0:3, 3] = Wt
+        self.At = list()
+        self.A = []
+        for i in range(0, len(lst_Pe)-1):
+            Ai = DirectLinearTransformation.__createA(lst_Pe[i], lst_Po[i])
+            if i == 0:
+                self.A = Ai
+            else:
+                self.A = DirectLinearTransformation.normMatrix(np.matrix(np.concatenate((self.A, Ai), 0)))
+        self.v = DirectLinearTransformation.solveSVD(self.A)
+        if self.v is None:
+            self.Pc = None
+            self.Pw = None
+        else:
+            self.Pc = self.extractCameraPose(self.v)
+            self.Pw = self.extractWorldPose(self.v)
+            Cr, Ct = DirectLinearTransformation.orthogonalR(self.Pc[0:3, 0:3], self.Pc[0:3, 3])
+            self.Pc = np.diag(np.ones(4))
+            self.Pc[0:3, 0:3] = Cr
+            self.Pc[0:3, 3] = Ct
+            Wr, Wt = DirectLinearTransformation.orthogonalR(self.Pw[0:3, 0:3], self.Pw[0:3, 3])
+            self.Pw = np.diag(np.ones(4))
+            self.Pw[0:3, 0:3] = Wr
+            self.Pw[0:3, 3] = Wt
 
     def extractCameraPose(self, v):
         """
@@ -143,8 +148,17 @@ class DirectLinearTransformation(object):
         :return: vector that solves the problem with min error
         :rtype: numpy.array
         """
+        rank = np.linalg.matrix_rank(A)
+        if rank < A.shape[1]:
+            rospy.logwarn("DirectLinearTransformation.solveSVD(): rank(A) = " + str(rank) +
+                          " < A.shape="+str(A.shape))
+            return None
+        rospy.loginfo("DirectLinearTransformation.solveSVD(): rank(A) = " + str(rank) +
+                          " < A.shape="+str(A.shape))
         (U, S, V) = np.linalg.svd(A)
         min_i = np.argmin(S)
+        rospy.loginfo("DirectLinearTransformation.solveSVD(): x = \n" + str(V[:, min_i]))
+        rospy.loginfo("DirectLinearTransformation.solveSVD(): x_n = \n" + str(V[:, min_i]/V[-1, min_i]))
         return V[:, min_i]/V[-1, min_i]
 
     @staticmethod
