@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="camera_calib_ee" pkg="tbf_gripper_tools" type="calib_camera_ee_task.py" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_tools)/config/camera_calib_ee_task.yaml" />
+  </node>
+</launch>

@@ -96,7 +96,9 @@ class MoveTask(object):
         self.j_arm_acceleration = rospy.get_param("~joint_acceleration", 5.0)
 
         #  wait for publisher to start/initialize
-        rospy.sleep(2.)
+        # rospy.loginfo("MoveTask(): TEST")
+        # rospy.sleep(.5)
+        # rospy.loginfo("MoveTask(): TEST")
 
     def initialise(self):
         """
@@ -121,6 +123,8 @@ class MoveTask(object):
         """
         if self.exec_thread is not None:
             rospy.logwarn("MoveTask.run_as_process() self.exec_thread=%s", self.exec_thread)
+            rospy.sleep(.5)
+            self.run_as_process(function)
             return
         self.exec_thread = thread.start_new_thread(function, (self,))
 

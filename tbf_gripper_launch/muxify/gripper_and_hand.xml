@@ -8,14 +8,14 @@
     <layout>
       cd
     </layout>
-    <cmd pane="c">roslaunch julius ur5_modern_plain_driver.launch</cmd>
-    <cmd pane="d">roslaunch julius moveit.launch</cmd>
+    <cmd pane="c">roslaunch julius_base ur5_modern_plain_driver.launch</cmd>
+    <cmd pane="d">roslaunch julius_moveit moveit.launch</cmd>
   </window>
   <window name="hand" directory="~">
     <layout>
       ab
     </layout>
-    <cmd pane="a">roslaunch julius robotiq_hand.launch</cmd>
+    <cmd pane="a">roslaunch julius_base robotiq_hand.launch</cmd>
     <cmd pane="b">sleep 1;roslaunch tbf_gripper_autonomy hand.launch</cmd>
   </window>
   <window name="skript" directory="~">

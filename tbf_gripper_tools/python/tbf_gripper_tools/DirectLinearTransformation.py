@@ -48,12 +48,11 @@ class DirectLinearTransformation(object):
     def __init__(self, lst_Pe, lst_Po):
         """
         construct the optimal camera transformation problem with a end effector pose and object pose
-        :param Pe: end effector pose
-        :type Pe: numpy.matrix
-        :param Po: object pose
-        :type Po: numpy.matrix
+        :param lst_Pe: list of end effector pose
+        :type lst_Pe: list
+        :param lst_Po: list of object pose
+        :type lst_Po: list
         """
-        self.At = list()
         self.A = []
         for i in range(0, len(lst_Pe)-1):
             Ai = DirectLinearTransformation.__createA(lst_Pe[i], lst_Po[i])
@@ -156,6 +155,7 @@ class DirectLinearTransformation(object):
         rospy.loginfo("DirectLinearTransformation.solveSVD(): rank(A) = " + str(rank) +
                           " < A.shape="+str(A.shape))
         (U, S, V) = np.linalg.svd(A)
+        DirectLinearTransformation.debug_print(U, S, V)
         min_i = np.argmin(S)
         rospy.loginfo("DirectLinearTransformation.solveSVD(): x = \n" + str(V[:, min_i]))
         rospy.loginfo("DirectLinearTransformation.solveSVD(): x_n = \n" + str(V[:, min_i]/V[-1, min_i]))

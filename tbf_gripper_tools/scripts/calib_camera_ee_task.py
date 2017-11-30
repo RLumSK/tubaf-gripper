@@ -32,8 +32,8 @@ import rospy
 import autonomy.CalibrationCameraEEMoveTask
 
 if __name__ == '__main__':
-    rospy.init_node("calib_camera_ee_transformation",  log_level=rospy.INFO)
-    arm_task = autonomy.CalibrationCameraEEMoveTask()
+    rospy.init_node("calib_camera_ee_transformation",  log_level=rospy.DEBUG)
+    arm_task = autonomy.CalibrationCameraEEMoveTask.CalibrationCameraEEMoveTask()
     while not rospy.is_shutdown():
         arm_task.start()
         arm_task.getEEtransformation()

@@ -12,10 +12,10 @@
       fgee
     </layout>
     <cmd pane="f">roscore</cmd>
-    <cmd pane="c">roslaunch --wait julius description.launch</cmd>
-    <cmd pane="d">sleep 2;roslaunch --wait julius joint_state_pub.launch</cmd>
+    <cmd pane="c">roslaunch --wait julius_base description.launch</cmd>
+    <cmd pane="d">sleep 2;roslaunch --wait julius_base joint_state_pub.launch</cmd>
     <cmd pane="g">sleep 2;roslaunch --wait tbf_gripper_launch v_ur5_julius_ros_control.launch</cmd>
-    <cmd pane="a">sleep 4;roslaunch --wait julius moveit.launch</cmd>
+    <cmd pane="a">sleep 4;roslaunch --wait julius_moveit moveit.launch</cmd>
     <cmd pane="b">sleep 6;roslaunch --wait julius_moveit moveit_rviz.launch</cmd>
 
   </window>
@@ -23,7 +23,7 @@
     <layout>
       a
     </layout>
-    <cmd pane="a">roslaunch --wait julius robotiq_hand</cmd>
+    <cmd pane="a">roslaunch --wait julius_base robotiq_hand</cmd>
   </window>
 
 

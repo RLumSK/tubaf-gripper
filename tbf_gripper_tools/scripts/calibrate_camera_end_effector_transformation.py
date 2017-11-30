@@ -39,15 +39,31 @@ from pyquaternion import Quaternion
 def matrix_to_pose(matrix):
     rospy.logdebug("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: matrix.shape = "+str(matrix.shape))
     ret_pose = Pose()
-    q = Quaternion(matrix=matrix[0:3, 0:3])
-    ret_pose.orientation.w = q.real
-    ret_pose.orientation.x = q.imaginary[0]
-    ret_pose.orientation.y = q.imaginary[1]
-    ret_pose.orientation.z = q.imaginary[2]
-    ret_pose.position.x = matrix[0, 3]
-    ret_pose.position.y = matrix[1, 3]
-    ret_pose.position.z = matrix[2, 3]
+    if np.linalg.det(matrix[0:3, 0:3]) == -1.0:
+        #  http://www.mathe-lerntipps.de/geometrie/symmetrieverhalten.html
+        #  -1 = Drehspieglung -> bedeutet Rotation, dann Inversion
+        #  Da die Matrix orthogonal ist gilt: Inverse = Transponierte
+        #  --> Umkehrung der Invertierung
+        matrix[0:3, 0:3] = matrix[0:3, 0:3].transpose()
 
+    rospy.loginfo("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: TEST ")
+    try:
+        q = Quaternion(matrix=matrix[0:3, 0:3])
+        rospy.loginfo("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: TEST ")
+        ret_pose.orientation.w = q.real
+        ret_pose.orientation.x = q.imaginary[0]
+        ret_pose.orientation.y = q.imaginary[1]
+        ret_pose.orientation.z = q.imaginary[2]
+        rospy.loginfo("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: TEST ")
+        ret_pose.position.x = matrix[0, 3]
+        ret_pose.position.y = matrix[1, 3]
+        ret_pose.position.z = matrix[2, 3]
+    except Exception as ex:
+        rospy.logerr("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: Error during pose convertion " +
+                     str(ex.__class__) +
+                     "\n" + ex.message)
+        rospy.loginfo("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: det() = "+str(np.linalg.det(matrix[0:3, 0:3])))
+        return None
     return ret_pose
 
 
@@ -63,7 +79,6 @@ if __name__ == '__main__':
 
     task = autonomy.CalibrationCameraEEMoveTask.CalibrationCameraEEMoveTask()
     computation = calibration.CalibrationCameraEEComputation()
-
     task.start()
     #  wait till arm reached position
     rospy.sleep(5.)
@@ -80,17 +95,17 @@ if __name__ == '__main__':
             if computation.Pc is None or computation.Pw is None:
                 rospy.loginfo("Calibrate_camera_end_effector_transformation.py: either Pc or Pw wasn't computed")
                 continue
-            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pc\n"+str(computation.Pc))
-            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pc) = "+str(np.linalg.det(computation.Pc)))
-            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pw\n"+str(computation.Pw))
-            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pw) = "+str(np.linalg.det(computation.Pw)))
-            # Orthogonale Matrizen, deren Determinante eins ist, entsprechen Drehungen. Man spricht dann auch von einer
-            # eigentlich orthogonalen Matrix. Orthogonale Matrizen, deren Determinante minus eins ist, stellen
-            # Drehspiegelungen dar. Man spricht dann auch von einer uneigentlich orthogonalen Matrix.
 
         except Exception as ex:
             rospy.logerr("Calibrate_camera_end_effector_transformation.py: Error during computation "
                          "\n" + ex.message)
+            # rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pc\n"+str(computation.Pc))
+            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pc) = "+str(np.linalg.det(computation.Pc)))
+            # rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pw\n"+str(computation.Pw))
+            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pw) = "+str(np.linalg.det(computation.Pw)))
+            # Orthogonale Matrizen, deren Determinante eins ist, entsprechen Drehungen. Man spricht dann auch von einer
+            # eigentlich orthogonalen Matrix. Orthogonale Matrizen, deren Determinante minus eins ist, stellen
+            # Drehspiegelungen dar. Man spricht dann auch von einer uneigentlich orthogonalen Matrix.
         try:
             ps = PoseStamped()
             ps.header.stamp = computation.ts
@@ -104,4 +119,11 @@ if __name__ == '__main__':
         except Exception as ex:
             rospy.logerr("Calibrate_camera_end_effector_transformation.py: Error during PoseStamped "
                          "transformation:\n"+ex.message)
+            # rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pc\n"+str(computation.Pc))
+            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pc) = "+str(np.linalg.det(computation.Pc)))
+            # rospy.loginfo("Calibrate_camera_end_effector_transformation.py: Pw\n"+str(computation.Pw))
+            rospy.loginfo("Calibrate_camera_end_effector_transformation.py: det(Pw) = "+str(np.linalg.det(computation.Pw)))
+            # Orthogonale Matrizen, deren Determinante eins ist, entsprechen Drehungen. Man spricht dann auch von einer
+            # eigentlich orthogonalen Matrix. Orthogonale Matrizen, deren Determinante minus eins ist, stellen
+            # Drehspiegelungen dar. Man spricht dann auch von einer uneigentlich orthogonalen Matrix.
     rospy.spin()

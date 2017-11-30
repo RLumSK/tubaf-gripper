@@ -94,7 +94,7 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("EndEffectorMoveTask.start():")
+        rospy.loginfo("CalibrationCameraEEMoveTask.start():")
         self.run_as_process(CalibrationCameraEEMoveTask._perform)
 
 if __name__ == '__main__':
