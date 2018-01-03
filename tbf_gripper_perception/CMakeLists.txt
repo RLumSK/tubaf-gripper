@@ -140,6 +140,8 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   )
+
+add_compile_options(-std=c++11)
 add_executable(surface_matching src/surface_matching.cpp)
 add_executable(icp_matching src/icp_matching.cpp)
 add_library(objectsearch src/drostobjectsearch.cpp src/cvicpobjectsearch.cpp src/pclicpobjectsearch.cpp src/icpobjectsearch.cpp src/objectsearch.cpp)

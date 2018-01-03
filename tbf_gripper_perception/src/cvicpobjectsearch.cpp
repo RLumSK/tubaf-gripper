@@ -52,7 +52,7 @@ if(pcl_msg.data.empty())
 //  double 	pose[16]
 //  )
   double residual;
-  double pose[16];
+  cv::Matx44d pose;
   // From: http://docs.opencv.org/trunk/dc/d9b/classcv_1_1ppf__match__3d_1_1ICP.html#accd9744cedf9cd9cd175d2c5bd77951e
   // It is assumed that the model is registered on the scene. Scene remains static, while the model transforms.
   // The output poses transform the models onto the scene. Because of the point to plane minimization,
@@ -71,13 +71,13 @@ if(pcl_msg.data.empty())
          );
 
 
-  ROS_INFO_STREAM("[CvIcpObjectSearch::pcl_callback()] " << " ICP finised" << endl <<
-                  "retValue: " << retValue << " Residual: "<< residual << endl <<
-                  "pose:\t" << pose[0] << " "<< pose[1] << " "<< pose[2] << " "<< pose[3] << endl <<
-                  "pose:\t" << pose[4] << " "<< pose[5] << " "<< pose[6] << " "<< pose[7] << endl <<
-                  "pose:\t" << pose[8] << " "<< pose[9] << " "<< pose[10] << " "<< pose[11] << endl <<
-                  "pose:\t" << pose[12] << " "<< pose[13] << " "<< pose[14] << " "<< pose[15] << endl
-                  );
+//  ROS_INFO_STREAM("[CvIcpObjectSearch::pcl_callback()] " << " ICP finised" << endl <<
+//                  "retValue: " << retValue << " Residual: " << residual << endl <<
+//                  "pose:\t" << pose.val[0, 0] << " "<< pose.val[0, 1] << " "<< pose.val[0, 2] << " "<< pose.val[0, 3] << endl <<
+//                  "pose:\t" << pose.val[1, 0] << " "<< pose.val[1, 1] << " "<< pose.val[1, 2] << " "<< pose.val[1, 3] << endl <<
+//                  "pose:\t" << pose.val[2, 0] << " "<< pose.val[2, 1] << " "<< pose.val[2, 2] << " "<< pose.val[2, 3] << endl <<
+//                  "pose:\t" << pose.val[3, 0] << " "<< pose.val[3, 1] << " "<< pose.val[3, 2] << " "<< pose.val[3, 3] << endl
+//                  );
 
   ObjectSearch::publish_pose(pcl_msg, pose, true);
 

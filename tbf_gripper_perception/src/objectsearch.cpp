@@ -80,8 +80,15 @@ void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::
     ObjectSearch::publish_pose(pcl_msg, pose, invert);
     ROS_INFO_STREAM("[ObjectSearch::publish_pose()]" << " finished");
 }
-void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation, bool invert){
+void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const double* affine_transformation, bool invert){
     geometry_msgs::Pose pose;
     HelperFunctions::double16_to_pose(affine_transformation, pose);
+    ObjectSearch::publish_pose(pcl_msg, pose, invert);
+}
+
+void ObjectSearch::publish_pose(const sensor_msgs::PointCloud2& pcl_msg, cv::Matx44d& mat44, bool invert){
+    geometry_msgs::Pose pose;
+    cv::Mat mat(mat44);
+    HelperFunctions::cvMat_to_pose(mat, pose);
     ObjectSearch::publish_pose(pcl_msg, pose, invert);
 }

@@ -11,6 +11,7 @@
 
 //OpenCV
 #include "opencv2/surface_matching/ppf_helpers.hpp"
+#include "opencv2/core/matx.hpp"
 
 #include <tbf_gripper_tools/helperfunctions.h>
 
@@ -68,7 +69,8 @@ public:
    */
   void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const geometry_msgs::Pose& pose, bool invert=false);
   void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, Eigen::Matrix4f& transformation, bool invert=false);
-  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* affine_transformation, bool invert=false);
+  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, const double* affine_transformation, bool invert=false);
+  void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, cv::Matx44d& mat, bool invert=false);
  // void publish_pose(const sensor_msgs::PointCloud2& pcl_msg, double* position, double* quaternion, bool invert=false);
 
 

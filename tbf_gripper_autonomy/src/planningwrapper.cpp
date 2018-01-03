@@ -23,7 +23,7 @@ PlanningWrapper::PlanningWrapper():
 
   this->robot_model_loader = new robot_model_loader::RobotModelLoader(robot_description);
   this->kinematic_model = this->robot_model_loader->getModel();
-  this->planning_scene = boost::make_shared<planning_scene::PlanningScene>(this->kinematic_model);
+  this->planning_scene = std::make_shared<planning_scene::PlanningScene>(this->kinematic_model);
   this->update_current_state();
   this->group_name = group_name;
   this->eef_group_name= eef_group_name;

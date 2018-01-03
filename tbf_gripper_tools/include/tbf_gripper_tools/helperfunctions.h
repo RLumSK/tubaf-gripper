@@ -132,6 +132,13 @@ static void cvMat_to_pointcloud(const cv::Mat& pcl, sensor_msgs::PointCloud2& ms
 static void eigenMatrix4f_to_pose(const Eigen::Matrix4f& mat, geometry_msgs::Pose& pose);
 
 /** Convert a transformation stated in affine coordinates into a ROS pose
+ * @brief Matx44d to ROS pose
+ * @param Matx44d a 4x4 matrix of an affine transformation
+ * @param pose output of the ROS pose
+ */
+static void cvMat_to_pose(cv::Mat& mat, geometry_msgs::Pose& pose);
+
+/** Convert a transformation stated in affine coordinates into a ROS pose
  * @brief double16_to_pose double[16] to ROS pose
  * @param dbl_array array with 16 doubles refering to 4x4 matrix of an affine transformation
  * @param pose output of the ROS pose

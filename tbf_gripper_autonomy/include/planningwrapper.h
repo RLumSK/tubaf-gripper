@@ -5,6 +5,9 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 
+// Boost
+#include <boost/scoped_ptr.hpp>
+
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_interface/planning_interface.h>

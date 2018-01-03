@@ -191,7 +191,7 @@ shape_msgs::Mesh HelperFunctions::import_model(const string& path)
 }
 
 
-bool HelperFunctions::pointcloud_to_cvMat(const sensor_msgs::PointCloud2 &point_cloud, cv::Mat& pointsAndNormals)
+bool HelperFunctions::pointcloud_to_cvMat(const sensor_msgs::PointCloud2 &point_cloud, CV_OUT cv::Mat& pointsAndNormals)
 {
   ROS_DEBUG_STREAM("DrostObjectSearch::pointcloud_to_cvMat(): " << "Start" << endl);
   // unstructured point cloud
@@ -204,7 +204,7 @@ bool HelperFunctions::pointcloud_to_cvMat(const sensor_msgs::PointCloud2 &point_
   pointsAndNormals = cv::Mat(point_cloud.height* point_cloud.width, 6,CV_32FC1, cv::Scalar(0));
   int num_neighbors = 6;
   bool b_flip_viewpoint = false;
-  const double viewpoint[3] = {0,0,0};
+  const Vec3d viewpoint(0.0,0.0,0.0);
 //  HelperFunctions::debug_print(points, pointsAndNormals);
   //  //ERROR HERE ?
   int retValue = cv::ppf_match_3d::computeNormalsPC3d(points, pointsAndNormals, num_neighbors, b_flip_viewpoint, viewpoint);
@@ -242,6 +242,16 @@ void HelperFunctions::eigenMatrix4f_to_pose(const Eigen::Matrix4f &mat, geometry
   pose.orientation.y = quat.y();
   pose.orientation.z = quat.z();
   pose.orientation.w = quat.w();
+}
+
+void HelperFunctions::cvMat_to_pose(cv::Mat &mat, geometry_msgs::Pose &pose)
+{
+  // https://stackoverflow.com/questions/14783329/opencv-cvmat-and-eigenmatrix?rq=1
+  // Eigen::Map<Eigen::Matrix4f> eigen_mat( mat.data );
+  // Map the OpenCV matrix with Eigen:
+  Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> eigen_mat(mat.ptr<float>(), mat.rows, mat.cols);
+
+  HelperFunctions::eigenMatrix4f_to_pose(eigen_mat, pose);
 }
 
 void HelperFunctions::double16_to_pose(const double *dbl_array, geometry_msgs::Pose &pose)

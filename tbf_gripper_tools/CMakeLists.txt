@@ -37,6 +37,7 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
+add_compile_options(-std=c++11)
 add_executable(mesh_importer src/mesh_importer.cpp)
 add_library(helperfunctions src/helperfunctions.cpp)
 target_link_libraries(helperfunctions ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES})

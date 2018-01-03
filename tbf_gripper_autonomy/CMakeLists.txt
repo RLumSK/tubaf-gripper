@@ -42,7 +42,7 @@ catkin_package(
 )
 
 find_package(Eigen REQUIRED)
-
+add_compile_options(-std=c++11)
 include_directories(include ${catkin_INCLUDE_DIRS})
 #add_library(planningwrapper src/planningwrapper.cpp)
 add_executable(planning src/planning.cpp src/planningwrapper.cpp)
