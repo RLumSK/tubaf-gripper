@@ -35,8 +35,8 @@ import rospkg
 import argparse
 
 from qt_gui.plugin import Plugin
-from python_qt_binding import loadUi, QtCore, QtGui
-from python_qt_binding.QtGui import QWidget
+from python_qt_binding import loadUi, QtCore, QtWidgets
+from python_qt_binding.QtWidgets import QWidget
 
 from robotiq_s_model_control.msg import SModel_robot_input  as inputMsg
 from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
@@ -113,7 +113,7 @@ class RobotiqHand(Plugin):
         self._wdg_fingerS.lbl_fingerID.setText('Finger S')
 
         #setup buttongroup for the grasping mode
-        bg_rMOD = QtGui.QButtonGroup(self._wdg_main)
+        bg_rMOD = QtWidgets.QButtonGroup(self._wdg_main)
         bg_rMOD.addButton(self._wdg_main.rb_basic)
         bg_rMOD.addButton(self._wdg_main.rb_pinch)
         bg_rMOD.addButton(self._wdg_main.rb_wide)
@@ -123,9 +123,9 @@ class RobotiqHand(Plugin):
         bg_rMOD.setId(self._wdg_main.rb_wide, 2)
         bg_rMOD.setId(self._wdg_main.rb_scissor, 3)
 
-        mainLayout = QtGui.QVBoxLayout(self._widget)
-        fingerLayout = QtGui.QHBoxLayout()
-        topicLayout = QtGui.QHBoxLayout()
+        mainLayout = QtWidgets.QVBoxLayout(self._widget)
+        fingerLayout = QtWidgets.QHBoxLayout()
+        topicLayout = QtWidgets.QHBoxLayout()
 
         fingerLayout.addWidget(self._wdg_fingerA)
         fingerLayout.addWidget(self._wdg_fingerB)
@@ -133,12 +133,12 @@ class RobotiqHand(Plugin):
         fingerLayout.addWidget(self._wdg_fingerS)
 
         # Set up the ComboBox for the topics
-        self._lbl_subtopic = QtGui.QLabel("Subscribe to: ")
-        self._cb_subTopic = QtGui.QComboBox()
-        self._btn_refreshSubscriber = QtGui.QPushButton("refresh")
-        self._lbl_pubTopic = QtGui.QLabel("Publish at: ")
-        self._le_pubTopic = QtGui.QLineEdit("/hand/SModelRobotOutput")
-        self._btn_newPublisher = QtGui.QPushButton("set")
+        self._lbl_subtopic = QtWidgets.QLabel("Subscribe to: ")
+        self._cb_subTopic = QtWidgets.QComboBox()
+        self._btn_refreshSubscriber = QtWidgets.QPushButton("refresh")
+        self._lbl_pubTopic = QtWidgets.QLabel("Publish at: ")
+        self._le_pubTopic = QtWidgets.QLineEdit("/hand/SModelRobotOutput")
+        self._btn_newPublisher = QtWidgets.QPushButton("set")
 
         self.actualize_topic_list()
 
@@ -173,9 +173,11 @@ class RobotiqHand(Plugin):
         self._connectQtAndFingerModel(self._wdg_fingerC, self.model.mdl_fingerC)
         self._connectQtAndFingerModel(self._wdg_fingerS, self.model.mdl_fingerS)
         self._connectQtAndHandModel(self._wdg_main, self.model)
-        self._widget.connect(bg_rMOD, QtCore.SIGNAL('buttonClicked(int)'), self.model.onMODChanged)
+        # old: deprechated since PyQt5
+        # self._widget.connect(bg_rMOD, QtCore.SIGNAL('buttonClicked(int)'), self.model.onMODChanged)
+        bg_rMOD.buttonClicked.connect(self.model.onMODChanged)
 
-        #add intersction logic
+        #add interaction logic
         self._wdg_main.chk_rACT.stateChanged.connect(self._wdg_fingerA.setEnabled)
         self._wdg_main.chk_rICF.stateChanged.connect(self._wdg_fingerB.setEnabled)
         self._wdg_main.chk_rICF.stateChanged.connect(self._wdg_fingerC.setEnabled)
