@@ -78,6 +78,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.loginfo("WlanSetTask.perform(): Move to Station on top of the Robot starting at HOME position")
         # Move to Station on top of the Robot starting at HOME position
         self.move_wait(self.waypoints["home_pose"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
+        rospy.loginfo("WlanSetTask.perform(): Opening hand ...")
         self.hand_controller.openHand()
         self.move_wait(self.waypoints["pre_grasp"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
         self.move_wait(self.waypoints["grasp"], v=self.l_arm_speed, a=self.l_arm_acceleration, move_cmd="movel")
@@ -115,8 +116,9 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.loginfo("WlanSetTask.start():")
         self.run_as_process(WlanSetTask.perform)
 
+
 if __name__ == '__main__':
-    rospy.init_node("WlanSetTask")
+    rospy.init_node("WlanSetTask", log_level=rospy.DEBUG)
     obj = None
     for i in range(1, 4):
         if obj is None or obj.exec_thread is None:
