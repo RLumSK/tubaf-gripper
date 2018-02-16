@@ -1,0 +1,22 @@
+<muxify>
+  <!--
+    script to start the ROS nodes for communication with a virtual machine of the UR5
+
+  -->
+  <session name="Nodes" mode="o" size="240x60"/>
+  <window name="Nodes" directory="~">
+    <layout>
+      abee
+      cdee
+      ffgg
+      ffgg
+    </layout>
+    <cmd pane="a">roscore</cmd>
+    <cmd pane="b">roslaunch --wait julius_base description_planning.launch</cmd>
+    <cmd pane="c">sleep 2;roslaunch julius_base joint_state_pub.launch</cmd>
+    <cmd pane="e">sleep 4;roslaunch julius_base simulation_ur5_driver.launch</cmd>
+    <cmd pane="f">roslaunch --wait julius_base robotiq_hand.launch</cmd>
+    <cmd pane="g">sleep 10;roslaunch --wait tbf_gripper_tools wlan_set_demo.launch</cmd>
+
+  </window>
+</muxify>
