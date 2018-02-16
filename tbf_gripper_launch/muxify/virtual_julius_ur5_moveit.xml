@@ -6,25 +6,22 @@
   <session name="vjur5" mode="o" size="240x60"/>
   <window name="vjur5" directory="~">
     <layout>
-      aabb
-      aabb
-      cdee
-      fgee
+      aabc
+      ddef
     </layout>
-    <cmd pane="f">roscore</cmd>
-    <cmd pane="c">roslaunch --wait julius_base description.launch</cmd>
-    <cmd pane="d">sleep 2;roslaunch --wait julius_base joint_state_pub.launch</cmd>
-    <cmd pane="g">sleep 2;roslaunch --wait tbf_gripper_launch v_ur5_julius_ros_control.launch</cmd>
-    <cmd pane="a">sleep 4;roslaunch --wait julius_moveit moveit.launch</cmd>
-    <cmd pane="b">sleep 6;roslaunch --wait julius_moveit moveit_rviz.launch</cmd>
+    <cmd pane="a">roscore</cmd>
+    <cmd pane="b">roslaunch --wait julius_base description_planning.launch</cmd>
+    <cmd pane="c">sleep 2;roslaunch --wait julius_base joint_state_pub.launch</cmd>
+    <cmd pane="d">sleep 4;roslaunch --wait julius_base simulation_ur5_driver.launch</cmd>
+    <cmd pane="e">sleep 6;roslaunch --wait julius_moveit move_group.launch</cmd>
+    <cmd pane="f" noexec="true">roslaunch --wait julius_moveit moveit_rviz.launch</cmd>
 
   </window>
+   
   <window name="hand" directory="~">
     <layout>
       a
     </layout>
-    <cmd pane="a">roslaunch --wait julius_base robotiq_hand</cmd>
-  </window>
-
-
+    <cmd pane="a" noexec="true">roslaunch --wait julius_base robotiq_hand</cmd>
+  </window> 
 </muxify>
