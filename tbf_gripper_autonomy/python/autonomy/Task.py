@@ -136,7 +136,7 @@ class MoveTask(object):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("MoveTask.on_joint_states(): received jopint states: %s", js)
+        # rospy.logdebug("MoveTask.on_joint_states(): received jopint states: %s", js)
         if time.time() - self.last_time > 0.02:
             pp = list(js.position)
 
