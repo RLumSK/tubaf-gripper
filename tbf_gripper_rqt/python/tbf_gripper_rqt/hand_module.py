@@ -118,10 +118,15 @@ class RobotiqHand(Plugin):
         bg_rMOD.addButton(self._wdg_main.rb_pinch)
         bg_rMOD.addButton(self._wdg_main.rb_wide)
         bg_rMOD.addButton(self._wdg_main.rb_scissor)
-        bg_rMOD.setId(self._wdg_main.rb_basic, 0)
-        bg_rMOD.setId(self._wdg_main.rb_pinch, 1)
-        bg_rMOD.setId(self._wdg_main.rb_wide, 2)
-        bg_rMOD.setId(self._wdg_main.rb_scissor, 3)
+
+        self._wdg_main.rb_basic.id   = 0
+        self._wdg_main.rb_pinch.id   = 1
+        self._wdg_main.rb_wide.id    = 2
+        self._wdg_main.rb_scissor.id = 3
+        # bg_rMOD.setId(self._wdg_main.rb_basic, 0)
+        # bg_rMOD.setId(self._wdg_main.rb_pinch, 1)
+        # bg_rMOD.setId(self._wdg_main.rb_wide, 2)
+        # bg_rMOD.setId(self._wdg_main.rb_scissor, 3)
 
         mainLayout = QtWidgets.QVBoxLayout(self._widget)
         fingerLayout = QtWidgets.QHBoxLayout()
@@ -454,8 +459,9 @@ class RobotiqHandModel(QtCore.QObject):
         @param obj: refers to rMOD
         @return: None
         """
-        # rospy.logwarn("hand_module.py@RobotiqHandModel.onMODChanged(): newValue="+str(obj)+" type:"+str(type(obj)))
-        self.rMOD = obj
+        # rospy.logwarn("hand_module.py@RobotiqHandModel.onMODChanged(): obj="+str(obj)+" type:"+str(type(obj)))
+        self.rMOD = obj.id
+        # rospy.logwarn("hand_module.py@RobotiqHandModel.onMODChanged(): self.rMOD="+str(self.rMOD)+" type:"+str(type(self.rMOD)))
         self.sendROSMessage()
 
     @QtCore.Slot(int)

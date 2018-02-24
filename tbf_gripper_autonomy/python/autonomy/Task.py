@@ -136,7 +136,7 @@ class MoveTask(object):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("MoveTask.on_joint_states(): received jopint states: %s", js)
+        # rospy.logdebug("MoveTask.on_joint_states(): received jopint states: %s", js)
         if time.time() - self.last_time > 0.02:
             pp = list(js.position)
 
@@ -151,7 +151,7 @@ class MoveTask(object):
             self.cur_pos = np.rad2deg(pp)
             self.last_time = time.time()
 
-    def move_wait(self, pose, goal_tolerance=0.5, v=None, a=None, t=None, move_cmd="movej"):
+    def move_wait(self, pose, goal_tolerance=0.5, v=None, a=None, t=0, r=0, move_cmd="movej"):
         """
         Move a UR5 to a given pose using the URScript interface
         :param pose: target pose as joint values
@@ -164,6 +164,8 @@ class MoveTask(object):
         :type a: double
         :param t: time
         :type t: double
+        :param r: blend radius
+        :type r: double
         :param move_cmd: move command from URScript
         :type move_cmd: str [movej, movel, movep]
         :return: -
@@ -177,6 +179,8 @@ class MoveTask(object):
             program += ", v=%f" % np.deg2rad(v)
         if t is not None:
             program += ", t=%f" % t
+        if t is not None:
+            program += ", r=%f" % r
         program += ")"
         if self.exec_thread is not None:
             self.program_pub.publish(program)

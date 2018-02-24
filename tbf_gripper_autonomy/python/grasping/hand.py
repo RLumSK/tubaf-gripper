@@ -54,7 +54,7 @@ class HandController(object):
         It starts with the hand "rested", meaning closed in basic mode.
         """
         server_name = rospy.get_param("~hand_server_name", "robotiqgripper_action_server")
-        # rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
+        rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
         self.ac = actionlib.SimpleActionClient(server_name, tbf_gripper_hand.msg.RobotiqGripperAction)
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
         self.hand_mode = rospy.get_param("~hand_mode", "basic")
