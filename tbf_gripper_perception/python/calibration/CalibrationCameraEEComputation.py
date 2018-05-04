@@ -34,7 +34,7 @@ import tf
 import shelve, os
 
 from pyquaternion import Quaternion
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 from tbf_gripper_tools import DirectLinearTransformation
 
 
@@ -49,9 +49,12 @@ class CalibrationCameraEEComputation(object):
         self.debug_fn = "/home/grehl/debug/calibration_camera_ee_computation.shelve"
 
         self.listener = tf.TransformListener("ee_move_task_tf_listener")
+        self.ros_transformer = tf.TransformerROS()
         self.base_frame = rospy.get_param("base_frame", "gripper_ur5_base_link")
         self.ee_frame = rospy.get_param("ee_frame", "gripper_ur5_ee_link")
         self.pose_topic = rospy.get_param("marker_pose_topic", "/checkerboard/pose_st")
+        self.dbg_ee_pose_topic = rospy.get_param("ee_pose_topic", "/end_effector/pose_st")
+        self.dbg_publisher = rospy.Publisher(self.dbg_ee_pose_topic, PoseStamped, queue_size=10)
 
         self.ts = -1
 
@@ -60,6 +63,7 @@ class CalibrationCameraEEComputation(object):
 
         self.Pc = np.matrix(np.zeros((4, 4)))
         self.Pw = np.matrix(np.zeros((4, 4)))
+
         rospy.sleep(.5)
 
     def set_transformation(self):
@@ -79,13 +83,33 @@ class CalibrationCameraEEComputation(object):
             #  what():  boost: mutex lock failed in pthread_mutex_lock: Invalid argument
             self.listener.waitForTransform(self.ee_frame, self.base_frame, self.ts, rospy.Duration(10))
             (Pe_trans, Pe_q) = self.listener.lookupTransform(self.ee_frame, self.base_frame, self.ts)  # return [t.x, t.y, t.z], [r.x, r.y, r.z, r.w]
-            q = Quaternion(Pe_q[3], Pe_q[0], Pe_q[1], Pe_q[2])
+            # # https://answers.ros.org/question/190465/from-transform-to-pose/
+            msg_Pe = PoseStamped()
+            msg_Pe.header.frame_id = self.ee_frame
+            msg_Pe.header.stamp = self.ts
+            msg_Pe.pose.position.x = 0
+            msg_Pe.pose.position.y = 0
+            msg_Pe.pose.position.z = 0
+            msg_Pe.pose.orientation.x = 0
+            msg_Pe.pose.orientation.y = 0
+            msg_Pe.pose.orientation.z = 0
+            msg_Pe.pose.orientation.w = 1
+
+            msg_Pe = self.listener.transformPose(self.base_frame, msg_Pe)
+            self.dbg_publisher.publish(msg_Pe)
+
+            q = Quaternion(msg_Pe.pose.orientation.w,
+                           msg_Pe.pose.orientation.x,
+                           msg_Pe.pose.orientation.y,
+                           msg_Pe.pose.orientation.z)
             Pe = np.zeros((4, 4))
             Pe[0:3, 0:3] = q.rotation_matrix
-            Pe[0:3, 3] = np.reshape(Pe_trans, (3))
+            Pe[0, 3] = msg_Pe.pose.orientation.x
+            Pe[1, 3] = msg_Pe.pose.orientation.y
+            Pe[2, 3] = msg_Pe.pose.orientation.z
             Pe[3, 3] = 1
-            self.lst_Pe.append(Pe)
             rospy.logdebug("CameraCalibComputation.set_transformation(): ee transformation\n" + Pe.__str__())
+            return Pe
         except tf.Exception as ex:
             rospy.logerr("CameraCalibComputation.set_transformation(): TF Exception\n" + str(ex))
         except Exception as ex:
@@ -94,10 +118,11 @@ class CalibrationCameraEEComputation(object):
     def get_checkerboard_pose(self):
         """
         Get a single PoseStamped
-        :return: -
-        :rtype: -
+        :return: Current pose
+        :rtype: PoseStamped
         """
         ps = rospy.wait_for_message(self.pose_topic, PoseStamped)
+        rospy.logdebug("CameraCalibComputation.get_checkerboard_pose(): Received Pose: %s", ps)
         self.ts = ps.header.stamp
         q = Quaternion(real=ps.pose.orientation.w, imaginary=(ps.pose.orientation.x, ps.pose.orientation.y,
                                                                 ps.pose.orientation.z))
@@ -105,7 +130,8 @@ class CalibrationCameraEEComputation(object):
         Po = np.zeros((4, 4))
         Po[0:3, 0:3] = q.rotation_matrix
         Po[:, 3] = np.matrix((ps.pose.position.x, ps.pose.position.y, ps.pose.position.z, 1))
-        self.lst_Po.append(Po.transpose())
+        self.lst_Po.append(Po) #  Row major
+        return Po
         # self.Po = CalibrationCameraEEComputation.invertPose(self.Po)
 
     def compute(self):

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="image_topic" default="/gripper_camera/rgb/image_raw" />
+  <arg name="pose_topic" default="/checkerboard/pose_st" />
+  <arg name="camera_info" default="/gripper_camera/rgb/camera_info" />
+
+  <node pkg="tubaf_tools" type="checkerboard_pose_detection.py" name="checkerboard_pose_detection" output="screen">
+      <rosparam file="$(find tubaf_tools)/config/checkerboard.yaml" command ="load" />
+      <param name="image_topic" value="$(arg image_topic)" />
+      <param name="pose_topic" value="$(arg pose_topic)" />
+      <param name="camera_info" value="$(arg camera_info)" />
+  </node>
+
+  <node name="camera_calib_ee" pkg="tbf_gripper_tools" type="pickle_camera_ee_data.py" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_tools)/config/camera_calib_ee_task.yaml" />
+  </node>
+</launch>

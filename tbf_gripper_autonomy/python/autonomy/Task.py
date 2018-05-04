@@ -187,7 +187,7 @@ class MoveTask(object):
         else:
             raise InterruptError("Thread interrupted")
         while True:
-            dst = np.abs(np.subtract(pose, self.cur_pos))
+            dst = np.max(np.subtract(pose, self.cur_pos))
             max_dst = np.max(dst)
             if max_dst < goal_tolerance:
                 break
@@ -195,6 +195,7 @@ class MoveTask(object):
             rospy.logdebug("MoveTask.move_wait():         pose=%s", pose)
             rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
             rospy.sleep(0.02)
+        rospy.logdebug("MoveTask.move_wait(): Reached pose")
 
 
 @six.add_metaclass(abc.ABCMeta)

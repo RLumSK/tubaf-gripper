@@ -50,6 +50,7 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
         self.listener = tf.TransformListener("ee_move_task_tf_listener")
         self.base_frame = rospy.get_param("base_frame", "gripper_ur5_base_link")
         self.ee_frame = rospy.get_param("ee_frame", "gripper_ur5_ee_link")
+        self.is_redundant = False
 
     def _perform(self):
         """
@@ -62,6 +63,7 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
         self.index += 1
         if self.index > len(self.waypoints)-1:
             self.index = 0
+            self.is_redundant = True
         self.exec_thread = None
 
     def getEEtransformation(self):
