@@ -88,7 +88,7 @@ class GcaHand(Plugin):
         ui_file_gca = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'gca.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_gca, self._wdg_main, {'GcaMain': GcaHand})
-        rospy.loginfo("GcaHand,__init__(): Loaded UI")
+        rospy.loginfo("GcaHand.__init__(): Loaded UI")
         # Give QObjects reasonable names
         self._wdg_main.setObjectName('GcaMain')
 
@@ -97,7 +97,6 @@ class GcaHand(Plugin):
         self._wdg_main.btn_refresh.setIcon(QtGui.QIcon(os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'),
                                                                     'resource', 'refresh.png')))
         self._wdg_main.btn_refresh.setIconSize(QtCore.QSize(24, 24))
-        self._wdg_main.cb_service.currentTextChanged.connect(self.actualize_topic_list)
 
         # Show _widget.windowTitle on left-top of each plugin (when
         # it's set in _widget). This is useful when you open multiple
@@ -110,18 +109,25 @@ class GcaHand(Plugin):
         context.add_widget(self._wdg_main)
 
         # initilize model
-        rospy.loginfo("GcaHand,__init__(): Starting Model")
+        rospy.loginfo("GcaHand.__init__(): Starting Model")
         self.model = GcaModel()
-        self._wdg_main.dsb_gl_position.minimum = self.model.min_position
-        self._wdg_main.dsb_gl_position.maximum = self.model.max_position
-        self._wdg_main.dsb_gl_effort.minimum = self.model.min_effort
-        self._wdg_main.dsb_gl_effort.maximum = self.model.max_effort
+        self._wdg_main.dsb_gl_position.setMaximum(self.model.max_position)
+        self._wdg_main.dsb_gl_position.setMinimum(self.model.min_position)
+        self._wdg_main.dsb_gl_position.setSingleStep((self.model.max_position - self.model.min_position)/10.0)
+
+        self._wdg_main.dsb_gl_effort.setMaximum(self.model.max_effort)
+        self._wdg_main.dsb_gl_effort.setMinimum(self.model.min_effort)
+        self._wdg_main.dsb_gl_effort.setSingleStep((self.model.max_effort - self.model.min_effort)/10.0)
 
         # connect signal and slots
-        rospy.loginfo("GcaHand,__init__(): Connecting...")
+        rospy.loginfo("GcaHand.__init__(): Connecting...")
         self._connectQtAndModel(self._wdg_main, self.model)
         self.actualize_topic_list()
-        rospy.loginfo("GcaHand,__init__(): Connected")
+        self._wdg_main.dsb_gl_effort.setValue(self.model.min_effort + (self.model.max_effort -
+                                                                       self.model.min_effort)/2.0)
+        self._wdg_main.dsb_gl_position.setValue(self.model.min_position + (self.model.max_position -
+                                                                           self.model.min_position)/2.0)
+        rospy.loginfo("GcaHand.__init__(): Connected")
 
     @QtCore.Slot(int)
     def actualize_topic_list(self):
@@ -130,21 +136,16 @@ class GcaHand(Plugin):
         :return: -
         :rtype: None
         """
-        rospy.loginfo("GcaHand.actualize_topic_list(): Started")
         self._wdg_main.cb_service.clear()
         lst_topics = rospy.get_published_topics()
-        rospy.loginfo("GcaHand.actualize_topic_list(): Topic should be " +
+        rospy.logdebug("GcaHand.actualize_topic_list(): Topic should be " +
                           str(control_msgs.msg.GripperCommandActionResult._type))
 
         for topic in lst_topics:
-            rospy.loginfo("GcaHand.actualize_topic_list(): Topic is "+topic[1])
+            rospy.logdebug("GcaHand.actualize_topic_list(): Topic is "+topic[1])
             if topic[1] == str(control_msgs.msg.GripperCommandActionResult._type):
+                rospy.loginfo("GcaHand.actualize_topic_list(): append: "+str(topic[0][:-7])+"   type: "+str(topic[1]))
                 self._wdg_main.cb_service.addItem(topic[0][:-7])
-        #         rospy.loginfo("GcaHand.actualize_topic_list(): append: "+str(topic[0])+"   type: "+str(topic[1]))
-        # # Dirty
-        # if self.model.client is None:
-        #     self.model.initClient(self._wdg_main.cb_service.currentText())
-        rospy.loginfo("GcaHand.actualize_topic_list(): Finished")
 
     def _parse_args(self, argv):
         """
@@ -253,6 +254,7 @@ class GcaHand(Plugin):
         widget.btn_gl_start.clicked.connect(model.onNewGoalStart)
         widget.dsb_gl_position.valueChanged.connect(model.onNewGoalPosition)
         widget.dsb_gl_effort.valueChanged.connect(model.onNewGoalEffort)
+        widget.cb_service.currentTextChanged.connect(model.onNewServiceSelected)
 
         # From model to view
         model.atNewFdbPosition.connect(widget.lcd_fdb_position.display)
@@ -337,12 +339,26 @@ class GcaModel(QtCore.QObject):
         :rtype: None
         """
         goal = control_msgs.msg.GripperCommandGoal()
-        goal.command.position = self.gl_position
-        goal.command.max_effort = self.gl_effort
+        if self.gl_position > self.min_position:
+            if self.gl_position < self.max_position:
+                goal.command.position = self.gl_position
+            else:
+                goal.command.position = self.max_position
+        else:
+            goal.command.position = self.min_position
+
+        if self.gl_effort > self.min_effort:
+            if self.gl_effort < self.max_effort:
+                goal.command.max_effort = self.gl_effort
+            else:
+                goal.command.max_effort = self.max_effort
+        else:
+            goal.command.max_effort = self.min_effort
+
         self.goal_handle = self.client.send_goal(goal, done_cb=self.cbResult, feedback_cb=self.cbFeedback)
         if self.client is None:
             rospy.logwarn("GcaModel.onNewGoalStart(): client is None - No Action Server active?")
-        self.client.wait_for_result(self, rospy.Duration(2))
+        self.client.wait_for_result(rospy.Duration(2))
 
     def cbFeedback(self, msg):
         """
@@ -352,12 +368,13 @@ class GcaModel(QtCore.QObject):
         :return: -
         :rtype: None
         """
-        self.atNewFdbPosition(msg.feedback.position)
-        self.atNewFdbEffort(msg.feedback.effort)
-        self.atNewFdbStalled(msg.feedback.stalled)
-        self.atNewFdbReached(msg.feedback.reached_goal)
+        rospy.loginfo("GcaModel.cbFeedback(): "+str(msg))
+        self.atNewFdbPosition.emit(msg.position)
+        self.atNewFdbEffort.emit(msg.effort)
+        self.atNewFdbStalled.emit(msg.stalled)
+        self.atNewFdbReached.emit(msg.reached_goal)
 
-    def cbResult(self, msg):
+    def cbResult(self, status, msg):
         """
         Result from the action server, see: http://docs.ros.org/jade/api/control_msgs/html/action/GripperCommand.html
         :param msg: Result message
@@ -365,10 +382,12 @@ class GcaModel(QtCore.QObject):
         :return: -
         :rtype: None
         """
-        self.atNewResPosition(msg.result.position)
-        self.atNewResEffort(msg.result.effort)
-        self.atNewResStalled(msg.result.stalled)
-        self.atNewResReached(msg.result.reached_goal)
+        rospy.loginfo("GcaModel.cbResult(): Status: \n"+str(status))
+        rospy.loginfo("GcaModel.cbResult(): Result: \n"+str(msg))
+        self.atNewResPosition.emit(msg.position)
+        self.atNewResEffort.emit(msg.effort)
+        self.atNewResStalled.emit(msg.stalled)
+        self.atNewResReached.emit(msg.reached_goal)
         self.goal_handle = None
 
     @QtCore.Slot(str)
@@ -384,7 +403,8 @@ class GcaModel(QtCore.QObject):
         if service == "":
             rospy.logwarn("GcaModel.onNewServiceSelected: <empty>")
             return
-        self.client.cancel_all_goals()
+        if self.client is not None:
+            self.client.cancel_all_goals()
         self.goal_handle = None
         self.client = actionlib.SimpleActionClient(service, control_msgs.msg.GripperCommandAction)
         self.client.wait_for_server()

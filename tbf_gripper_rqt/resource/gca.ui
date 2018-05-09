@@ -143,11 +143,14 @@
          </item>
          <item row="0" column="3">
           <widget class="QCheckBox" name="chk_fdb_stalled">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>stalled</string>
            </property>
            <property name="checkable">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
           </widget>
          </item>
@@ -163,11 +166,14 @@
          </item>
          <item row="1" column="3">
           <widget class="QCheckBox" name="chk_fdb_reached">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>reached Goal</string>
            </property>
            <property name="checkable">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
           </widget>
          </item>
@@ -201,11 +207,14 @@
          </item>
          <item row="0" column="3">
           <widget class="QCheckBox" name="chk_res_stalled">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>stalled</string>
            </property>
            <property name="checkable">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
           </widget>
          </item>
@@ -221,11 +230,14 @@
          </item>
          <item row="1" column="3">
           <widget class="QCheckBox" name="chk_res_reached">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>reached Goal</string>
            </property>
            <property name="checkable">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
           </widget>
          </item>
