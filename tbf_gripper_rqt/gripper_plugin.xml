@@ -90,4 +90,27 @@
       <statustip>Simple user interface to the 3 finger gripper from Robotiq in pinch mode</statustip>
     </qtgui>
   </class>
+
+  <class name="GcaGripper" type="tbf_gripper_rqt.grippercommandaction_module.GcaHand" base_class_type="rqt_gui_py::Plugin">
+     <description>
+      A Python plugin to monitor and control the 3 finger gripper from Robotiq via action server
+    </description>
+    <qtgui>
+      <!-- optional grouping... -->
+      <group>
+        <label>TUBAF</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins developed by the Mining-RoX project at the TU Bergakademie Freiberg, Germany.</statustip>
+      </group>
+      <group>
+        <label>Hand</label>
+        <icon type="theme">applications-other</icon>
+        <statustip>A Python GUI plugin for monitoring and controlling the 3 finger gripper from Robotiq via action server.</statustip>
+      </group>
+      <!-- end of optional grouping... -->
+      <label>Gripper Action Command Plugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Simple user interface to the 3 finger gripper from Robotiq via action server</statustip>
+    </qtgui>
+  </class>
 </library>
