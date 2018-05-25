@@ -14,7 +14,7 @@
   </window>
 
   <session name="wlan_set_m1" mode="o" size="240x60"/>
-  <window name="Xtion Kamera" directory="~">
+  <window name="MoveIt" directory="~">
     <layout>
       a
     </layout>
@@ -22,7 +22,7 @@
   </window>
 
     <session name="wlan_set_m1" mode="o" size="240x60"/>
-  <window name="Xtion Kamera" directory="~">
+  <window name="Bag" directory="~">
     <layout>
       a
     </layout>
