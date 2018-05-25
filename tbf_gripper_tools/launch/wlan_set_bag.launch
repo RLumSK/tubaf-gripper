@@ -10,5 +10,5 @@
 	<arg name="tpc_points" default="/gripper_camera/depth_registered/points" />
 
 	<node pkg="rosbag" type="record" name="rosbag_wlan_set_m1"
-	   args="record -o ~/bags/grehl/$(arg file_prefix) $(arg tpc_base) $(arg tpc_hand) $(arg tpc_moveit) $(arg tpc_ur5)"/>
+	   args="record -o /home/heros/bags/grehl/$(arg file_prefix) $(arg tpc_base) $(arg tpc_hand) $(arg tpc_moveit) $(arg tpc_ur5)"/>
 </launch>
