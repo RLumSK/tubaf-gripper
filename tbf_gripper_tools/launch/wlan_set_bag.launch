@@ -6,9 +6,9 @@
 	<arg name="tpc_moveit" default="/move_group/cancel /move_group/display_contacts /move_group/display_cost_sources /move_group/display_grasp_markers /move_group/display_planned_path /move_group/feedback /move_group/goal /move_group/monitored_planning_scene /move_group/motion_plan_request /move_group/ompl/parameter_descriptions /move_group/ompl/parameter_updates /move_group/plan_execution/parameter_descriptions /move_group/plan_execution/parameter_updates /move_group/planning_scene_monitor/parameter_descriptions /move_group/planning_scene_monitor/parameter_updates /move_group/result /move_group/sense_for_plan/parameter_descriptions /move_group/sense_for_plan/parameter_updates /move_group/status /move_group/trajectory_execution/parameter_descriptions /move_group/trajectory_execution/parameter_updates" />
 	<arg name="tpc_ur5" default=" /ur5/joint_states /ur5/joint_temperature /ur5/pos_based_pos_traj_controller/follow_joint_trajectory/cancel /ur5/pos_based_pos_traj_controller/follow_joint_trajectory/feedback /ur5/pos_based_pos_traj_controller/follow_joint_trajectory/goal /ur5/pos_based_pos_traj_controller/follow_joint_trajectory/result /ur5/pos_based_pos_traj_controller/follow_joint_trajectory/status /ur5/tool_velocity /ur5/ur_driver/URScript /ur5/ur_driver/io_states /ur5/ur_driver/robot_status /ur5/wrench" />
 	
-	<arg name="tbc_images" default="/gripper_camera/depth/camera_info gripper_camera/depth/image /gripper_camera/depth/image_raw /gripper_camera/rgb/camera_info /gripper_camera/rgb/image_raw"/>
+	<arg name="tpc_images" default="/gripper_camera/depth/camera_info gripper_camera/depth/image /gripper_camera/depth/image_raw /gripper_camera/rgb/camera_info /gripper_camera/rgb/image_raw"/>
 	<arg name="tpc_points" default="/gripper_camera/depth_registered/points" />
 
 	<node pkg="rosbag" type="record" name="rosbag_wlan_set_m1"
-	   args="record -o ~/bags/grehl/$(arg file_prefix) $(arg tbc_base) $(arg tbc_hand) $(arg tbc_moveit) $(arg tbc_ur5)"/>
+	   args="record -o ~/bags/grehl/$(arg file_prefix) $(arg tpc_base) $(arg tpc_hand) $(arg tpc_moveit) $(arg tpc_ur5)"/>
 </launch>
