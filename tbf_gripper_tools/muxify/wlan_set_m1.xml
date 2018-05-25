@@ -1,0 +1,32 @@
+<muxify>
+  <!--
+  ARIDuA M1: Wlan Set Task
+  - Xtion Kamera
+  - MoveIt
+  - Bag file
+  -->
+  <session name="wlan_set_m1" mode="o" size="240x60"/>
+  <window name="Xtion Kamera" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a">roslaunch --wait julius_base xtion_gripper.launch</cmd>
+  </window>
+
+  <session name="wlan_set_m1" mode="o" size="240x60"/>
+  <window name="Xtion Kamera" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a">roslaunch --wait julius_moveit moveit.launch</cmd>
+  </window>
+
+    <session name="wlan_set_m1" mode="o" size="240x60"/>
+  <window name="Xtion Kamera" directory="~">
+    <layout>
+      a
+    </layout>
+    <cmd pane="a" noexec="true">roslaunch --wait tbf_gripper_tools wlan_set_bag.launch</cmd>
+  </window>
+
+</muxify>
