@@ -61,6 +61,27 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
+def continue_by_console(text=None):
+    """
+    Prompt the console with a generic Y/N question and return the result
+    :param text: optional quesion
+    :type text: String
+    :return: result
+    :rtype: Bool
+    """
+    if text is None:
+        print("Continue the program (Y/n)?: ")
+    else:
+        print(text+" (Y/n): ")
+    inp = raw_input()
+    if inp == "Y":
+        return True
+    elif inp == "n":
+        return False
+    else:
+        return continue_by_console(text)
+
+
 class WlanSetTask(autonomy.Task.SetTask):
     """
     Class to get a set a wlan station
@@ -147,6 +168,11 @@ class WlanSetTask(autonomy.Task.SetTask):
             prefix + "finger_middle_link_2",
             prefix + "finger_middle_link_3"
         ]
+
+        continue_topic = rospy.get_param("~continue_topic", "/wlan_set_task/continue")
+        self.continue_subscriber = message_filters.Subscriber(continue_topic, std_msgs.msg.Bool)
+        self.continue_cache = message_filters.Cache(self.continue_subscriber, 5, allow_headerless=True)
+
         rospy.loginfo("WlanSetTask.__init__() Initialized Task")
 
     def _setup_move_group(self):
@@ -224,15 +250,21 @@ class WlanSetTask(autonomy.Task.SetTask):
         while not plan_valid:
             rospy.loginfo("WlanSetTask.move_wait(): Planning "+info+" to %s", self.mvit_group.get_joint_value_target())
             plan = self.mvit_group.plan()
-            # Check Plan
-            now = rospy.Time.now()
-            rospy.sleep(5.0)
-            msg = self.ui_check_cache.getElemAfterTime(now)
-            if msg is None:
-                plan_valid = False
-            else:
-                plan_valid = msg.data
-            rospy.loginfo("WlanSetTask.move_wait(): Is robot allowed to execute presented plan? %s", plan_valid)
+            if len(plan.joint_trajectory.points) == 0:
+                rospy.loginfo("WlanSetTask.move_wait(): No valid plan found, trying again ...")
+                continue
+            # # Check Plan
+            # now = rospy.Time.now()
+            # rospy.sleep(5.0)
+            # msg = self.ui_check_cache.getElemAfterTime(now)
+            # if msg is None:
+            #     plan_valid = False
+            # else:
+            #     plan_valid = msg.data
+            # rospy.loginfo("WlanSetTask.move_wait(): Is robot allowed to execute presented plan? %s", plan_valid)
+
+            # Check Plan - inline
+            plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
         rospy.loginfo("WlanSetTask.move_wait(): Executing ...")
         self.mvit_group.execute(plan)
         return
@@ -248,6 +280,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.loginfo("WlanSetTask.perform(): Closing hand ...")
         self.hand_controller.closeHand()
         self.move_wait(self.waypoints["home_pose"], info="HOME")
+        self.move_wait(self.waypoints["watch_pose"], info="Watch Pose")
         self.move_wait(self.waypoints["pre_grasp"], info="PreGrasp")
         # self.move_wait(self.waypoints["home_pose"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
         # self.move_wait(self.waypoints["pre_grasp"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
@@ -259,7 +292,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.loginfo("WlanSetTask.perform(): Grasp station")
         # Grasp station
         self.hand_controller.closeHand()
-        rospy.sleep(5.)
+        # rospy.sleep(5.)
         # Attach collision object to end effector
         rospy.loginfo("WlanSetTask.perform(): Attach station to end effector")
         self.mvit_scene.attach_mesh(link=self.eef_link, name=self.ssb_name, touch_links=self.touch_links)
@@ -268,15 +301,27 @@ class WlanSetTask(autonomy.Task.SetTask):
 
         # Set station
         rospy.loginfo("WlanSetTask.perform(): Set station")
-        # Query Goal from User Interface
+        # TODO: Query Goal from User Interface
         ui_pose_received = False
         while not ui_pose_received:
-            ui_pose = self.ui_pose_cache.getElemAfterTime(rospy.Time.now())
-            ui_pose_received = ui_pose is not None
-            rospy.logdebug("WlanSetTask.perform(): Set station to pose: \n %s", ui_pose)
-        # Plan Path using Moveit
-        self.move_wait(ui_pose)
+        #     ui_pose = self.ui_pose_cache.getElemAfterTime(rospy.Time.now())
+        #     ui_pose_received = ui_pose is not None
+        #     rospy.logdebug("WlanSetTask.perform(): Set station to pose: \n %s", ui_pose)
+        # # Plan Path using Moveit
+        # self.move_wait(ui_pose)
 
+        # Workaround: Continue after Station touched the ground
+        # continue_process = False
+        # while not continue_process:
+        #     now = rospy.Time.now()
+        #     rospy.sleep(10.0)
+        #     msg = self.continue_cache.getElemAfterTime(now)
+        #     if msg is None:
+        #         continue_process = False
+        #     else:
+        #         continue_process = msg.data
+        #     rospy.loginfo("WlanSetTask.perform(): Continue automated procedure? %s", continue_process)
+            ui_pose_received = continue_by_console("Continue automated release and return routine?")
         rospy.loginfo("WlanSetTask.perform(): Release station")
         self.hand_controller.openHand()
         rospy.sleep(5.)

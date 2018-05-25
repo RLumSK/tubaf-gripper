@@ -1,5 +1,6 @@
 waypoints_station_1: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
   home_pose: [0, -90, 0, -90, 0, 0]
+  watch_pose: [-180, -90, -90, -80, 90, 125]
   pre_grasp: [-171.5, -137.2, 120.3, -163.53, -80.8, 45.2]
   grasp: [-175.3, -114.9, 114.1, -179.5, -72.7, 45.3]
   post_grasp: [-174.1, -98.1, 50.8, -133.1, -79.1, 38.2]
@@ -9,6 +10,7 @@ waypoints_station_1: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
 
 waypoints_station_2: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
   home_pose: [0, -90, 0, -90, 0, 0]
+  watch_pose: [-180, -90, -90, -80, 90, 125]
   pre_grasp: [-171.6, -134.6, 120.3, -167.5, -86.5, 38]
   grasp: [-176.2, -104, 104.4, -179.2, -87.7, 39.2]
   post_grasp: [-181.6, -88.7, 41.2, -135.9, -77.7, 40]
@@ -18,13 +20,13 @@ waypoints_station_2: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
 
 waypoints_station_3: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
   home_pose: [0, -90, 0, -90, 0, 0]
+  watch_pose: [-180, -90, -90, -80, 90, 125]
   pre_grasp: [-177.3, -131.2, 117, -170.2, -100.2, 40.4]
   grasp: [-199.8, -108.3, 107.8, -177.2, -66.1, 40.6]
   post_grasp: [-199.8, -107.3, 96.7, -167.1, -66.2, 40.6]
   pre_set: [-219.1, -112.1, -80, 10.8, 96.4, 33.6]
   set: [-214.3, -194.4, -63.1, 74.8, 97.7, 40.6]
   post_set: [-222.2, -190.7, -80.3, 76.9, 104.5, 31.9]
-
 
 backup_pos: [-180, -90, 0, -90, 0, 0]
 linear_tcp_speed: 10
@@ -50,6 +52,6 @@ ssb_default_pose:
       w: 0.7071
 # Planning
 planner_id: "KPIECEkConfigDefault"
-planner_time: 10.0
+planner_time: 2.0
 planner_attempts: 100
 allow_replanning: True
