@@ -327,6 +327,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.loginfo("WlanSetTask.perform(): Release station")
         self.hand_controller.openHand()
         rospy.sleep(5.)
+        self._setup_move_group()
         # Remove collision object from end effector
         self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
         # self.move_wait(self.waypoints["set_down"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
