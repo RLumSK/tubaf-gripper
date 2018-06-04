@@ -334,6 +334,8 @@ class WlanSetTask(autonomy.Task.SetTask):
         # Plan back to home station
         self.move_wait(self.waypoints["home_pose"], info="HOME")
 
+        self.mvit_scene.remove_world_object(name=self.ssb_name)
+
         self.exec_thread = None
 
     def start(self):
