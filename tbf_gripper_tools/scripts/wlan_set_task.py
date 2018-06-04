@@ -136,7 +136,8 @@ class WlanSetTask(autonomy.Task.SetTask):
             y_scale = rospy.get_param("~ssb_y_scale", 1.0)
             z_scale = rospy.get_param("~ssb_z_scale", 1.0)
             self.ssb_name = "Smart_Sensor_Box"
-            self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
+            if len(self.mvit_scene.get_attached_objects([self.ssb_name])) != 0:
+                self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
             self.mvit_scene.add_mesh(name=self.ssb_name, pose=ssb_default_ps, filename=ssb_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
         except Exception as ex:
@@ -189,7 +190,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         self.mvit_group.set_pose_reference_frame(reference_frame=rospy.get_param("~reference_frame",
                                                                                  "/gripper_ur5_base_link"))
         # Planning frame is /base_footprint
-        self.mvit_group.set_workspace(rospy.get_param("~workspace", [-1.6, -1.2, 0.0, 0.25, 1.2, 1.2]))
+        self.mvit_group.set_workspace(rospy.get_param("~workspace", [-1.6, -1.2, 0.0, 0.25, 1.2, 1.7]))
         self.mvit_group.set_goal_tolerance(rospy.get_param("~tolerance", 0.01))
         rospy.logdebug("WlanSetTask._setup_move_group(): Reference Frame is %s",
                        self.mvit_group.get_pose_reference_frame())
