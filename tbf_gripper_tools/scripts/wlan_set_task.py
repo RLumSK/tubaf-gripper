@@ -138,6 +138,7 @@ class WlanSetTask(autonomy.Task.SetTask):
             self.ssb_name = "Smart_Sensor_Box"
             if len(self.mvit_scene.get_attached_objects([self.ssb_name])) != 0:
                 self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
+            rospy.sleep(2.0)
             self.mvit_scene.add_mesh(name=self.ssb_name, pose=ssb_default_ps, filename=ssb_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
         except Exception as ex:
