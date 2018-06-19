@@ -108,6 +108,7 @@ class CalibrationCameraEEComputation(object):
             Pe[1, 3] = msg_Pe.pose.orientation.y
             Pe[2, 3] = msg_Pe.pose.orientation.z
             Pe[3, 3] = 1
+            self.lst_Pe.append(Pe)  # Row major
             rospy.logdebug("CameraCalibComputation.set_transformation(): ee transformation\n" + Pe.__str__())
             return Pe
         except tf.Exception as ex:

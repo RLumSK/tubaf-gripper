@@ -38,6 +38,23 @@ from pyquaternion import Quaternion
 import cPickle as pkl
 
 
+def print_info(data):
+    """
+    Print debug information about the saved data
+    :param data: list with Pe Po
+    :type data: lst
+    :return: -
+    :rtype: -
+    """
+    rospy.loginfo("print_info(): len(data) %d" % len(data))
+    rospy.loginfo("print_info(): len(data[0]) %d" % len(data[0]))
+    rospy.loginfo("print_info(): len(data[1]) %d" % len(data[1]))
+    rospy.loginfo("print_info(): len(data[0][0]) %d" % len(data[0][0]))
+    rospy.loginfo("print_info(): len(data[1][0]) %d" % len(data[1][0]))
+
+    rospy.loginfo("print_info(): data[0][0])\n %s" % str(data[0][0]))
+    rospy.loginfo("print_info(): data[1][0])\n %s" % str(data[1][0]))
+
 def matrix_to_pose(matrix):
     rospy.logdebug("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: matrix.shape = "+str(matrix.shape))
     ret_pose = Pose()
@@ -104,6 +121,7 @@ if __name__ == '__main__':
 
         # Pickle it
         data = [computation.lst_Po, computation.lst_Pe]
+        print_info(data)
         rospy.loginfo("pickle_camera_ee_data.py: Starting pickle ... ")
         pkl.dump(data, open(pickle_fn+"_"+str(n_run)+".pickle", "wb"))
         rospy.loginfo("pickle_camera_ee_data.py: Finished pickle ")

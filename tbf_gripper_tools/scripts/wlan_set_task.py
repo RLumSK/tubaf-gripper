@@ -127,7 +127,7 @@ class WlanSetTask(autonomy.Task.SetTask):
             pos = geometry_msgs.msg.Point(**ssb_default_pose['position'])
             ori = geometry_msgs.msg.Quaternion(**ssb_default_pose['orientation'])
 
-            ssb_default_ps.pose = geometry_msgs.msg.Pose(pos,ori)
+            ssb_default_ps.pose = geometry_msgs.msg.Pose(pos, ori)
             ssb_default_ps.header.frame_id = "base_footprint"
 
             ssb_mesh_filename = rospy.get_param("~ssb_mesh_filename", os.path.join(
