@@ -30,7 +30,7 @@
 
 import rospy
 import actionlib
-import tbf_gripper_hand.msg
+import control_msgs.msg
 
 
 """@package grasping
@@ -55,13 +55,13 @@ class HandController(object):
         """
         server_name = rospy.get_param("~hand_server_name", "robotiqgripper_action_server")
         rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
-        self.ac = actionlib.SimpleActionClient(server_name, tbf_gripper_hand.msg.RobotiqGripperAction)
+        self.ac = actionlib.SimpleActionClient(server_name, control_msgs.msg.GripperCommandAction)
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
         self.hand_mode = rospy.get_param("~hand_mode", "basic")
         self.ac.wait_for_server()
+        rospy.loginfo("HandController() %s  started", server_name)
         self.action_pending = False
         self.restHand()
-        rospy.sleep(10.0)
 
     def closeHand(self):
         """
@@ -73,16 +73,13 @@ class HandController(object):
         if self.action_pending:
             rospy.loginfo("HandController.closeHand(): Action pending - abort")
             return
-        goal = tbf_gripper_hand.msg.RobotiqGripperGoal()
-        # goal definition
-        # string mode
-        # int32 position
-        # int32 speed
-        # int32 force
-        goal.mode = self.hand_mode
-        goal.position = 240
-        goal.speed = 50
-        goal.force = 200
+        # http://docs.ros.org/api/control_msgs/html/msg/GripperCommand.html
+        goal = control_msgs.msg.GripperCommandGoal()
+        # float64 position
+        # float64 max_effort
+
+        goal.command.position = 1.22
+        goal.command.max_effort = 60
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):
@@ -101,16 +98,13 @@ class HandController(object):
         if self.action_pending:
             rospy.loginfo("HandController.openHand(): Action pending - abort")
             return
-        goal = tbf_gripper_hand.msg.RobotiqGripperGoal()
-        # goal definition
-        # string mode
-        # int32 position
-        # int32 speed
-        # int32 force
-        goal.mode = self.hand_mode
-        goal.position = 0
-        goal.speed = 50
-        goal.force = 200
+        # http://docs.ros.org/api/control_msgs/html/msg/GripperCommand.html
+        goal = control_msgs.msg.GripperCommandGoal()
+        # float64 position
+        # float64 max_effort
+
+        goal.command.position = 0.05
+        goal.command.max_effort = 100
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):
@@ -128,16 +122,13 @@ class HandController(object):
         if self.action_pending:
             rospy.loginfo("HandController.openHand(): Action pending - abort")
             return
-        goal = tbf_gripper_hand.msg.RobotiqGripperGoal()
-        # goal definition
-        # string mode
-        # int32 position
-        # int32 speed
-        # int32 force
-        goal.mode = "basic"
-        goal.position = 240
-        goal.speed = 100
-        goal.force = 10
+        # http://docs.ros.org/api/control_msgs/html/msg/GripperCommand.html
+        goal = control_msgs.msg.GripperCommandGoal()
+        # float64 position
+        # float64 max_effort
+
+        goal.command.position = 0.6
+        goal.command.max_effort = 60
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):

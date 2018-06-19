@@ -44,6 +44,7 @@ import rospy
 import time
 from std_msgs.msg import String
 from sensor_msgs.msg import JointState
+import message_filters
 
 import grasping.hand
 import numpy as np
@@ -80,12 +81,12 @@ class MoveTask(object):
         Default constructor, start ROS, arm and demo_monitoring
         """
         # ROS Anbindung
-        self.joint_sub = rospy.Subscriber("/ur5/joint_states", JointState, self.on_joint_states, queue_size=1)
+        self.joint_states_topic = rospy.get_param("~joint_states_topic", "/ur5/joint_states")
+        self._joint_sub = message_filters.Subscriber(self.joint_states_topic, JointState)
+        self.joint_cache = message_filters.Cache(self._joint_sub, 10)
+
         self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
         self.move_dur = 1.0
-        self.cur_pos = np.zeros((6,))
-        self.last_time = time.time()
-        self.last_start = time.time()
         self.exec_thread = None
 
         self.waypoints = rospy.get_param("~waypoints", None)
@@ -128,28 +129,25 @@ class MoveTask(object):
             return
         self.exec_thread = thread.start_new_thread(function, (self,))
 
-    def on_joint_states(self, js):
+    def _convert_joint_States(self, js):
         """
-        Callback for the joint_states topic of the UR5
+        Converter function - Former Callback for the joint_states topic of the UR5
         :param js: joint states
         :type js: double
         :return: -
         :rtype: -
         """
-        # rospy.logdebug("MoveTask.on_joint_states(): received jopint states: %s", js)
-        if time.time() - self.last_time > 0.02:
-            pp = list(js.position)
+        pp = list(js.position)
+        # Resolve mismatch of joint positions between older firmware version and newer
+        pp[0] = js.position[js.name.index('gripper_ur5_shoulder_pan_joint')]
+        pp[1] = js.position[js.name.index('gripper_ur5_shoulder_lift_joint')]
+        pp[2] = js.position[js.name.index('gripper_ur5_elbow_joint')]
+        pp[3] = js.position[js.name.index('gripper_ur5_wrist_1_joint')]
+        pp[4] = js.position[js.name.index('gripper_ur5_wrist_2_joint')]
+        pp[5] = js.position[js.name.index('gripper_ur5_wrist_3_joint')]
+        rospy.logdebug("MoveTask._convert_joint_States(): pp=%s", pp)
 
-            # Resolve mismatch of joint positions between older firmware version and newer
-            pp[0] = js.position[js.name.index('gripper_ur5_shoulder_pan_joint')]
-            pp[1] = js.position[js.name.index('gripper_ur5_shoulder_lift_joint')]
-            pp[2] = js.position[js.name.index('gripper_ur5_elbow_joint')]
-            pp[3] = js.position[js.name.index('gripper_ur5_wrist_1_joint')]
-            pp[4] = js.position[js.name.index('gripper_ur5_wrist_2_joint')]
-            pp[5] = js.position[js.name.index('gripper_ur5_wrist_3_joint')]
-
-            self.cur_pos = np.rad2deg(pp)
-            self.last_time = time.time()
+        return np.rad2deg(pp)
 
     def move_wait(self, pose, goal_tolerance=0.5, v=None, a=None, t=0, r=0, move_cmd="movej"):
         """
@@ -187,15 +185,22 @@ class MoveTask(object):
         else:
             raise InterruptError("Thread interrupted")
         while True:
-            dst = np.max(np.subtract(pose, self.cur_pos))
+            tmp = self.joint_cache.getLast()
+            if tmp is None:
+                rospy.logwarn("MoveTask.move_wait(): No joint states received from driver at: %s",
+                              self.joint_states_topic)
+                rospy.sleep(5.0)
+                continue
+            cur_pos = self._convert_joint_States(tmp)
+            dst = np.max(np.subtract(pose, cur_pos))
             max_dst = np.max(dst)
             if max_dst < goal_tolerance:
                 break
-            rospy.logdebug("MoveTask.move_wait(): self.cur_pos=%s", self.cur_pos)
+            rospy.logdebug("MoveTask.move_wait(): cur_pos=%s", cur_pos)
             rospy.logdebug("MoveTask.move_wait():         pose=%s", pose)
             rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
             rospy.sleep(0.02)
-        rospy.logdebug("MoveTask.move_wait(): Reached pose")
+        rospy.loginfo("MoveTask.move_wait(): Reached pose")
 
 
 @six.add_metaclass(abc.ABCMeta)
