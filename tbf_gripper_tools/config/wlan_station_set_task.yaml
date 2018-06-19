@@ -52,7 +52,7 @@ ssb_default_pose:
       w: 0.7071
 # Planning
 # KPIECEkConfigDefault, RRTConnectkConfigDefault, RRTstarkConfigDefault, TRRTkConfigDefault
-planner_id: "RRTConnectkConfigDefault"
+planner_id: "KPIECEkConfigDefault"
 planner_time: 3.0
 planner_attempts: 100
 allow_replanning: True

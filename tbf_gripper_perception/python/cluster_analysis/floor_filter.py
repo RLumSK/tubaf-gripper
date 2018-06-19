@@ -31,8 +31,8 @@
 import rospy
 import tf
 
-from geometry_msgs.msg import PoseStamped
-from object_recognition_msgs.msg import TableArray
+from geometry_msgs.msg import PoseStamped, QuaternionStamped
+from object_recognition_msgs.msg import TableArray, Table
 
 
 class FloorFilter(object):
@@ -49,10 +49,12 @@ class FloorFilter(object):
         # parameter
         _tables_topic = rospy.get_param('~tables_topic', "/ork/table_array")
         _floor_topic = rospy.get_param('~floor_topic', "/ork/floor_plane")
+        _normal_topic = rospy.get_param('~normal_topic', "/ork/floor_normal")
         self.floor_frame = rospy.get_param('~floor_frame', "base_link")
         self.floor_frame_offset = rospy.get_param('~floor_frame_offset', 0.53)
         # publisher
-        self._floor_publisher = rospy.Publisher(name=_floor_topic, data_class=TableArray, queue_size=10)
+        self._floor_publisher = rospy.Publisher(name=_floor_topic, data_class=Table, queue_size=10)
+        self._normal_publisher = rospy.Publisher(name=_normal_topic, data_class=QuaternionStamped, queue_size=10)
         # subscriber
         rospy.Subscriber(name=_tables_topic, data_class=TableArray, callback=self._on_new_tables)
         self._tf = tf.TransformListener()
@@ -67,10 +69,13 @@ class FloorFilter(object):
         """
         floor_plane = self.identify_floor(msg)
         if floor_plane is not None:
-            floor_msg = TableArray()
+            floor_msg = floor_plane
             floor_msg.header = floor_plane.header
-            floor_msg.tables.append(floor_plane)
             self._floor_publisher.publish(floor_msg)
+            qs_msg = QuaternionStamped()
+            qs_msg.header = floor_plane.header
+            qs_msg.quaternion = floor_msg.pose.orientation
+            self._normal_publisher.publish(qs_msg)
         else:
             rospy.logwarn("[cluster_analysis::FloorFilter._on_new_tables] No floor plane found")
 

@@ -5,7 +5,7 @@ from distutils.core import setup
 from catkin_pkg.python_setup import generate_distutils_setup
 
 d = generate_distutils_setup(
-    packages=['tbf_gripper_rqt'],
+    packages=['tbf_gripper_rqt', 'tbf_gripper_rviz'],
     package_dir={'': 'python'},
 )
 
