@@ -8,7 +8,7 @@
 * tbf_gripper_hand ([Doc](./tbf_gripper_hand/README.md))
 * tbf_gripper_launch ([Doc](./tbf_gripper_launch/README.md))
 * tbf_gripper_perception ([Doc](./tbf_gripper_perception/README.md))
-* tbf_gripper_rqt ([Doc](./tbf_gripper_rqt/README.md))
+* tbf_gripper_viz ([Doc](tbf_gripper_viz/README.md))
 * tbf_gripper_tools ([Doc](./tbf_gripper_tools/README.md))
 
 ## General information
