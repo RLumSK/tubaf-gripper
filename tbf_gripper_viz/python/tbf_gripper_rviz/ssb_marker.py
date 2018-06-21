@@ -28,7 +28,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import print_function
+from __future__ import print_function, division
 
 """
 @package ssb_marker
@@ -44,9 +44,10 @@ from visualization_msgs.msg import *
 from interactive_markers.menu_handler import *
 
 from message_filters import Cache, Subscriber
-from geometry_msgs.msg import QuaternionStamped, Pose
+from geometry_msgs.msg import QuaternionStamped, Pose, PoseStamped
 
-from tf import TransformListener
+from tf import TransformListener, transformations
+from numpy import pi
 
 
 class SSBMarker(InteractiveMarker):
@@ -99,7 +100,6 @@ class SSBMarker(InteractiveMarker):
         self._mesh_cntrl.always_visible = True
         self._mesh_cntrl.markers.append(self._mesh_marker)
         self._mesh_cntrl.interaction_mode = InteractiveMarkerControl.MENU
-
         self.controls.append(self._mesh_cntrl)
 
         self._move_x_cntrl = InteractiveMarkerControl()
@@ -143,8 +143,8 @@ class SSBMarker(InteractiveMarker):
     def onFeedback(self, feedback):
         """
         Callback from the Interactive Marker Server
-        :param feedback:
-        :type feedback:
+        :param feedback: Feedback from the GUI
+        :type feedback: visualization_msgs.msg.InteractiveMarkerFeedback
         :return: -
         :rtype: -
         """
@@ -154,8 +154,8 @@ class SSBMarker(InteractiveMarker):
     def onPublishPose(self, feedback):
         """
         Callback from the Interactive Marker Server
-        :param feedback:
-        :type feedback:
+        :param feedback: Feedback from the GUI
+        :type feedback: visualization_msgs.msg.InteractiveMarkerFeedback
         :return: -
         :rtype: -
         """
@@ -168,10 +168,10 @@ class SSBMarker(InteractiveMarker):
     def onUpdateNormal(self, feedback):
         """
         Updating the normal from floor detection
-        :param feedback:
-        :type feedback:
-        :return:
-        :rtype:
+        :param feedback: Feedback from the GUI
+        :type feedback: visualization_msgs.msg.InteractiveMarkerFeedback
+        :return: -
+        :rtype: -
         """
         self.onFeedback(feedback)
         transform_available = False
@@ -204,6 +204,173 @@ class SSBMarker(InteractiveMarker):
         :return: menu handle
         :rtype: handle
         """
-        handle = self._menu_handler.insert(menu_entry, parent=parent, callback=callback)
-        self._menu_handler.reApply(self._server)
+        handle = self._added_menu_entry_before(menu_entry, parent)
+        if handle is None:
+            handle = self._menu_handler.insert(menu_entry, parent=parent, callback=callback)
+            self._menu_handler.reApply(self._server)
         return handle
+
+    def get_server(self):
+        """
+        Get the server of the interaction marker
+        :return: server
+        :rtype: InteractiveMarkerServer
+        """
+        return self._server
+
+    def _added_menu_entry_before(self, menu_entry, parent):
+        """
+        Cheks if the menu_entry under parent exists already
+        :param menu_entry:
+        :type menu_entry: str
+        :param parent: handle of the parent in the menu_handler
+        :type parent: handle
+        :return: handle of the entry or None
+        :rtype: handle or None
+        """
+        for pair in self._menu_handler.entry_contexts_.items():
+            print(pair[1].title)
+            if pair[1].title == menu_entry:
+                return pair[0]
+        return None
+
+
+class SSBGraspMarker(object):
+    """
+    Define the Grasp Point on the SSB
+    """
+    def __init__(self, ssb_marker,  ns="~"):
+        """
+        Default constructor
+        @:param ssb_marker: parent marker
+        @:type ssb_marker: SSBMarker
+        @:param nr: number of this ssb marker
+        @:type nr: int
+        """
+        self.ssb_marker = ssb_marker
+        ssb_marker.add_custom_menu_entry("Select Grasp here", self.onGraspSelect)
+        self.grasp_topic = rospy.get_param(ns + "grasp_topic", "/ssb_grasp_pose")
+        self.pub_GraspPose = None
+        self.pose = None
+
+        # self.scale = ssb_marker.scale * 0.75
+        self.ns = ns
+        # Distance between origin and grasp point
+        self.gripper_offset = -0.075
+
+    def onGraspSelect(self, feedback):
+        """
+        Publish current mouse position on the smart sensor box as grasp pose
+        :param feedback: Feedback from the GUI
+        :type feedback: visualization_msgs.msg.InteractiveMarkerFeedback
+        :return:
+        :rtype:
+        """
+        self.pub_GraspPose = rospy.Publisher(name=self.grasp_topic, data_class=geometry_msgs.msg.PoseStamped,
+                                             queue_size=5)
+        int_marker = self._generate_gripper(feedback.mouse_point)
+        self.pose = int_marker.pose
+        self.pose.orientation = feedback.pose.orientation
+        server = self.ssb_marker.get_server()
+        server.insert(int_marker, self.onOrientationFeedback)
+        menu_handle = self.ssb_marker.add_custom_menu_entry("Grasping", callback=self.onOrientationFeedback)
+        self.ssb_marker.add_custom_menu_entry("Grasp Here", callback=self.onGraspPose, parent=menu_handle)
+        server.applyChanges()
+        rospy.sleep(0.2)
+
+    def onGraspPose(self, feedback):
+        """
+        Publish current mouse position on the smart sensor box as grasp pose
+        :param feedback: Feedback from the GUI
+        :type feedback: visualization_msgs.msg.InteractiveMarkerFeedback
+        :return: -
+        :rtype: -
+        """
+        grasp_pose = PoseStamped()
+        grasp_pose.header.frame_id = feedback.header.frame_id
+        grasp_pose.pose = self.pose
+        # Quaternions ix+jy+kz+w are represented as [x, y, z, w].
+        rot_z_90 = transformations.quaternion_about_axis(pi/2.0, [0, 0, 1])
+        q = (self.pose.orientation.x, self.pose.orientation.y, self.pose.orientation.z, self.pose.orientation.w)
+        res = transformations.quaternion_multiply(q, rot_z_90)
+        grasp_pose.pose.orientation.w = res[3]
+        grasp_pose.pose.orientation.x = res[0]
+        grasp_pose.pose.orientation.y = res[1]
+        grasp_pose.pose.orientation.z = res[2]
+        self.pub_GraspPose.publish(grasp_pose)
+        rospy.logdebug("SSBGraspMarker.onGraspPose(): Grasp Pose is %s" % grasp_pose)
+
+    def onOrientationFeedback(self, feedback):
+        """
+        Feedback from the gripper marker
+        :param feedback: Feedback from the GUI
+        :type feedback: visualization_msgs.msg.InteractiveMarkerFeedback
+        :return: -
+        :rtype: -
+        """
+        rospy.logdebug("SSBGraspMarker.onOrientationFeedback(): %s" % feedback)
+        self.pose = feedback.pose
+
+    def _generate_gripper(self, offset):
+        """
+        Spawn a gripper marker on the determined position to query the orientation
+        :param offset: relative position on the marker
+        :type offset: geometry_msgs.msg.Point
+        :return: interactive gripper marker
+        :rtype: InteractiveMarker
+        """
+        ns = self.ns
+        factor = 0.75
+        int_marker = InteractiveMarker()
+        int_marker.header.frame_id = self.ssb_marker.header.frame_id
+        int_marker.pose.position.x = offset.x
+        int_marker.pose.position.y = offset.y
+        int_marker.pose.position.z = offset.z
+        int_marker.scale = factor * self.ssb_marker.scale
+        int_marker.name = self.ssb_marker.name + "_gripper"
+        int_marker.header = self.ssb_marker.header
+        int_marker.description = "["+ns+"] Grasp Marker"
+
+        # Generate hand as marker and add it to the interactive marker as control
+        marker = Marker()
+        marker.type = Marker.MESH_RESOURCE
+        marker.mesh_resource = rospy.get_param(ns+"ssb_mesh_resource",
+                                               'package://robotiq_s_model_visualization/meshes/s-model_articulated/visual/full_hand.stl')
+        # marker.scale = factor * self.ssb_marker.scale
+        marker.pose.position.y = self.gripper_offset
+        marker.color.r = 0
+        marker.color.g = 1
+        marker.color.b = 0
+        marker.color.a = factor
+        control = InteractiveMarkerControl()
+        control.always_visible = True
+        control.markers.append(marker)
+        int_marker.controls.append(control)
+
+        # Generate actual controls to determine the orientation
+        control = InteractiveMarkerControl()
+        control.orientation.w = 1
+        control.orientation.x = 1
+        control.orientation.y = 0
+        control.orientation.z = 0
+        control.name = "rotate_x"
+        control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
+        int_marker.controls.append(control)
+        control = InteractiveMarkerControl()
+        control.orientation.w = 1
+        control.orientation.x = 0
+        control.orientation.y = 1
+        control.orientation.z = 0
+        control.name = "rotate_y"
+        control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
+        int_marker.controls.append(control)
+        control = InteractiveMarkerControl()
+        control.orientation.w = 1
+        control.orientation.x = 0
+        control.orientation.y = 0
+        control.orientation.z = 1
+        control.name = "rotate_z"
+        control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
+        int_marker.controls.append(control)
+
+        return int_marker

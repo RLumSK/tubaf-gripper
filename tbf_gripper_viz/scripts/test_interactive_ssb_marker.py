@@ -32,10 +32,9 @@ import rospy
 import tbf_gripper_rviz.ssb_marker as viz
 
 if __name__=="__main__":
-    rospy.init_node("SSB_marker")
+    rospy.init_node("SSB_marker", log_level=rospy.DEBUG)
     lst = []
-    for i in range(0, 10):
+    for i in range(0, 1):
         ns = "/"+str(i)+"/"
-        lst.append(viz.SSBMarker(ns))
-    print(len(lst))
+        lst.append(viz.SSBGraspMarker(viz.SSBMarker(ns), ns))
     rospy.spin()
