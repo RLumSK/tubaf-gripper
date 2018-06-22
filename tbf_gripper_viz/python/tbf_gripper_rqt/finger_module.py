@@ -82,7 +82,7 @@ class RobotiqFinger(Plugin):
         # Create QWidget
         self._widget = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'RobotiqFinger.ui')
+        ui_file = os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'), 'resource', 'RobotiqFinger.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file, self._widget, {'RobotiqFinger': RobotiqFinger})
         # Give QObjects reasonable names

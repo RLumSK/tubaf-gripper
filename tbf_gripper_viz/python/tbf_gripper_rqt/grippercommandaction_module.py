@@ -85,7 +85,7 @@ class GcaHand(Plugin):
         # Create QWidget
         self._wdg_main = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file_gca = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'gca.ui')
+        ui_file_gca = os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'), 'resource', 'gca.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_gca, self._wdg_main, {'GcaMain': GcaHand})
         rospy.loginfo("GcaHand.__init__(): Loaded UI")
@@ -94,7 +94,7 @@ class GcaHand(Plugin):
 
         # Set up the ComboBox for the topics
         self._wdg_main.btn_refresh.clicked.connect(self.actualize_topic_list)
-        self._wdg_main.btn_refresh.setIcon(QtGui.QIcon(os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'),
+        self._wdg_main.btn_refresh.setIcon(QtGui.QIcon(os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'),
                                                                     'resource', 'refresh.png')))
         self._wdg_main.btn_refresh.setIconSize(QtCore.QSize(24, 24))
 

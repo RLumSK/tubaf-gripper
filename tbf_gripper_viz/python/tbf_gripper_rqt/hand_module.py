@@ -90,8 +90,8 @@ class RobotiqHand(Plugin):
         self._wdg_fingerS = QWidget()
         self._wdg_main = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file_finger = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'RobotiqFinger.ui')
-        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'RobotiqMain.ui')
+        ui_file_finger = os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'), 'resource', 'RobotiqFinger.ui')
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'), 'resource', 'RobotiqMain.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_finger, self._wdg_fingerA, {'RobotiqFinger': RobotiqFinger})
         loadUi(ui_file_finger, self._wdg_fingerB, {'RobotiqFinger': RobotiqFinger})

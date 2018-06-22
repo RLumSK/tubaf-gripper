@@ -55,17 +55,20 @@ class SSBMarker(InteractiveMarker):
     Class for the smart sensor box interactive marker
     """
 
-    def __init__(self, ns="~"):
+    def __init__(self, ns="~", pose=None):
         """
         Default constructor
-        @:param nr: number of this ssb marker
-        @:type nr: int
+        @:param nr: namespace of this marker
+        @:type nr: str
+        @:param nr: inital pose of the marker
+        @:type nr: geometry_msgs.msg.Pose
         """
         super(SSBMarker, self).__init__()
 
         # ROS
-        self._pub_pose_stamped = rospy.Publisher(name=rospy.get_param(ns+"pub_topic", "/ssb_pose"),
-                                                 data_class=geometry_msgs.msg.PoseStamped, queue_size=5)
+        self.pose_topic = rospy.get_param(ns+"pub_topic", "/ssb_pose")
+        self._pub_pose_stamped = rospy.Publisher(name=self.pose_topic, data_class=geometry_msgs.msg.PoseStamped,
+                                                 queue_size=5)
         self._normal_cache = Cache(Subscriber(rospy.get_param(ns+"sub_normal_topic", "/ork/floor_normal"),
                                               QuaternionStamped), 10, allow_headerless=False)
         self.tf_listener = TransformListener()
@@ -81,10 +84,9 @@ class SSBMarker(InteractiveMarker):
         self._server = InteractiveMarkerServer(self._server_name)
 
         self._mesh_marker = Marker()
-        ssb_default_pose = rospy.get_param(ns+"ssb_default_pose", geometry_msgs.msg.Pose())
-        pos = ssb_default_pose.position
-        ori = ssb_default_pose.orientation
-        self._mesh_marker.pose = geometry_msgs.msg.Pose(pos, ori)
+        if pose is None:
+            pose = rospy.get_param(ns+"ssb_default_pose", geometry_msgs.msg.Pose())
+        self._mesh_marker.pose = pose
         self._mesh_marker.type = Marker.MESH_RESOURCE
         self._mesh_marker.mesh_resource = rospy.get_param(ns+"ssb_mesh_resource",
                                                           'package://tbf_gripper_tools/resources/mesh/wlan_box.stl')
@@ -234,6 +236,13 @@ class SSBMarker(InteractiveMarker):
                 return pair[0]
         return None
 
+    def get_pose_topic(self):
+        """
+        Return the topic, where a pose is expected to be published
+        :return: pose topic
+        :rtype: str
+        """
+        return self.pose_topic
 
 class SSBGraspMarker(object):
     """
