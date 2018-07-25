@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>tbf_gripper_rqt</name>
+  <name>tbf_gripper_viz</name>
   <version>0.0.0</version>
   <description>A Package the provides a GUI to the tubaf_gripper</description>
 
@@ -13,7 +13,7 @@
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>BSD</license>
+  <license>MIT</license>
 
 
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
@@ -39,11 +39,18 @@
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <!--<build_depend>tbf_gripper_rqt</build_depend>-->
   <run_depend>rospy</run_depend>
   <run_depend>rqt_gui</run_depend>
   <run_depend>rqt_gui_py</run_depend>
-  <!--<run_depend>tbf_gripper_rqt</run_depend>-->
+  <run_depend>visualization_msgs</run_depend>
+  <run_depend>interactive_markers</run_depend>
+  <run_depend>message_filters</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>python_qt_binding</run_depend>
+  <run_depend>robotiq_s_model_control</run_depend>
+  <run_depend>control_msgs</run_depend>
+  <run_depend>actionlib</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

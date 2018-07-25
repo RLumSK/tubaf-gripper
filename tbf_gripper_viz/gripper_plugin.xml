@@ -1,4 +1,4 @@
-<library path="src">
+<library path="python">
   <class name="RobotiqHand" type="tbf_gripper_rqt.hand_module.RobotiqHand" base_class_type="rqt_gui_py::Plugin">
      <description>
       A Python plugin to monitor and control the 3 finger gripper from Robotiq
