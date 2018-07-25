@@ -148,3 +148,31 @@ class HandController(object):
 
     def feedback_cb(self, feedback):
         pass
+
+
+class DummyHandController(object):
+    """
+    This Dummy implementation is empty, no hand is present.
+    """
+    def __init__(self):
+        pass
+
+    def closeHand(self):
+        pass
+
+    def openHand(self):
+        pass
+
+    def restHand(self):
+       pass
+
+    # action server callbacks
+
+    def done_cb(self, state, result):
+        pass
+
+    def active_cb(self, state):
+        pass
+
+    def feedback_cb(self, feedback):
+        pass

@@ -16,5 +16,5 @@ joint_acceleration: 7
 # Hand/Gripper
 publisher_name: "/hand/SModelRobotOutput"
 subscriber_name: "/hand/SModelRobotInput"
-hand_server_name: "/hand/hand_action_server"
+hand_server_name: "/hand/gripper_action"
 hand_mode: "basic"

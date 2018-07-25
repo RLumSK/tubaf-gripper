@@ -28,20 +28,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import rospy
-import actionlib
-import tbf_gripper_hand.msg
-
-
 """@package autonomy
 This package gives is made to handle provide features supporting autonomy for the Julius robot.
 @author: Steve Grehl
 """
+
 import signal
 import sys
 
 import rospy
-import time
 from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 import message_filters
@@ -215,7 +210,7 @@ class SetTask(MoveTask):
         MoveTask.__init__(self)
 
         # ROS Anbindung
-        self.hand_controller = grasping.hand.HandController()
+        self.hand_controller = grasping.hand.DummyHandController()
         rospy.loginfo("Task.py: MoveTask(): initilized hand")
 
         rospy.sleep(0.5)
