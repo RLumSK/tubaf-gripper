@@ -55,7 +55,7 @@ class SSBMarker(InteractiveMarker):
     Class for the smart sensor box interactive marker
     """
 
-    def __init__(self, ns="~", pose=None):
+    def __init__(self, ns="~", pose=None, mesh=None):
         """
         Default constructor
         @:param nr: namespace of this marker
@@ -88,8 +88,9 @@ class SSBMarker(InteractiveMarker):
             pose = rospy.get_param(ns+"ssb_default_pose", geometry_msgs.msg.Pose())
         self._mesh_marker.pose = pose
         self._mesh_marker.type = Marker.MESH_RESOURCE
-        self._mesh_marker.mesh_resource = rospy.get_param(ns+"ssb_mesh_resource",
-                                                          'package://tbf_gripper_tools/resources/mesh/wlan_box.stl')
+        if mesh is None:
+            mesh = rospy.get_param(ns+"ssb_mesh_resource", 'package://tbf_gripper_tools/resources/mesh/wlan_box.stl')
+        self._mesh_marker.mesh_resource = mesh
         self._mesh_marker.scale.x = rospy.get_param(ns+"ssb_x_scale", 1.0)
         self._mesh_marker.scale.y = rospy.get_param(ns+"ssb_y_scale", 1.0)
         self._mesh_marker.scale.z = rospy.get_param(ns+"ssb_z_scale", 1.0)

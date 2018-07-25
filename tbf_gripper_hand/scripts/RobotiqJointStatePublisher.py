@@ -63,7 +63,7 @@ class RobotiqJointStatePublisher(object):
                       'finger_1_joint_2', 'finger_2_joint_2', 'finger_middle_joint_3', 'finger_1_joint_3',
                       'finger_2_joint_3', 'palm_finger_1_joint', 'palm_finger_2_joint']
         self.names = [prefix+name for name in self.names]
-        self.position = [-1.0, -1.0, -1.0,-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+        self.position = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
         # self.position = [-1.0, -1.0, -1.0, -1.0, -1.0]
         # self.velocity = [-1.0, -1.0, -1.0, -1.0, -1.0]
         # self.effort = [-1.0, -1.0, -1.0, -1.0, -1.0]

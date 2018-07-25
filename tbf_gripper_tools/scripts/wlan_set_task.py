@@ -126,9 +126,10 @@ class WlanSetTask(autonomy.Task.SetTask):
             self.display_trajectory_publisher = rospy.Publisher("/move_group/display_planned_path",
                                                                 moveit_msgs.msg.DisplayTrajectory,
                                                                 queue_size=10)
+            self.eef_link = rospy.get_param("~eef_link", "gripper_robotiq_palm_planning")
             rospy.loginfo("WlanSetTask.__init__() Adding Collision Object...")
             #  Add collision object to planning scene
-            self.eef_link = rospy.get_param("~eef_link", "gripper_robotiq_palm_planning")
+            # Smart Sensor Box (SSB)
             ssb_default_pose = rospy.get_param("~ssb_default_pose", geometry_msgs.msg.Pose())
             self.ssb_default_ps = geometry_msgs.msg.PoseStamped()
 
@@ -149,6 +150,28 @@ class WlanSetTask(autonomy.Task.SetTask):
             rospy.sleep(2.0)
             self.mvit_scene.add_mesh(name=self.ssb_name, pose=self.ssb_default_ps, filename=ssb_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
+            # Water Sample Station (WSS)
+            wss_default_pose = rospy.get_param("~wss_default_pose", geometry_msgs.msg.Pose())
+            self.wss_default_ps = geometry_msgs.msg.PoseStamped()
+
+            pos = geometry_msgs.msg.Point(**wss_default_pose['position'])
+            ori = geometry_msgs.msg.Quaternion(**wss_default_pose['orientation'])
+
+            self.wss_default_ps.pose = geometry_msgs.msg.Pose(pos, ori)
+            self.wss_default_ps.header.frame_id = "water_sample_station_mount_link"
+
+            wss_mesh_filename = rospy.get_param("~wss_mesh_filename", os.path.join(
+                rospkg.RosPack().get_path('tbf_gripper_tools'), 'resources', 'mesh', 'water_station_scaled.stl'))
+            x_scale = rospy.get_param("~wss_x_scale", 1.0)
+            y_scale = rospy.get_param("~wss_y_scale", 1.0)
+            z_scale = rospy.get_param("~wss_z_scale", 1.0)
+            self.wss_name = "Water Sample Station"
+            if len(self.mvit_scene.get_attached_objects([self.wss_name])) != 0:
+                self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.wss_name)
+            rospy.sleep(2.0)
+            self.mvit_scene.add_mesh(name=self.wss_name, pose=self.wss_default_ps, filename=wss_mesh_filename,
+                                     size=(x_scale, y_scale, z_scale))
+
         except Exception as ex:
             rospy.logwarn("[WlanSetTask.__init__()]: MoveIt failed to initalize")
             rospy.logwarn("[WlanSetTask.__init__()]: %s", ex.message)
