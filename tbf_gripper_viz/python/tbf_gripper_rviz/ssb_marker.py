@@ -143,6 +143,22 @@ class SSBMarker(InteractiveMarker):
 
         self._server.applyChanges()
 
+    def getMeshResourcePath(self):
+        """
+        Return the location of the used mesh
+        :return: OS path
+        :rtype: String
+        """
+        return self._mesh_marker.mesh_resource
+
+    def getMeshScale(self):
+        """
+        Return the scale of the used mesh
+        :return: OS path
+        :rtype: String
+        """
+        return [self._mesh_marker.scale.x, self._mesh_marker.scale.y, self._mesh_marker.scale.z]
+
     def onFeedback(self, feedback):
         """
         Callback from the Interactive Marker Server

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	author: sgrehl
+	proj: ARIDuA
+	date: 26.07.2018
+	desc: Testing transformation from end_effector to xtion rgb frame
+-->
+<launch>
+    <arg name="frame_id" default="gripper_ur5_ee_link"/>
+    <arg name="child_frame_id" default="gripper_camera_rgb_optical_frame"/>
+
+    <node name="eef_camera_pose_publisher" pkg="tbf_gripper_tools" type="eef_camera_pose_publisher.py" output="screen">
+        <param name="frame_id" value="$(arg frame_id)" />
+        <rosparam>
+            pose_as_matrix:
+            - [-1.0, -0.001089, 0.20091, -0.128796]
+            - [-0.195706, 0.260158, -1.0, 0.43116]
+            - [-0.04503, -1.0, -0.276583, 48.3572]
+            - [0.0, 0.0, 0.0, 1.0]
+        </rosparam>
+    </node>
+    <!-- static_transform_publisher x y z qx qy qz qw frame_id child_frame_id -->
+    <node  pkg="tf2_ros" type="static_transform_publisher" name="eef_rgb_publisher"
+           args="-0.128796  0.43116 48.3572
+           -0.01851 0.70686 -0.01851 0.70686
+           $(arg frame_id) $(arg child_frame_id)" />
+
+
+</launch>
+

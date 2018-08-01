@@ -44,6 +44,7 @@ import sensor_msgs.msg
 import message_filters
 import tf
 import tf.transformations as tft
+from camera_info_manager import URL_empty, URL_file, URL_invalid, URL_package, resolveURL, parseURL, getPackageFileName
 
 
 import autonomy.Task
@@ -91,6 +92,53 @@ def continue_by_console(text=None):
         return False
     else:
         return continue_by_console(text)
+
+
+def continue_by_topic(topic=None):
+    """
+    Wait for a msg from a defined topic
+    :param topic: name of the topic where the msg will be received
+    :type topic: String
+    :return: result
+    :rtype: Bool
+    """
+    if topic is None:
+        topic = rospy.get_param("~continue_topic", "/wlan_set_task/continue")
+    subscriber = message_filters.Subscriber(topic, std_msgs.msg.Bool)
+    cache = message_filters.Cache(subscriber, 5, allow_headerless=True)
+    while cache.getLast() is None:
+        rospy.sleep(2.0)
+    return cache.getLast().data
+
+
+def parse_to_os_path(p):
+    """
+    Parse the given ROS Path to its OS equivalent
+    :param p: Path
+    :type p: String
+    :return: Path
+    :rtype: String
+    """
+    resolved_url = resolveURL(p, "")
+    url_type = parseURL(resolved_url)
+    if url_type == URL_empty:
+        return p
+    rospy.loginfo('[parse_to_os_path()] writing calibration data to URL: ' + resolved_url)
+    if url_type == URL_file:
+        return resolved_url[7:]
+    elif url_type == URL_package:
+        filename = getPackageFileName(resolved_url)
+        if filename == '':  # package not resolved
+            rospy.logerr('[parse_to_os_path()] Package missing: ' +
+                         resolved_url + ' (ignored)')
+            # treat it like an empty URL
+            return resolved_url
+        else:
+            return filename
+    else:
+        rospy.logerr("Invalid camera calibration URL: " + resolved_url)
+        # treat it like an empty URL
+        return resolved_url
 
 
 class WlanSetTask(autonomy.Task.SetTask):
@@ -147,7 +195,7 @@ class WlanSetTask(autonomy.Task.SetTask):
             self.ssb_name = "Smart_Sensor_Box"
             if len(self.mvit_scene.get_attached_objects([self.ssb_name])) != 0:
                 self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
-            rospy.sleep(2.0)
+            # rospy.sleep(2.0)
             self.mvit_scene.add_mesh(name=self.ssb_name, pose=self.ssb_default_ps, filename=ssb_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
             # Water Sample Station (WSS)
@@ -168,7 +216,7 @@ class WlanSetTask(autonomy.Task.SetTask):
             self.wss_name = "Water Sample Station"
             if len(self.mvit_scene.get_attached_objects([self.wss_name])) != 0:
                 self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.wss_name)
-            rospy.sleep(2.0)
+            # rospy.sleep(2.0)
             self.mvit_scene.add_mesh(name=self.wss_name, pose=self.wss_default_ps, filename=wss_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
 
@@ -195,9 +243,6 @@ class WlanSetTask(autonomy.Task.SetTask):
             prefix + "finger_middle_link_3"
         ]
 
-        continue_topic = rospy.get_param("~continue_topic", "/wlan_set_task/continue")
-        self.continue_subscriber = message_filters.Subscriber(continue_topic, std_msgs.msg.Bool)
-        self.continue_cache = message_filters.Cache(self.continue_subscriber, 5, allow_headerless=True)
         self.tf_listener = tf.TransformListener()
 
         rospy.loginfo("WlanSetTask.__init__() Initialized Task")
@@ -268,6 +313,25 @@ class WlanSetTask(autonomy.Task.SetTask):
         self._hand_ssb_broadcaster.start()
         return new_eef_link
 
+    def _clear_octomap_on_marker(self, marker):
+        """
+        Clears the octomap on a desired pose with a marker to enable planning to this pose without collision -
+        use careful
+        :param marker: SSB marker on the desired pose
+        :type marker: ssb_marker.SSBMarker
+        :return: -
+        :rtype: -
+        """
+        rospy.loginfo("WlanSetTask._clear_octomap_on_marker(): Marker %s", marker)
+        p = parse_to_os_path(marker.getMeshResourcePath())
+        rospy.loginfo("WlanSetTask._clear_octomap_on_marker(): MeshPath %s", p)
+        ps = geometry_msgs.msg.PoseStamped(header=marker.header, pose=marker.pose)
+        self.mvit_scene.add_mesh(name="tmp_marker", pose=ps, filename=p,
+                                 size=marker.getMeshScale())
+        # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
+        self.mvit_scene.remove_world_object(name="tmp_marker")
+        return
+
     def move_to_target(self, target, info=""):
         """
         Move to designated target by using MoveIt interface
@@ -283,7 +347,6 @@ class WlanSetTask(autonomy.Task.SetTask):
         rospy.logdebug("WlanSetTask.move_to_target(): Current Joint value %s",
                        ["%.2f" % v for v in np.rad2deg(self.mvit_group.get_current_joint_values())]
                        )
-        # rospy.logdebug("WlanSetTask.move_to_target(): type(target) %s", type(target))
         self.mvit_group.set_start_state(start)
         if type(target) is list:
             target_dict = dict()
@@ -298,6 +361,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         else:
             rospy.logwarn("WlanSetTask.move_to_target(): Illegal target type: %s", type(target))
             return
+        plan = None
         plan_valid = False
         while not plan_valid:
             rospy.loginfo("WlanSetTask.move_to_target(): Planning "+info+" to %s",
@@ -310,15 +374,7 @@ class WlanSetTask(autonomy.Task.SetTask):
                                )
                 continue
             # # Check Plan
-            # now = rospy.Time.now()
-            # rospy.sleep(5.0)
-            # msg = self.ui_check_cache.getElemAfterTime(now)
-            # if msg is None:
-            #     plan_valid = False
-            # else:
-            #     plan_valid = msg.data
-            # rospy.loginfo("WlanSetTask.move_wait(): Is robot allowed to execute presented plan? %s", plan_valid)
-
+            # plan_valid = continue_by_topic()
             # Check Plan - inline
             plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
         rospy.loginfo("WlanSetTask.move_to_target(): Executing ...")
@@ -352,9 +408,6 @@ class WlanSetTask(autonomy.Task.SetTask):
         # Attach collision object to end effector
         rospy.loginfo("WlanSetTask.perform(): Attach station to end effector")
         self.mvit_scene.attach_mesh(link=self.eef_link, name=self.ssb_name, touch_links=self.touch_links)
-        link_name = self._add_ssb_to_tf(self.ssb_name)
-        self.eef_link = link_name
-        # self.move_wait(self.waypoints["post_grasp"], v=self.l_arm_speed, a=self.l_arm_acceleration, move_cmd="movel")
         self.move_to_target(self.waypoints["post_grasp"], info="PostGrasp")
 
         # Set station
@@ -371,11 +424,12 @@ class WlanSetTask(autonomy.Task.SetTask):
             rospy.logdebug("WlanSetTask.perform(): Set station to pose: \n %s", station_pose)
             rospy.sleep(0.5)
 
-        # Formulte PLaning Problem
+        # Formulate Planning Problem
+        self._clear_octomap_on_marker(int_marker)
         target_pose = self.generate_goal(station_pose)
+        rospy.loginfo("WlanSetTask.perform(): Query new SSB Pose")
         while target_pose is None:
             now = rospy.Time.now()
-            rospy.loginfo("WlanSetTask.perform(): Query new SSB Pose")
             rospy.sleep(1.0)
             station_pose = station_pose_cache.getLast()
             if station_pose.header.time > now:
@@ -384,7 +438,7 @@ class WlanSetTask(autonomy.Task.SetTask):
                 rospy.logdebug("WlanSetTask.perform(): No new SSB Pose yet")
 
         # Plan Path using Moveit
-        self.move_to_target(target_pose)
+        self.move_to_target(target_pose, info="SSB_Pose")
 
         rospy.loginfo("WlanSetTask.perform(): Release station")
         self.hand_controller.openHand()
@@ -392,8 +446,8 @@ class WlanSetTask(autonomy.Task.SetTask):
         self._setup_move_group()
         # Remove collision object from end effector
         self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
-        self._hand_ssb_broadcaster.stop()
-        self.eef_link = rospy.get_param("~eef_link", "gripper_robotiq_palm_planning")
+        # self._hand_ssb_broadcaster.stop()
+        # self.eef_link = rospy.get_param("~eef_link", "gripper_robotiq_palm_planning")
         # self.move_wait(self.waypoints["set_down"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
 
         rospy.loginfo("WlanSetTask.perform(): Return to home pose")
@@ -414,8 +468,13 @@ class WlanSetTask(autonomy.Task.SetTask):
         :return: relating pose for the end-effector
         :rtype: geometry_msgs.msg.PoseStamped
         """
+        rospy.logdebug("[WlanSetTask.generate_goal()] started")
         if eef_frame is None:
             eef_frame = self.mvit_group.get_end_effector_link()
+            rospy.logdebug("[WlanSetTask.generate_goal()] eef_frame is %s", eef_frame)
+
+        # Extract current transformation between end_effector and grabbed object
+        # 1. Get grabbed object
         lst_obj = self.mvit_scene.get_attached_objects()
         if lst_obj is None or len(lst_obj) == 0:
             rospy.logwarn("[WlanSetTask.generate_goal()] It is assumed, that there is an object attached to the "
@@ -423,27 +482,32 @@ class WlanSetTask(autonomy.Task.SetTask):
             rospy.logdebug("%s", lst_obj)
             return None
         aco = lst_obj[self.ssb_name]  # Added collision object
-        rospy.logdebug("[WlanSetTask.generate_goal()] type(aco) is %s", type(aco))
+        rospy.logdebug("[WlanSetTask.generate_goal()] type(aco): %s\n link_name: %s\n header: %s\n mesh_poses: %s" %
+                       (type(aco), aco.link_name, aco.object.header, aco.object.mesh_poses))
+
+        # 2. Extract transformation from object to end-effector ... aco.object.mesh_poses[0]
         aco_link = aco.link_name
-        while not self.tf_listener.canTransform(target_frame=eef_frame, source_frame=aco_link, time=ps.header.stamp):
-            rospy.sleep(0.1)
-            # [t.x, t.y, t.z], [r.x, r.y, r.z, r.w]
-        (tran, rot) = self.tf_listener.lookupTransform(target_frame=eef_frame, source_frame=aco_link,
-                                                       time=ps.header.stamp)
-        rospy.logdebug("[WlanSetTask.generate_goal()] Source pose:\n %s", ps)
+        obj_to_eef_transform = aco.object.mesh_poses[0]
+        # Apply transform to target pose, in order to set the relative pose for the end-effector instead of the attached
+        # object
+        rospy.loginfo("[WlanSetTask.generate_goal()] Source pose:\n %s\nTranslation: %s\nRotation: %s" %
+                      (ps, obj_to_eef_transform.position, obj_to_eef_transform.orientation))
         goal_pose = ps
-        goal_pose.header.frame_id = eef_frame
-        goal_pose.pose.position.x += tran[0]
-        goal_pose.pose.position.y += tran[1]
-        goal_pose.pose.position.z += tran[2]
+        # goal_pose.header.frame_id = eef_frame - frame_id keeps the same, since the pose is relative to /base_footprint
+        goal_pose.pose.position.x += obj_to_eef_transform.position.x
+        goal_pose.pose.position.y += obj_to_eef_transform.position.y
+        goal_pose.pose.position.z += obj_to_eef_transform.position.z
         quat = tft.quaternion_multiply([goal_pose.pose.orientation.x, goal_pose.pose.orientation.y,
-                                 goal_pose.pose.orientation.z, goal_pose.pose.orientation.w], rot)
+                                        goal_pose.pose.orientation.z, goal_pose.pose.orientation.w],
+                                       [obj_to_eef_transform.orientation.x, obj_to_eef_transform.orientation.y,
+                                        obj_to_eef_transform.orientation.z, obj_to_eef_transform.orientation.w])
         goal_pose.pose.orientation.x = quat[0]
         goal_pose.pose.orientation.y = quat[1]
         goal_pose.pose.orientation.z = quat[2]
         goal_pose.pose.orientation.w = quat[3]
         rospy.logdebug("[WlanSetTask.generate_goal()] New pose:\n %s", goal_pose)
-
+        # while not continue_by_console("Keep going?"):
+        #     rospy.sleep(1.0)
         return goal_pose
 
     def start(self):
@@ -457,7 +521,7 @@ class WlanSetTask(autonomy.Task.SetTask):
 
 
 if __name__ == '__main__':
-    rospy.init_node("WlanSetTask", log_level=rospy.DEBUG)
+    rospy.init_node("WlanSetTask", log_level=rospy.INFO)
     obj = None
     for i in range(1, 4):
         if obj is None or obj.exec_thread is None:
