@@ -55,6 +55,7 @@ def print_info(data):
     rospy.loginfo("print_info(): data[0][0])\n %s" % str(data[0][0]))
     rospy.loginfo("print_info(): data[1][0])\n %s" % str(data[1][0]))
 
+
 def matrix_to_pose(matrix):
     rospy.logdebug("Calibrate_camera_end_effector_transformation.py@matrix_to_pose: matrix.shape = "+str(matrix.shape))
     ret_pose = Pose()
@@ -120,7 +121,7 @@ if __name__ == '__main__':
                              "\n" + ex.message)
 
         # Pickle it
-        data = [computation.lst_Po, computation.lst_Pe]
+        data = [['Po', computation.lst_Po], ['Pe', computation.lst_Pe]]
         print_info(data)
         rospy.loginfo("pickle_camera_ee_data.py: Starting pickle ... ")
         pkl.dump(data, open(pickle_fn+"_"+str(n_run)+".pickle", "wb"))
