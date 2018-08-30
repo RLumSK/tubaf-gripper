@@ -261,6 +261,7 @@ class SSBMarker(InteractiveMarker):
         """
         return self.pose_topic
 
+
 class SSBGraspMarker(object):
     """
     Define the Grasp Point on the SSB

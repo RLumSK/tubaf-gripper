@@ -1,0 +1,5 @@
+<launch>
+  <node name="equipment_handler" pkg="tbf_gripper_autonomy" type="EquipmentTask.py" respawn="false" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/equipment_task.yaml"/>
+  </node>
+</launch>

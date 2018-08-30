@@ -141,7 +141,7 @@ def parse_to_os_path(p):
         return resolved_url
 
 
-class WlanSetTask(autonomy.Task.SetTask):
+class WlanSetTask(autonomy.Task.GraspTask):
     """
     Class to get a set a wlan station
     """
@@ -150,7 +150,7 @@ class WlanSetTask(autonomy.Task.SetTask):
         default constructor of the set wlan task
         """
         rospy.loginfo("WlanSetTask.__init__(): Initializing Task...")
-        autonomy.Task.SetTask.__init__(self)
+        autonomy.Task.GraspTask.__init__(self)
         self.waypoints = rospy.get_param("~waypoints_station_"+str(station_nr))
         self.exec_thread = None
         self._hand_ssb_broadcaster = None

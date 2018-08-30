@@ -57,7 +57,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-class WaterSampleTask(autonomy.Task.SetTask):
+class WaterSampleTask(autonomy.Task.GraspTask):
     """
     Class to get a water sample
     """
@@ -66,7 +66,7 @@ class WaterSampleTask(autonomy.Task.SetTask):
         """
         default constructor of the perform the sampling task
         """
-        autonomy.Task.SetTask.__init__(self)
+        autonomy.Task.GraspTask.__init__(self)
         self.waypoints = rospy.get_param("~waypoints")
         self.exec_thread = None
 
@@ -133,7 +133,7 @@ class WaterSampleTask(autonomy.Task.SetTask):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("SetTask.start():")
+        rospy.loginfo("GraspTask.start():")
         self.run_as_process(WaterSampleTask.perform)
 
 

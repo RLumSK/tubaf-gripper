@@ -71,12 +71,25 @@ class MoveTask(object):
     """
     Abstract task class for the UR5
     """
-    def __init__(self):
+    def __init__(self, js_t=None, bu_pos=None, ltcp_s=None, ltcp_a=None, j_s=None, j_a=None):
         """
-        Default constructor, start ROS, arm and demo_monitoring
+        Overloaded constructor assuming the parameter are passed here instead of using the ROS parameter server
+        :param js_t: joint state topic
+        :type js_t: basestring
+        :param bu_pos: backup pose joint values
+        :type bu_pos: list(float)
+        :param ltcp_s: linear tool center point speed
+        :type ltcp_s: float
+        :param ltcp_a: linear tool center point acceleration
+        :type ltcp_a: float
+        :param j_s: joint speed
+        :type j_s: float
+        :param j_a: joint acceleration
+        :type j_a: float
         """
-        # ROS Anbindung
-        self.joint_states_topic = rospy.get_param("~joint_states_topic", "/ur5/joint_states")
+        if js_t is None:
+            rospy.get_param("~joint_states_topic", "/ur5/joint_states")
+        self.joint_states_topic = js_t
         self._joint_sub = message_filters.Subscriber(self.joint_states_topic, JointState)
         self.joint_cache = message_filters.Cache(self._joint_sub, 10)
 
@@ -84,30 +97,32 @@ class MoveTask(object):
         self.move_dur = 1.0
         self.exec_thread = None
 
-        self.waypoints = rospy.get_param("~waypoints", None)
-        self.backup_pose = rospy.get_param("~backup_pos")
-        self.l_arm_speed = rospy.get_param("~linear_tcp_speed", 60.0)
-        self.l_arm_acceleration = rospy.get_param("~linear_tcp_acceleration", 20.0)
-        self.j_arm_speed = rospy.get_param("~joint_speed", 10.0)
-        self.j_arm_acceleration = rospy.get_param("~joint_acceleration", 5.0)
-
-        #  wait for publisher to start/initialize
-        # rospy.loginfo("MoveTask(): TEST")
-        # rospy.sleep(.5)
-        # rospy.loginfo("MoveTask(): TEST")
+        self.waypoints = None
+        if bu_pos is None:
+            bu_pos = rospy.get_param("~backup_pos")
+        self.backup_pose = bu_pos
+        if ltcp_s is None:
+            ltcp_s = rospy.get_param("~linear_tcp_speed", 60.0)
+        self.l_arm_speed = ltcp_s
+        if ltcp_a is None:
+            ltcp_a = rospy.get_param("~linear_tcp_acceleration", 20.0)
+        self.l_arm_acceleration = ltcp_a
+        if j_s is None:
+            j_s = rospy.get_param("~joint_speed", 10.0)
+        self.j_arm_speed = j_s
+        if j_a is None:
+            j_a = rospy.get_param("~joint_acceleration", 5.0)
+        self.j_arm_acceleration = j_a
 
     def initialise(self):
         """
-        Initilise by opening the hand and moving to a given backup_pose
-        :return: -
-        :rtype: -
+        Initialise by opening the hand and moving to a given backup_pose
         """
-        rospy.loginfo("MoveTask.initialisation(): Moving to home pose")
+        rospy.loginfo("MoveTask.initialise(): Moving to home pose")
         # Arm
-        rospy.loginfo("MoveTask.initialisation(): Move to backup_pose...")
+        rospy.loginfo("MoveTask.initialise(): Move to backup_pose...")
         self.move_wait(self.backup_pose, v=45, a=20)
-        rospy.loginfo("MoveTask.initialisation(): Init done")
-        self.exec_thread = None
+        rospy.loginfo("MoveTask.initialise(): Init done")
 
     def run_as_process(self, function):
         """
@@ -122,7 +137,10 @@ class MoveTask(object):
             rospy.sleep(.5)
             self.run_as_process(function)
             return
+        rospy.loginfo("MoveTask.run_as_process(): Starting %s" % function)
         self.exec_thread = thread.start_new_thread(function, (self,))
+        rospy.loginfo("MoveTask.run_as_process(): Finished %s" % function)
+        self.exec_thread = None
 
     def _convert_joint_States(self, js):
         """
@@ -175,10 +193,7 @@ class MoveTask(object):
         if t is not None:
             program += ", r=%f" % r
         program += ")"
-        if self.exec_thread is not None:
-            self.program_pub.publish(program)
-        else:
-            raise InterruptError("Thread interrupted")
+        self.program_pub.publish(program)
         while True:
             tmp = self.joint_cache.getLast()
             if tmp is None:
@@ -199,22 +214,34 @@ class MoveTask(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class SetTask(MoveTask):
+class GraspTask(MoveTask):
     """
     Abstract class for set tasks
     """
-    def __init__(self):
+    def __init__(self, js_t=None, bu_pos=None, ltcp_s=None, ltcp_a=None, j_s=None, j_a=None):
         """
-        Default constructor, start ROS, hand_model and demo_monitoring
+        Overloaded constructor assuming the parameter are passed here instead of using the ROS parameter server
+        :param js_t: joint state topic
+        :type js_t: basestring
+        :param bu_pos: backup pose joint values
+        :type bu_pos: list(float)
+        :param ltcp_s: linear tool center point speed
+        :type ltcp_s: float
+        :param ltcp_a: linear tool center point acceleration
+        :type ltcp_a: float
+        :param j_s: joint speed
+        :type j_s: float
+        :param j_a: joint acceleration
+        :type j_a: float
         """
-        MoveTask.__init__(self)
-
+        super(GraspTask, self).__init__(js_t, bu_pos, ltcp_s, ltcp_a, j_s, j_a)
         # ROS Anbindung
         self.hand_controller = grasping.hand.DummyHandController()
-        rospy.loginfo("Task.py: MoveTask(): initilized hand")
+        rospy.loginfo("Task.py: GraspTask(): initilized hand")
 
         rospy.sleep(0.5)
-        self.run_as_process(self.initialise)
+        self.initialise()
+        # super(GraspTask, self).run_as_process(self.initialise)
 
     @abc.abstractmethod
     def perform(self):
@@ -231,13 +258,15 @@ class SetTask(MoveTask):
         :return: -
         :rtype: -
         """
+        super(GraspTask, self).initialise()
         # Hand
-        rospy.sleep(3.0)
+        # rospy.sleep(3.0)
+        rospy.logdebug("GraspTask.initialise(): Initialized arm now setup the hand")
         self.hand_controller.openHand()
-        rospy.loginfo("SetTask.initialisation(): Wait 20s for the hand to initialise")
-        rospy.sleep(20.0)
-        rospy.loginfo("SetTask.initialisation(): Init done")
-        self.exec_thread = None
+        # rospy.loginfo("GraspTask.initialisation(): Wait 20s for the hand to initialise")
+        # rospy.sleep(20.0)
+        rospy.loginfo("GraspTask.initialise(): Init done")
+        # self.exec_thread = None
 
     @abc.abstractmethod
     def start(self):
@@ -246,13 +275,26 @@ class SetTask(MoveTask):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("SetTask.start():")
-        self.run_as_process(SetTask.perform)
+        rospy.loginfo("GraspTask.start():")
+        super(GraspTask, self).run_as_process(GraspTask.perform)
+
+
+@six.add_metaclass(abc.ABCMeta)
+class SetTask(MoveTask):
+    """
+    Abstract class for set tasks
+    """
+    def __init__(self):
+        """
+        Default constructor, start ROS, hand_model and demo_monitoring
+        """
+        MoveTask.__init__(self)
+        rospy.logwarn("SetTask.__init__(): This class has been renamed to 'GraspTask' please rename its usage too")
 
 
 if __name__ == '__main__':
     rospy.init_node("Task")
-    obj = SetTask()
+    obj = GraspTask()
     while obj.exec_thread is not None:
         rospy.sleep(0.5)
     obj.start()
