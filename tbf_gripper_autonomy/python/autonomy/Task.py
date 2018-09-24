@@ -236,7 +236,7 @@ class GraspTask(MoveTask):
         """
         super(GraspTask, self).__init__(js_t, bu_pos, ltcp_s, ltcp_a, j_s, j_a)
         # ROS Anbindung
-        self.hand_controller = grasping.hand.DummyHandController()
+        self.hand_controller = grasping.hand.HandController()
         rospy.loginfo("Task.py: GraspTask(): initilized hand")
 
         rospy.sleep(0.5)
