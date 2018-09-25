@@ -15,7 +15,7 @@ equipment:
     pick_waypoints:
       pre_joint_values:   [-171.5, -137.2, 120.3, -163.53, -80.8, 45.2]
       grasp_joint_values: [-175.3, -114.9, 114.1, -179.50, -72.7, 45.3]
-      post_joint_values:  [-199.8, -107.3, 96.70, -167.10, -66.2, 40.6]
+      post_joint_values:  [-175.3, -113.9, 103.5, -169.84, -72.8, 45.3]
   - name: "Water Sample Station"
     robot_pick_pose:
       reference_frame: "water_sample_station_mount_link"

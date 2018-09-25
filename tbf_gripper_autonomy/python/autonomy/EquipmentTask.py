@@ -212,8 +212,7 @@ class MoveitInterface(object):
             # # Check Plan
             # plan_valid = continue_by_topic()
             # Check Plan - inline
-            # plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
-            plan_valid = True
+            plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
         rospy.loginfo("MoveitInterface.move_to_target(): Executing ...")
         if not self.group.execute(plan):
             rospy.logdebug("MoveitInterface.move_to_target(): Execution returned False")

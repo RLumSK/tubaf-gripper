@@ -118,8 +118,6 @@ class MoveTask(object):
         """
         Initialise by opening the hand and moving to a given backup_pose
         """
-        rospy.loginfo("MoveTask.initialise(): Moving to home pose")
-        # Arm
         rospy.loginfo("MoveTask.initialise(): Move to backup_pose...")
         self.move_wait(self.backup_pose, v=45, a=20)
         rospy.loginfo("MoveTask.initialise(): Init done")
@@ -239,8 +237,8 @@ class GraspTask(MoveTask):
         self.hand_controller = grasping.hand.HandController()
         rospy.loginfo("Task.py: GraspTask(): initilized hand")
 
-        rospy.sleep(0.5)
-        self.initialise()
+        # rospy.sleep(0.5)
+        # self.initialise()
         # super(GraspTask, self).run_as_process(self.initialise)
 
     @abc.abstractmethod
