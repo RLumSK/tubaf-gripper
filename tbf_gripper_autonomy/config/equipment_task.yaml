@@ -18,13 +18,13 @@ equipment:
       post_joint_values:  [-175.3, -113.9, 103.5, -169.84, -72.8, 45.3]
   - name: "Water Sample Station"
     robot_pick_pose:
-      reference_frame: "water_sample_station_mount_link"
-      position: {x: -0.05, y: 0.105, z: -0.03}
-      orientation: {x: -0.7071, y: 0, z: 0.0, w: 0.7071}
+      reference_frame: "water_sample_station_sample_link"
+      position: {x: 0.0, y: 0.0, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
     # robot_set_pose: #None
     release_on_set: False
-    mesh_url: "package://tbf_gripper_tools/resources/mesh/water_station_scaled.stl"
-    scale: {x: 1.0, y: 1.0, z: 1.0}
+    mesh_url: "package://julius_base/meshes/parts/water_station_simple.stl"
+    scale: {x: 0.001, y: 0.001, z: 0.001}
     pick_waypoints:
       pre_joint_values:   [-12.18, -75.06, -31.19, -132.94, 80.34, 37.48]
       grasp_joint_values: [-13.50, -99.22, -35.34, -130.96, 80.41, 37.45]
@@ -44,7 +44,7 @@ arm:
 # MoveIt!
 moveit:
   eef_link: "gripper_robotiq_palm_planning"
-  planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
+  planner_id: "SBLkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
     # SBLkConfigDefault
     # ESTkConfigDefault
     # LBKPIECEkConfigDefault

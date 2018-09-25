@@ -281,17 +281,16 @@ class MoveitInterface(object):
         """
         Clears the octomap on a desired pose with a marker to enable planning to this pose without collision -
         use careful
-        :param i_marker: marker on the desired pose
-        :type i_marker: marker.SSBMarker
+        :param equipment: marker on the desired pose
+        :type equipment: marker.SSBMarker
         :return: -
         :rtype: -
         """
         rospy.loginfo("MoveitInterface.clear_octomap_on_marker(): Equipment %s", equipment)
-        p = parse_to_os_path(marker.getMeshResourcePath())
+        p = parse_to_os_path(equipment.getMeshResourcePath())
         rospy.loginfo("WlanSetTask._clear_octomap_on_marker(): MeshPath %s", p)
-        ps = PoseStamped(header=marker.header, pose=marker.pose)
-        self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p,
-                                 size=marker.getMeshScale())
+        ps = PoseStamped(header=equipment.header, pose=equipment.pose)
+        self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=equipment.getMeshScale())
         # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         self.scene.remove_world_object(name="tmp_marker")
         return
@@ -349,6 +348,31 @@ class EquipmentTask(GraspTask):
                 return retValue
         return retValue
 
+    def generate_goal(self, query_pose):
+        """
+        The pose may not be given in a frame suitable for stable planing, therefore you may change its reference frame
+        and pose accordingly here
+        :param query_pose: pose given
+        :type query_pose: PoseStamped
+        :return: pose expressed in suitable reference frame
+        :rtype: PoseStamped
+        """
+        source_frame = query_pose.header.frame_id
+        target_frame = self.moveit.group.get_pose_reference_frame()
+        rospy.loginfo("EquipmentTask.generate_goal(): query_pose.header.frame_id: \n %s", source_frame)
+        rospy.loginfo("EquipmentTask.generate_goal(): moveit.group.get_pose_reference_frame(): \n %s", target_frame)
+        self.tf_listener.waitForTransform(target_frame, source_frame, query_pose.header.stamp, rospy.Duration(1))
+        try:
+            ps = PoseStamped()
+            ps.header = query_pose.header
+            ps.header.frame_id = target_frame
+            ps.pose = self.tf_listener.transformPose(target_frame=target_frame, ps=query_pose)
+        except Exception as ex:
+            rospy.logwarn(ex.message)
+            rospy.logwarn("EquipmentTask.generate_goal():can't transform pose to desired frame: %s", target_frame)
+            return None
+        return ps
+
     def perform(self):
         """
         Equipment Handle Task:
@@ -363,6 +387,9 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         rospy.loginfo("EquipmentTask.perform(): Equipment handling started - Robot starting at HOME position")
+        # 0. Open hand, in case smart equipment is still stuck
+        self.hand_controller.openHand()
+        rospy.sleep(1.0)
         # 1. Scan Environment
         rospy.loginfo("EquipmentTask.perform(): Closing hand  and scan the environment by given watch pose")
         self.hand_controller.closeHand()
@@ -412,7 +439,7 @@ class EquipmentTask(GraspTask):
                 rospy.logdebug("WlanSetTask.perform(): No new SSB Pose yet")
 
         # Plan Path using Moveit
-        self.move_to_target(target_pose, info="SSB_Pose")
+        self.moveit.move_to_target(target_pose.pose, info="SSB_Pose")
 
         rospy.loginfo("WlanSetTask.perform(): Release station")
         self.hand_controller.openHand()
