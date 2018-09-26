@@ -30,7 +30,8 @@
 
 import rospy
 import resource_retriever as rer
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped, Point, Pose
+from tf import TransformListener
 
 
 class Equipment:
@@ -70,6 +71,7 @@ class Equipment:
         self.pick_waypoints["pre"] = entry["pick_waypoints"]["pre_joint_values"]
         self.pick_waypoints["grasp"] = entry["pick_waypoints"]["grasp_joint_values"]
         self.pick_waypoints["post"] = entry["pick_waypoints"]["post_joint_values"]
+        self.grasp_offset = PoseStamped()
 
     def __str__(self):
         return self.name + \
@@ -80,3 +82,21 @@ class Equipment:
                "\npick_waypoints[pre]:\n" + str(self.pick_waypoints["pre"]) + \
                "\npick_waypoints[grasp]:\n" + str(self.pick_waypoints["grasp"]) + \
                "\npick_waypoints[post]:\n" + str(self.pick_waypoints["post"])
+
+    def calculate_grasp_offset(self, attached_frame="gripper_robotiq_palm_planning", tf_listener=None):
+        """
+        Calculates and stores the offset between the pick pose and the given frame
+        :param tf_listener: information about current transformations of the robot
+        :type tf_listener: TransformListener
+        :param attached_frame: typically the planinge frame from MoveIt
+        :type attached_frame: str
+        :return: -
+        :rtype: -
+        """
+        if tf_listener is None:
+            tf_listener = TransformListener()
+        self.robot_pick_pose.header.stamp = rospy.Time()
+        tf_listener.waitForTransform(attached_frame, self.robot_pick_pose.header.frame_id,
+                                     self.robot_pick_pose.header.stamp, rospy.Duration.from_sec(5.0))
+        self.grasp_offset = tf_listener.transformPose(attached_frame, self.robot_pick_pose)
+        rospy.loginfo("Equipment.calculate_grasp_offset(): offset:\n %s" % self.grasp_offset)

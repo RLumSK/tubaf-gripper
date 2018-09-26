@@ -83,10 +83,11 @@ class SSBMarker(InteractiveMarker):
         self._server_name = rospy.get_param(ns+"server_name", "ssb_marker_server"+ns[0:-1])
         self._server = InteractiveMarkerServer(self._server_name)
 
-        self._mesh_marker = Marker()
         if pose is None:
             pose = rospy.get_param(ns+"ssb_default_pose", geometry_msgs.msg.Pose())
-        self._mesh_marker.pose = pose
+        self.pose = pose
+
+        self._mesh_marker = Marker()
         self._mesh_marker.type = Marker.MESH_RESOURCE
         if mesh is None:
             mesh = rospy.get_param(ns+"ssb_mesh_resource", 'package://tbf_gripper_tools/resources/mesh/wlan_box.stl')
@@ -139,8 +140,6 @@ class SSBMarker(InteractiveMarker):
         # self._server.insert(self, self.onUpdateNormal)
         self._menu_handler.apply(self._server, self.name)
 
-        self.current_pose = self._mesh_marker.pose
-
         self._server.applyChanges()
 
     def getMeshResourcePath(self):
@@ -168,7 +167,7 @@ class SSBMarker(InteractiveMarker):
         :rtype: -
         """
         rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
-        self.current_pose = feedback.pose
+        self.pose = feedback.pose
 
     def onPublishPose(self, feedback):
         """
@@ -181,7 +180,7 @@ class SSBMarker(InteractiveMarker):
         self.onFeedback(feedback)
         ps = geometry_msgs.msg.PoseStamped()
         ps.header.frame_id = self.header.frame_id
-        ps.pose = self.current_pose
+        ps.pose = self.pose
         self._pub_pose_stamped.publish(ps)
 
     def onUpdateNormal(self, feedback):
@@ -401,3 +400,10 @@ class SSBGraspMarker(object):
         int_marker.controls.append(control)
 
         return int_marker
+
+
+if __name__ == '__main__':
+    rospy.init_node("SSBGraspMarker", log_level=rospy.INFO)
+    gm = SSBGraspMarker()
+    sm = SSBMarker()
+    rospy.spin()
