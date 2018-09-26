@@ -45,6 +45,7 @@ import std_msgs.msg
 
 from tbf_gripper_tools.Equipment import Equipment
 from tubaf_tools import parse_to_os_path, fill_message
+from tubaf_tools.confirm_service import wait_for_confirmation
 import tbf_gripper_rviz.ssb_marker as marker
 
 
@@ -210,9 +211,11 @@ class MoveitInterface(object):
                                )
                 continue
             # # Check Plan
-            # plan_valid = continue_by_topic()
+            rospy.loginfo("MoveitInterface.move_to_target(): Please confirm the plan using the interactive marker on "
+                          "topic: '/confirm_plan_marker/markers/update'")
+            plan_valid = wait_for_confirmation(service_ns="~confirm_plan", timeout=60)
             # Check Plan - inline
-            plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
+            # plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
         rospy.loginfo("MoveitInterface.move_to_target(): Executing ...")
         if not self.group.execute(plan):
             rospy.logdebug("MoveitInterface.move_to_target(): Execution returned False")

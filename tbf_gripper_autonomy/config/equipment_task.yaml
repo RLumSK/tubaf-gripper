@@ -44,7 +44,7 @@ arm:
 # MoveIt!
 moveit:
   eef_link: "gripper_robotiq_palm_planning"
-  planner_id: "SBLkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
+  planner_id: "RRTConnectkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
     # SBLkConfigDefault
     # ESTkConfigDefault
     # LBKPIECEkConfigDefault
