@@ -16,6 +16,7 @@ equipment:
       pre_joint_values:   [-171.5, -137.2, 120.3, -163.53, -80.8, 45.2]
       grasp_joint_values: [-175.3, -114.9, 114.1, -179.50, -72.7, 45.3]
       post_joint_values:  [-175.3, -113.9, 103.5, -169.84, -72.8, 45.3]
+      hover_joint_values:  [0.0, -113.9, 103.5, -169.84, -90.0, 45.3]
     touch_links:
       - ""
   - name: "Water Sample Station"
@@ -31,6 +32,7 @@ equipment:
       pre_joint_values:   [-12.18, -75.06, -31.19, -132.94, 80.34, 37.48]
       grasp_joint_values: [-13.50, -99.22, -35.34, -130.96, 80.41, 37.45]
       post_joint_values:  [-13.53, -107.3, -16.28, -141.95, 80.50, 37.48]
+      hover_joint_values: [   0.0, -107.3, -16.28, -141.95,  90.0, 37.48]
     touch_links:
       - "water_sample_station_mount_link"
 

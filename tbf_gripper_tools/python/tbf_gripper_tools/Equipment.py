@@ -89,6 +89,7 @@ class Equipment:
         self.pick_waypoints["pre"] = entry["pick_waypoints"]["pre_joint_values"]
         self.pick_waypoints["grasp"] = entry["pick_waypoints"]["grasp_joint_values"]
         self.pick_waypoints["post"] = entry["pick_waypoints"]["post_joint_values"]
+        self.pick_waypoints["hover"] = entry["pick_waypoints"]["hover_joint_values"]
         self.touch_links = entry["touch_links"]
         if self.touch_links[0] == "":
             self.touch_links = []
@@ -157,6 +158,17 @@ class Equipment:
         rospy.loginfo("Equipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
 
     def get_grasp_pose(self, object_pose_stamped, planning_frame, tf_listener):
+        """
+        Temporarily add a frame to the tf listener and extract the grasp pose relative to the planning frame
+        :param object_pose_stamped: current pose of the object
+        :type object_pose_stamped: PoseStamped
+        :param planning_frame: planning frame of the moveit group
+        :type planning_frame: str
+        :param tf_listener: tf interface
+        :type tf_listener: TransformListener
+        :return: grasp pose
+        :rtype: PoseStamped
+        """
         tmp_frame = "temp_frame"
         eq_pose_transform = pose_to_tf(object_pose_stamped.pose, tmp_frame, object_pose_stamped.header.frame_id)
         # print("object_raw", eq_pose_transform)
