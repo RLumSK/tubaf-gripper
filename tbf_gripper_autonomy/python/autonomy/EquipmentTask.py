@@ -143,40 +143,12 @@ class EquipmentTask(GraspTask):
         :return: pose expressed in suitable reference frame
         :rtype: PoseStamped
         """
-        source_frame = query_pose.header.frame_id
+        target_frame = self.moveit.group.get_pose_reference_frame()
 
         rospy.loginfo("EquipmentTask.generate_goal(): query_pose: \n %s", query_pose)
-        # rospy.logdebug("EquipmentTask.generate_goal(): moveit.group.get_pose_reference_frame(): \n %s", target_frame)
+        rospy.logdebug("EquipmentTask.generate_goal(): moveit.group.get_pose_reference_frame(): \n %s", target_frame)
 
-        return self.moveit.attached_equipment.get_grasp_pose(query_pose,self.moveit.group.get_planning_frame(),self.tf_listener)
-
-        t = self.tf_listener.getLatestCommonTime(target_frame, source_frame)
-        self.tf_listener.waitForTransform(target_frame, source_frame, t, rospy.Duration(1))
-        try:
-            ps = self.tf_listener.transformPose(target_frame=target_frame, ps=query_pose)
-        except Exception as ex:
-            rospy.logwarn(ex.message)
-            rospy.logwarn("EquipmentTask.generate_goal():can't transform pose to desired frame: %s", target_frame)
-            return None
-        rospy.loginfo("EquipmentTask.generate_goal(): target_pose: \n %s", ps)
-
-        # The pose is now in the center of the marker, not at the grasp point - apply the offset stored in the
-        # referring equipment object
-        ps_offset = self.moveit.attached_equipment.grasp_offset
-        if ps_offset is None:
-            rospy.logwarn("EquipmentTask.generate_goal(): self.moveit.attached_equipment.grasp_offset is None")
-            return query_pose
-        if ps_offset.header.frame_id != ps.header.frame_id:
-            rospy.logwarn("EquipmentTask.generate_goal(): frame_id missmatch: offset_id=%s , target_id=%s" %
-                          (ps_offset.header.frame_id, ps.header.frame_id))
-            return ps
-        inv_offset = invert_pose(ps_offset.pose)
-        ps.pose = add_pose(ps.pose, inv_offset)
-
-        # Transform pose to planning frame
-        target_frame = self.moveit.group.get_planning_frame()
-
-        return ps
+        return self.moveit.attached_equipment.get_grasp_pose(query_pose, target_frame, self.tf_listener)
 
     def perform(self, stages=range(7)):
         """
@@ -311,44 +283,5 @@ if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.INFO)
     obj = EquipmentTask()
     obj.start()
-    # obj.moveit.attach_equipment(obj.selected_equipment)
-    #
-    # # 3. Update Planning Scene - Attach collision object to end effector
-    # rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
-    # obj.moveit.attach_equipment(obj.selected_equipment)
-    # obj.selected_equipment.calculate_grasp_offset(obj.moveit.eef_link, obj.tf_listener)
-    #
-    # # 4. Query Goal from User Interface
-    # eq_set_pose = Pose()
-    # eq_set_pose.position.x -= 1.0
-    # int_marker = marker.SSBMarker(pose=eq_set_pose)
-    # query_pose_topic = int_marker.get_pose_topic()
-    # query_pose_subscriber = message_filters.Subscriber(query_pose_topic, PoseStamped)
-    # query_pose_cache = message_filters.Cache(query_pose_subscriber, 5)
-    # query_pose = None
-    # while query_pose is None:
-    #     query_pose = query_pose_cache.getLast()
-    #     rospy.logdebug("main(): Set equipment to pose: \n %s", query_pose)
-    #     rospy.sleep(0.5)
-    # # Set station
-    # rospy.loginfo("main(): Set equipment ...")
-    # # Formulate Planning Problem
-    # obj.moveit.clear_octomap_on_marker(int_marker)
-    # target_pose = obj.generate_goal(query_pose)
-    # while target_pose is None:
-    #     rospy.loginfo("main(): Query new SSB Pose")
-    #     now = rospy.Time.now()
-    #     rospy.sleep(1.0)
-    #     query_pose = query_pose_cache.getLast()
-    #     if query_pose.header.time > now:
-    #         target_pose = obj.generate_goal(query_pose)
-    #     else:
-    #         rospy.logdebug("main(): No new SSB Pose yet")
-    #
-    # # Plan Path using Moveit
-    # pub = rospy.Publisher("debug_target_pose", PoseStamped)
-    # while True:
-    #     rospy.sleep(2.0)
-    #     pub.publish(target_pose)
 
     rospy.spin()
