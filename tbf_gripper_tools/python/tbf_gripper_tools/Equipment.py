@@ -94,7 +94,6 @@ class Equipment:
             self.touch_links = []
         self.grasp_offset = TransformStamped()
 
-
     def __str__(self):
         return self.name + \
                "\nrobot_pick_pose:\n" + str(self.robot_pick_pose) + \
@@ -129,16 +128,15 @@ class Equipment:
         tf_listener.setTransform(eq_pose_transform)
 
         T_ZERO = rospy.Time()
-        print("planning frame: ", planning_frame)
+        # print("planning frame: ", planning_frame)
         tf_listener.waitForTransform(attached_frame, tmp_frame, rospy.Time(), rospy.Duration.from_sec(5.0))
         ps = PoseStamped()
         ps.header.frame_id = tmp_frame
         ps.pose.orientation.w = 1.
         check_ps = tf_listener.transformPose(planning_frame, ps)
-        print("check_ps", check_ps)
-        print("object", tf_listener.lookupTransform(tmp_frame, planning_frame, T_ZERO))
-        print("hand  ", tf_listener.lookupTransform(attached_frame, planning_frame, T_ZERO))
-
+        # print("check_ps", check_ps)
+        # print("object", tf_listener.lookupTransform(tmp_frame, planning_frame, T_ZERO))
+        # print("hand  ", tf_listener.lookupTransform(attached_frame, planning_frame, T_ZERO))
 
         offset_t, offset_r = tf_listener.lookupTransform(tmp_frame,attached_frame,T_ZERO)
 
@@ -149,7 +147,6 @@ class Equipment:
         self.grasp_offset.header.frame_id = tmp_frame
         self.grasp_offset.child_frame_id = "temp_frame2"
         self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
-
 
         # ps = PoseStamped()
         # ps.header.frame_id = "temp_frame2"

@@ -218,7 +218,6 @@ class MoveitInterface(object):
         #   - Removing the original object from the environment
         #   - Attaching the object to the robot
         # self.scene.remove_world_object(equipment.name)
-        reference_frame = self.group.get_planning_frame()
         rospy.loginfo("AttachEquip: to: {} equip: {}".format(self.eef_link, equipment.name))
         self.scene.attach_mesh(link=self.eef_link, name=equipment.name, touch_links=self.touch_links)
         self.attached_equipment = equipment
