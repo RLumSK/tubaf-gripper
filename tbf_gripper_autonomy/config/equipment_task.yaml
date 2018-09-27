@@ -49,17 +49,29 @@ arm:
 moveit:
   eef_link: "gripper_robotiq_palm_planning"
   planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
-    # SBLkConfigDefault
-    # ESTkConfigDefault
-    # LBKPIECEkConfigDefault
-    # BKPIECEkConfigDefault
-    # KPIECEkConfigDefault
-    # RRTkConfigDefault
-    # RRTConnectkConfigDefault
-    # RRTstarkConfigDefault
-    # TRRTkConfigDefault
-    # PRMkConfigDefault
-    # PRMstarkConfigDefault
+    #    - SBLkConfigDefault
+    #    - ESTkConfigDefault
+    #    - LBKPIECEkConfigDefault
+    #    - BKPIECEkConfigDefault
+    #    - KPIECEkConfigDefault
+    #    - RRTkConfigDefault
+    #    - RRTConnectkConfigDefault
+    #    - RRTstarkConfigDefault
+    #    - TRRTkConfigDefault
+    #    - PRMkConfigDefault
+    #    - PRMstarkConfigDefault
+    #    - FMTkConfigDefault
+    #    - BFMTkConfigDefault
+    #    - PDSTkConfigDefault
+    #    - STRIDEkConfigDefault
+    #    - BiTRRTkConfigDefault
+    #    - LBTRRTkConfigDefault
+    #    - BiESTkConfigDefault
+    #    - ProjESTkConfigDefault
+    #    - LazyPRMkConfigDefault
+    #    - LazyPRMstarkConfigDefault
+    #    - SPARSkConfigDefault
+    #    - SPARStwokConfigDefault
   planner_time: 20.0
   planner_attempts: 100
   reference_frame: "/gripper_ur5_base_link"
