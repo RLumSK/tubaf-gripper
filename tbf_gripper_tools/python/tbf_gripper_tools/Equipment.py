@@ -27,12 +27,30 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+import copy
 
 import rospy
 import resource_retriever as rer
-from geometry_msgs.msg import PoseStamped, Point, Pose
+from geometry_msgs.msg import PoseStamped, Point, Pose, TransformStamped
 from tf import TransformListener
 
+
+def pose_to_tf(pose, frame_name, parent_frame, time=None):
+    """
+    Generate a TF from a given pose, frame, and parent.
+    """
+    assert pose is not None, 'Cannot have None for pose.'
+    tf = TransformStamped()
+    tf.child_frame_id = frame_name
+    if time is None:
+        time = rospy.Time.now()
+    tf.header.stamp = time
+    tf.header.frame_id = parent_frame
+
+    tf.transform.translation = pose.position
+    tf.transform.rotation = pose.orientation
+
+    return tf
 
 class Equipment:
     """
@@ -74,7 +92,8 @@ class Equipment:
         self.touch_links = entry["touch_links"]
         if self.touch_links[0] == "":
             self.touch_links = []
-        self.grasp_offset = PoseStamped()
+        self.grasp_offset = TransformStamped()
+
 
     def __str__(self):
         return self.name + \
@@ -86,9 +105,11 @@ class Equipment:
                "\npick_waypoints[grasp]:\n" + str(self.pick_waypoints["grasp"]) + \
                "\npick_waypoints[post]:\n" + str(self.pick_waypoints["post"])
 
-    def calculate_grasp_offset(self, attached_frame="gripper_robotiq_palm_planning", tf_listener=None):
+    def calculate_grasp_offset(self, attached_frame, planning_frame, tf_listener=None):
         """
         Calculates and stores the offset between the pick pose and the given frame
+        :param planning_frame: Planning frame of the moveit planning group, see MoveItInterface
+        :type planning_frame: str
         :param tf_listener: information about current transformations of the robot
         :type tf_listener: TransformListener
         :param attached_frame: typically the planinge frame from MoveIt
@@ -98,8 +119,55 @@ class Equipment:
         """
         if tf_listener is None:
             tf_listener = TransformListener()
-        self.robot_pick_pose.header.stamp = rospy.Time()
-        tf_listener.waitForTransform(attached_frame, self.robot_pick_pose.header.frame_id,
-                                     self.robot_pick_pose.header.stamp, rospy.Duration.from_sec(5.0))
-        self.grasp_offset = tf_listener.transformPose(attached_frame, self.robot_pick_pose)
-        rospy.loginfo("Equipment.calculate_grasp_offset(): offset:\n %s" % self.grasp_offset)
+        initial_equipment_pose = copy.deepcopy(self.robot_pick_pose)
+        initial_equipment_pose.header.stamp = rospy.Time()
+
+        tmp_frame = "temp_frame"
+
+        eq_pose_transform = pose_to_tf(initial_equipment_pose.pose,tmp_frame, initial_equipment_pose.header.frame_id)
+        # print("object_raw", eq_pose_transform)
+        tf_listener.setTransform(eq_pose_transform)
+
+        T_ZERO = rospy.Time()
+        print("planning frame: ", planning_frame)
+        tf_listener.waitForTransform(attached_frame, tmp_frame, rospy.Time(), rospy.Duration.from_sec(5.0))
+        ps = PoseStamped()
+        ps.header.frame_id = tmp_frame
+        ps.pose.orientation.w = 1.
+        check_ps = tf_listener.transformPose(planning_frame, ps)
+        print("check_ps", check_ps)
+        print("object", tf_listener.lookupTransform(tmp_frame, planning_frame, T_ZERO))
+        print("hand  ", tf_listener.lookupTransform(attached_frame, planning_frame, T_ZERO))
+
+
+        offset_t, offset_r = tf_listener.lookupTransform(tmp_frame,attached_frame,T_ZERO)
+
+        r = self.grasp_offset.transform.rotation
+        r.x,r.y,r.z,r.w = offset_r
+        t = self.grasp_offset.transform.translation
+        t.x,t.y,t.z = offset_t
+        self.grasp_offset.header.frame_id = tmp_frame
+        self.grasp_offset.child_frame_id = "temp_frame2"
+        self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
+
+
+        # ps = PoseStamped()
+        # ps.header.frame_id = "temp_frame2"
+        # ps.pose.orientation.w = 1.
+        # check_ps = tf_listener.transformPose(planning_frame, ps)
+        # print("with offset: ", check_ps)
+
+        rospy.loginfo("Equipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
+
+    def get_grasp_pose(self, object_pose_stamped, planning_frame, tf_listener):
+        tmp_frame = "temp_frame"
+        eq_pose_transform = pose_to_tf(object_pose_stamped.pose, tmp_frame, object_pose_stamped.header.frame_id)
+        # print("object_raw", eq_pose_transform)
+        tf_listener.setTransform(eq_pose_transform)
+        self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
+        tf_listener.setTransform(self.grasp_offset)
+        ps = PoseStamped()
+        ps.header.frame_id = "temp_frame2"
+        ps.pose.orientation.w = 1.
+        check_ps = tf_listener.transformPose(planning_frame, ps)
+        return check_ps
