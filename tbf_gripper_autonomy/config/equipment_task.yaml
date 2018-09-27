@@ -16,9 +16,8 @@ equipment:
       pre_joint_values:   [-171.5, -137.2, 120.3, -163.53, -80.8, 45.2]
       grasp_joint_values: [-175.3, -114.9, 114.1, -179.50, -72.7, 45.3]
       post_joint_values:  [-175.3, -113.9, 103.5, -169.84, -72.8, 45.3]
-#    pick_grasp_offset:
-#      position: {x: 0.0, y: 0.0, z: 0.0}
-#      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+    touch_links:
+      - ""
   - name: "Water Sample Station"
     robot_pick_pose:
       reference_frame: "water_sample_station_sample_link"
@@ -32,6 +31,8 @@ equipment:
       pre_joint_values:   [-12.18, -75.06, -31.19, -132.94, 80.34, 37.48]
       grasp_joint_values: [-13.50, -99.22, -35.34, -130.96, 80.41, 37.45]
       post_joint_values:  [-13.53, -107.3, -16.28, -141.95, 80.50, 37.48]
+    touch_links:
+      - "water_sample_station_mount_link"
 
 # Arm
 arm:

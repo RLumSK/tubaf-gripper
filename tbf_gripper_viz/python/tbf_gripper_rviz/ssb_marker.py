@@ -49,19 +49,21 @@ from geometry_msgs.msg import QuaternionStamped, Pose, PoseStamped
 from tf import TransformListener, transformations
 from numpy import pi
 
+from tubaf_tools.help import invert_pose, add_pose
+
 
 class SSBMarker(InteractiveMarker):
     """
     Class for the smart sensor box interactive marker
     """
 
-    def __init__(self, ns="~", pose=None, mesh=None):
+    def __init__(self, ns="~", pose=None, mesh=None, gripper_offset=None):
         """
         Default constructor
-        @:param nr: namespace of this marker
-        @:type nr: str
-        @:param nr: inital pose of the marker
-        @:type nr: geometry_msgs.msg.Pose
+        @:param ns: namespace of this marker
+        @:type ns: str
+        @:param pose: inital pose of the marker
+        @:type pose: geometry_msgs.msg.Pose
         """
         super(SSBMarker, self).__init__()
 
@@ -139,7 +141,11 @@ class SSBMarker(InteractiveMarker):
         self._server.insert(self, self.onFeedback, feedback_type=InteractiveMarkerServer.DEFAULT_FEEDBACK_CB)
         # self._server.insert(self, self.onUpdateNormal)
         self._menu_handler.apply(self._server, self.name)
-
+        if gripper_offset is not None:
+            self.gripper = self._generate_gripper(gripper_offset)
+            self._mesh_cntrl.markers.append(self.gripper)
+        else:
+            self.gripper = None
         self._server.applyChanges()
 
     def getMeshResourcePath(self):
@@ -259,6 +265,32 @@ class SSBMarker(InteractiveMarker):
         :rtype: str
         """
         return self.pose_topic
+
+    def _generate_gripper(self, offset):
+        """
+        Spawn a gripper marker on the determined position to query the orientation
+        :param offset: relative position on the marker
+        :type offset: PoseStamped
+        :return: interactive gripper marker
+        :rtype: InteractiveMarker
+        """
+        factor = 0.75
+
+        # Generate hand as marker and add it to the  marker as visual
+        marker = Marker()
+        marker.type = Marker.MESH_RESOURCE
+        marker.mesh_resource = rospy.get_param("gripper_mesh_resource",
+                                               'package://robotiq_s_model_visualization/meshes/s-model/'
+                                               'visual/GRIPPER_CLOSED.stl')
+        # inv_offset = invert_pose(offset.pose)
+        # marker.pose = add_pose(self.pose, inv_offset)
+        marker.pose = offset.pose
+        marker.color.r = 0
+        marker.color.g = 1
+        marker.color.b = 0
+        marker.color.a = factor
+
+        return marker
 
 
 class SSBGraspMarker(object):

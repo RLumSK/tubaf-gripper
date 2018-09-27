@@ -160,12 +160,12 @@ class MoveTask(object):
 
         return np.rad2deg(pp)
 
-    def move_wait(self, pose, goal_tolerance=0.5, v=None, a=None, t=0, r=0, move_cmd="movej"):
+    def move_wait(self, pose, goal_tolerance=1.0, v=None, a=None, t=0, r=0, move_cmd="movej"):
         """
         Move a UR5 to a given pose using the URScript interface
         :param pose: target pose as joint values
         :type pose: (6x double)
-        :param goal_tolerance: tolerance for the target
+        :param goal_tolerance: tolerance for the target (degree)
         :type goal_tolerance: double
         :param v: velocity for the joint movement in deg/s
         :type v: double
@@ -192,6 +192,7 @@ class MoveTask(object):
             program += ", r=%f" % r
         program += ")"
         self.program_pub.publish(program)
+        goal_rad = np.deg2rad(goal_tolerance)
         while True:
             tmp = self.joint_cache.getLast()
             if tmp is None:
@@ -200,14 +201,13 @@ class MoveTask(object):
                 rospy.sleep(5.0)
                 continue
             cur_pos = self._convert_joint_States(tmp)
-            dst = np.max(np.subtract(pose, cur_pos))
-            max_dst = np.max(dst)
-            if max_dst < goal_tolerance:
-                break
+            max_dst = np.max(np.abs(np.subtract(pose, cur_pos)))
             rospy.logdebug("MoveTask.move_wait(): cur_pos=%s", cur_pos)
             rospy.logdebug("MoveTask.move_wait():         pose=%s", pose)
-            rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
-            rospy.sleep(0.02)
+            rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_rad)
+            if max_dst < goal_rad:
+                break
+            rospy.sleep(0.1)
         rospy.loginfo("MoveTask.move_wait(): Reached pose")
 
 

@@ -71,6 +71,9 @@ class Equipment:
         self.pick_waypoints["pre"] = entry["pick_waypoints"]["pre_joint_values"]
         self.pick_waypoints["grasp"] = entry["pick_waypoints"]["grasp_joint_values"]
         self.pick_waypoints["post"] = entry["pick_waypoints"]["post_joint_values"]
+        self.touch_links = entry["touch_links"]
+        if self.touch_links[0] == "":
+            self.touch_links = []
         self.grasp_offset = PoseStamped()
 
     def __str__(self):

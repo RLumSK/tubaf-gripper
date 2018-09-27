@@ -196,12 +196,12 @@ class EquipmentTask(GraspTask):
         # # TODO: Select Equipment
         # self.moveit.move_to_target(self.selected_equipment.pick_waypoints["pre"], info="PreGrasp")
         # rospy.loginfo("EquipmentTask.perform(): Opening hand ...")
-        # self.hand_controller.openHand()
-        # self.moveit.move_to_target(self.selected_equipment.pick_waypoints["grasp"], info="Grasp")
-        # rospy.loginfo("EquipmentTask.perform(): Grasp equipment")
-        # # Grasp station
-        # self.hand_controller.closeHand()
-        # rospy.sleep(5.)
+        self.hand_controller.openHand()
+        self.moveit.move_to_target(self.selected_equipment.pick_waypoints["grasp"], info="Grasp")
+        rospy.loginfo("EquipmentTask.perform(): Grasp equipment")
+        # Grasp station
+        self.hand_controller.closeHand()
+        rospy.sleep(5.)
 
         # 3. Update Planning Scene - Attach collision object to end effector
         rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
@@ -212,7 +212,8 @@ class EquipmentTask(GraspTask):
         # 4. Query Goal from User Interface
         eq_set_pose = Pose()
         eq_set_pose.position.x -= 1.0
-        int_marker = marker.SSBMarker(pose=eq_set_pose)
+        # int_marker = marker.SSBMarker(pose=eq_set_pose)
+        int_marker = marker.SSBMarker(pose=eq_set_pose, gripper_offset=self.selected_equipment.grasp_offset)
         query_pose_topic = int_marker.get_pose_topic()
         query_pose_subscriber = message_filters.Subscriber(query_pose_topic, PoseStamped)
         query_pose_cache = message_filters.Cache(query_pose_subscriber, 5)
@@ -274,7 +275,6 @@ if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.INFO)
     obj = EquipmentTask()
     obj.start()
-
     # obj.moveit.attach_equipment(obj.selected_equipment)
     #
     # # 3. Update Planning Scene - Attach collision object to end effector

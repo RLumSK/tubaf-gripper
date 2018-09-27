@@ -49,6 +49,7 @@ class MoveitInterface(object):
     """
     Interface to the move_group wrapper
     """
+
     def __init__(self, param_group_name="~moveit"):
         """
         Default constructor - Parameters are given via yaml file loaded onto the parameter server
@@ -106,7 +107,7 @@ class MoveitInterface(object):
         aco = self.scene.get_attached_objects()
         if len(aco) != 0:  # checks if dictionary is empty
             msg.attached_collision_objects = [fill_message(moveit_msgs.msg.AttachedCollisionObject(),
-                                                                       self.scene.get_attached_objects())]
+                                                           self.scene.get_attached_objects())]
         rospy.logdebug("MoveitInterface._set_start_state(): Type(msg.attachecd_collision_object) is %s",
                        type(msg.attached_collision_objects))
         rospy.logdebug("MoveitInterface._set_start_state():msg.attachecd_collision_object \n %s",
@@ -146,21 +147,21 @@ class MoveitInterface(object):
                 return
         except moveit_commander.MoveItCommanderException as ex:
             rospy.logerr("MoveitInterface.move_to_target(): MoveItCommanderException during planning: %s " % ex.message)
-            rospy.loginfo("MoveitInterface.move_to_target("+info+"): IST %s" %
+            rospy.loginfo("MoveitInterface.move_to_target(" + info + "): IST %s" %
                           ["%.2f" % v for v in self.group.get_current_joint_values()])
-            rospy.loginfo("MoveitInterface.move_to_target("+info+"):SOLL %s" %
+            rospy.loginfo("MoveitInterface.move_to_target(" + info + "):SOLL %s" %
                           ["%.2f" % v for v in np.deg2rad(target)])
-            rospy.loginfo("MoveitInterface.move_to_target("+info+"): SET %s" %
+            rospy.loginfo("MoveitInterface.move_to_target(" + info + "): SET %s" %
                           ["%.2f" % v for v in self.group.get_joint_value_target()])
-            rospy.loginfo("MoveitInterface.move_to_target("+info+"):NAME %s" % target_dict.keys())
-            rospy.loginfo("MoveitInterface.move_to_target("+info+"): constraints %s" %
+            rospy.loginfo("MoveitInterface.move_to_target(" + info + "):NAME %s" % target_dict.keys())
+            rospy.loginfo("MoveitInterface.move_to_target(" + info + "): constraints %s" %
                           self.group.get_known_constraints())
 
             sys.exit(-1)
         plan = None
         plan_valid = False
         while not plan_valid:
-            rospy.loginfo("MoveitInterface.move_to_target(): Planning "+info+" to: \n%s",
+            rospy.loginfo("MoveitInterface.move_to_target(): Planning " + info + " to: \n%s",
                           target)
             plan = self.group.plan()
             if len(plan.joint_trajectory.points) == 0:
@@ -183,9 +184,11 @@ class MoveitInterface(object):
                 self.move_to_target(target, info=info)
         return
 
-    def add_equipment(self, eq, pose = None):
+    def add_equipment(self, eq, pose=None):
         """
         Add the given equipment to the planning scene
+        :param pose: add equipment at specified pose
+        :type pose: PoseStamped
         :param eq: Equipment
         :type eq: Equipment
         :return: -

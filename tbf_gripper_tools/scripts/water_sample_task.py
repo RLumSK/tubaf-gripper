@@ -66,7 +66,13 @@ class WaterSampleTask(autonomy.Task.GraspTask):
         """
         default constructor of the perform the sampling task
         """
-        autonomy.Task.GraspTask.__init__(self)
+        self.backup_joint_values = rospy.get_param("~backup_pos", [-180, -90, 0.0, -90, 0.00, 0.0])
+        super(WaterSampleTask, self).__init__(js_t=rospy.get_param("~arm_joint_states"),
+                                            bu_pos=self.backup_joint_values,
+                                            ltcp_s=rospy.get_param("~linear_tcp_speed"),
+                                            ltcp_a=rospy.get_param("~linear_tcp_acceleration"),
+                                            j_s=rospy.get_param("~joint_speed"),
+                                            j_a=rospy.get_param("~joint_acceleration"))
         self.waypoints = rospy.get_param("~waypoints")
         self.exec_thread = None
 
@@ -85,8 +91,9 @@ class WaterSampleTask(autonomy.Task.GraspTask):
 
         rospy.loginfo("WaterSampleTask.perform(): Grasp station")
         # Grasp station
+        rospy.sleep(1.)
         self.hand_controller.closeHand()
-        rospy.sleep(5.)
+        rospy.sleep(3.)
         self.move_wait(self.waypoints["lift"], v=self.l_arm_speed, a=self.l_arm_acceleration, move_cmd="movel")
         self.move_wait(self.waypoints["post_pickup"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
 
@@ -108,13 +115,16 @@ class WaterSampleTask(autonomy.Task.GraspTask):
         rospy.loginfo("WaterSampleTask.perform(): Move to origin")
         # Move to origin
         self.move_wait(self.waypoints["post_pickup"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
+        rospy.loginfo("WaterSampleTask.perform(): post_pickup reached")
         self.move_wait(self.waypoints["lift"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
+        rospy.loginfo("WaterSampleTask.perform(): lift reached")
         self.move_wait(self.waypoints["pickup"], v=self.l_arm_speed, a=self.l_arm_acceleration, move_cmd="movel")
+        rospy.loginfo("WaterSampleTask.perform(): pickup reached")
 
         rospy.loginfo("WaterSampleTask.perform(): Release station")
         # Release station
         self.hand_controller.openHand()
-        rospy.sleep(5.)
+        rospy.sleep(3.)
 
         rospy.loginfo("WaterSampleTask.perform(): Move back to home station")
         # Move back to home station
@@ -124,7 +134,7 @@ class WaterSampleTask(autonomy.Task.GraspTask):
         self.hand_controller.closeHand()
 
         # self.exec_thread = None
-        rospy.sleep(2.0)
+        rospy.sleep(10.0)
         self.perform()
 
     def start(self):
@@ -140,7 +150,5 @@ class WaterSampleTask(autonomy.Task.GraspTask):
 if __name__ == '__main__':
     rospy.init_node("WaterSampleTask")
     obj = WaterSampleTask()
-    while obj.exec_thread is not None:
-        rospy.sleep(0.5)
-    obj.start()
+    obj.perform()
     rospy.spin()
