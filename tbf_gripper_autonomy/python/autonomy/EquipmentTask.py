@@ -199,11 +199,18 @@ class EquipmentTask(GraspTask):
             self.moveit.attach_equipment(self.selected_equipment)
             self.selected_equipment.calculate_grasp_offset(self.moveit.eef_link,self.moveit.group.get_planning_frame(), self.tf_listener)
             self.moveit.move_to_target(self.selected_equipment.pick_waypoints["post"], info="PostGrasp")
-
+            self.moveit.move_to_target(self.selected_equipment.pick_waypoints["hover"], info="Hover")
 
         # 4. Query Goal from User Interface
         if 4 in stages:
             rospy.loginfo("STAGE 4: Ask for target Pose")
+            # TODO: Project current SSb position to the floor and use this as initial pose, since the arm is now
+            # hovering over the potential set area
+            # name = self.moveit.attached_equipment.name
+            # dct = self.moveit.scene.get_attached_objects([name])
+            # aco = dct[name]
+            # eq_set_pose = aco.object.mesh_poses[0]
+            # eq_set_pose.position.z = 0.0
             eq_set_pose = Pose()
             eq_set_pose.position.x -= 1.0
             # int_marker = marker.SSBMarker(pose=eq_set_pose)
@@ -275,7 +282,7 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         rospy.loginfo("GraspTask.start():")
-        self.perform([0,3,4,5,7])
+        self.perform([0,2,3,4,5,7])
         # super(EquipmentTask, self).run_as_process(self.perform)
 
 
