@@ -60,7 +60,7 @@ class Equipment:
                                                                    'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
                                                                    'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0,
                                                                                    'w': 1.0}},
-                              'release_on_set': True, 'mesh_url': "", "scale": {'x': 1.0, 'y': 1.0, 'z': 1.0},
+                              'hold_on_set': 0.0, 'mesh_url': "", "scale": {'x': 1.0, 'y': 1.0, 'z': 1.0},
                               'pick_waypoints': {'pre_joint_values': [], 'grasp_joint_values': [],
                                                  'post_joint_values': []}}):
         """
@@ -79,7 +79,7 @@ class Equipment:
         self.robot_pick_pose.pose.orientation.y = entry["robot_pick_pose"]["orientation"]["y"]
         self.robot_pick_pose.pose.orientation.z = entry["robot_pick_pose"]["orientation"]["z"]
         self.robot_pick_pose.pose.orientation.w = entry["robot_pick_pose"]["orientation"]["w"]
-        self.release_on_set = entry["release_on_set"]
+        self.hold_on_set = entry["hold_on_set"]
         self.mesh_path = rer.get_filename(entry["mesh_url"])[7:]
         self.scale = Point()
         self.scale.x = entry["scale"]["x"]
@@ -142,9 +142,9 @@ class Equipment:
         offset_t, offset_r = tf_listener.lookupTransform(tmp_frame,attached_frame,T_ZERO)
 
         r = self.grasp_offset.transform.rotation
-        r.x,r.y,r.z,r.w = offset_r
+        r.x, r.y, r.z, r.w = offset_r
         t = self.grasp_offset.transform.translation
-        t.x,t.y,t.z = offset_t
+        t.x, t.y, t.z = offset_t
         self.grasp_offset.header.frame_id = tmp_frame
         self.grasp_offset.child_frame_id = "temp_frame2"
         self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
@@ -155,7 +155,7 @@ class Equipment:
         # check_ps = tf_listener.transformPose(planning_frame, ps)
         # print("with offset: ", check_ps)
 
-        rospy.loginfo("Equipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
+        rospy.logdebug("Equipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
 
     def get_grasp_pose(self, object_pose_stamped, planning_frame, tf_listener):
         """
