@@ -104,7 +104,8 @@ if __name__ == '__main__':
         rospy.logdebug("pickle_camera_ee_data.py: Starting task ... ")
         while not rospy.is_shutdown() and not task.is_redundant:
             i = task.index
-            task.start()
+            # task.start()
+            task._perform()
             while i == task.index:
                 rospy.sleep(0.3)
                 #  wait till arm reached position

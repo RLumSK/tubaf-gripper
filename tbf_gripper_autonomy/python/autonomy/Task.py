@@ -88,8 +88,9 @@ class MoveTask(object):
         :type j_a: float
         """
         if js_t is None:
-            rospy.get_param("~joint_states_topic", "/ur5/joint_states")
+            js_t = rospy.get_param(param_name="~joint_states_topic", default="/ur5/joint_states")
         self.joint_states_topic = js_t
+        rospy.logdebug("MoveTask.__init__(): joint_states_topic = %s by given %s" % (self.joint_states_topic, js_t))
         self._joint_sub = message_filters.Subscriber(self.joint_states_topic, JointState)
         self.joint_cache = message_filters.Cache(self._joint_sub, 10)
 
@@ -202,8 +203,8 @@ class MoveTask(object):
                 continue
             cur_pos = self._convert_joint_States(tmp)
             max_dst = np.max(np.abs(np.subtract(pose, cur_pos)))
-            rospy.logdebug("MoveTask.move_wait(): cur_pos=%s", cur_pos)
-            rospy.logdebug("MoveTask.move_wait():         pose=%s", pose)
+            rospy.logdebug("MoveTask.move_wait(): cur_pos =%s", cur_pos)
+            rospy.logdebug("MoveTask.move_wait(): pose    =%s", pose)
             rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_rad)
             if max_dst < goal_rad:
                 break

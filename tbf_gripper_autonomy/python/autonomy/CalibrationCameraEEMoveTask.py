@@ -59,7 +59,9 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
         :rtype: -
         """
         rospy.loginfo("EndEffectorMoveTask.perform(): Move to Position "+str(self.index))
-        self.move_wait(self.waypoints["pos_"+str(self.index)], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movel")
+        self.move_wait(self.waypoints["pos_"+str(self.index)], v=self.j_arm_speed, a=self.j_arm_acceleration,
+                       move_cmd="movel")
+        rospy.loginfo("EndEffectorMoveTask.perform(): Reached Position "+str(self.index))
         self.index += 1
         if self.index > len(self.waypoints)-1:
             self.index = 0
