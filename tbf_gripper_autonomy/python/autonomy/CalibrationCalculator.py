@@ -35,7 +35,10 @@
 # The International Journal of Robotics Research, 2001, 20. Jg., Nr. 3, S. 228-248.
 import rospy
 import numpy as np
+from docutils.parsers import null
 from scipy.linalg import null_space
+from numpy.linalg import matrix_rank
+
 from scipy.optimize import lsq_linear
 import geomstats as gs
 import geomstats.rigid_transformations as transform
@@ -72,21 +75,39 @@ class CalibrationCalculator:
         #Equation (41)
         n = len(lst_A)
         mat_41 = np.zeros([9*n, 9])
-        for pose_A, pose_B, i in (lst_A, lst_B, range(0, n)):
-            mat_41[9*i:9*2*i, :] = np.identity(9) - np.kron(pose_A[:3, :3], pose_B[:3, :3])
-        Rx = np.reshape(null_space(mat_41), [3, 3])
+        for i in range(0, n):
+            pose_A = np.asarray(lst_A[i])
+            pose_B = np.asarray(lst_B[i])
+            mat_41[9*i:9*i+9, :] = np.identity(9) - np.kron(pose_A[:3, :3], pose_B[:3, :3])
+        # TODO: Tolerance
+        ns = null_space(mat_41, rcond=0.1)
+        if ns.size == 0:
+            rospy.logwarn("CalibrationCalculator.estimate_X(): empty null_space --> no rotation estimate from "
+                          "equation (41) - A(%s) \n A[0,:]=%s\nA[1,:]=%s, rank(A)=%s" %
+                          (mat_41.shape, mat_41[0, :], mat_41[1, :], matrix_rank(mat_41)))
+            return None
+        rospy.logdebug("CalibrationCalculator.estimate_X(): null_space(mat_41) = %s" % ns)
+
+        Rx = np.reshape(ns, (3, 3))
 
         #Equation (42)
         mat_42_l = np.zeros([3*n, 4])
         vec_42_r = np.zeros([3*n])
-        for pose_A, pose_B, i in (lst_A, lst_B, range(0, n)):
+        for i in range(0, n):
+            pose_A = lst_A[i]
+            pose_B = lst_B[i]
             # From Equation (6)
-            u = pose_A[3,:2]/lam
-            mat_42_l[3*i:3*2*i, :] = [np.identity(3)-pose_A[:3, :3], -u]
-            vec_42_r[3*i:3*2*i] = np.dot(-Rx, pose_B[3, :3])
+            u = pose_A[3, :3]/lam
+            # a = u
+            # b = np.identity(3)-pose_A[:3, :3]
+            # print a
+            # print b
+            # print np.vstack((b, np.transpose(a))).transpose()
+            mat_42_l[3*i:3*i+3, :] = np.vstack((np.identity(3)-pose_A[:3, :3], np.transpose(-u))).transpose()
+            vec_42_r[3*i:3*i+3] = np.dot(-Rx, pose_B[3, :3])
         vec_42_l = lsq_linear(mat_42_l, vec_42_r)
-        tx = vec_42_l[:3]
-        lam_calc = vec_42_l[3]
+        tx = vec_42_l.x[:3]
+        lam_calc = vec_42_l.x[3]
         X = np.identity(4)
         X[:3, :3] = Rx
         X[3, :3] = tx
@@ -98,7 +119,10 @@ class CalibrationCalculator:
         Calculate the affine transformation between two given pose
         :param p0: starting pose as affine transformation
         :param p1: ending pose as affine transformation
+        :type p0: numpy.ndarray
+        :type p1: numpy.ndarray
         :return: affine transformation between p0 and p1
+        :rtype: numpy.ndarray
         """
         import numpy as np
         return np.matmul(p1, np.linalg.inv(p0))
@@ -125,5 +149,4 @@ class CalibrationCalculator:
         # # Mean rotation
         #
         # gs.rotation_vector_from_rotation_matrix(R)
-
 
