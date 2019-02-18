@@ -54,7 +54,6 @@
   <run_depend>shape_msgs</run_depend>
   <run_depend>geometric_shapes</run_depend>
   <run_depend>libpcl-all</run_depend>
-  <run_depend>urdfdom-py</run_depend>
   <run_depend>message_generation</run_depend>
   <run_depend>message_runtime</run_depend>
   <run_depend>std_msgs</run_depend>

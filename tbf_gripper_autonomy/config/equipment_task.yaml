@@ -9,8 +9,8 @@ equipment:
       position: {x: 0.03, y: 0.15, z: 0.925}
       orientation: {x: 0, y: 0, z: 0.7071, w: 0.7071}
     # robot_set_pose: #None
-    release_on_set: True
-    mesh_url: "package://tbf_gripper_tools/resources/mesh/wlan_box.stl"
+    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
+    mesh_url: "package://julius_base/meshes/parts/wlan_box.stl"
     scale: {x: 1.0, y: 1.0, z: 1.0}
     pick_waypoints:
       pre_joint_values:   [-171.5, -137.2, 120.3, -163.53, -80.8, 45.2]
@@ -25,7 +25,7 @@ equipment:
       position: {x: 0.0, y: 0.0, z: 0.0}
       orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
     # robot_set_pose: #None
-    release_on_set: False
+    hold_on_set: 25.0  # 0 is release, else is Duration in seconds
     mesh_url: "package://julius_base/meshes/parts/water_station_simple.stl"
     scale: {x: 0.001, y: 0.001, z: 0.001}
     pick_waypoints:
@@ -50,6 +50,7 @@ arm:
 # MoveIt!
 moveit:
   eef_link: "gripper_robotiq_palm_planning"
+  max_attempts: 3
   planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
     #    - SBLkConfigDefault
     #    - ESTkConfigDefault
@@ -74,8 +75,8 @@ moveit:
     #    - LazyPRMstarkConfigDefault
     #    - SPARSkConfigDefault
     #    - SPARStwokConfigDefault
-  planner_time: 40.0  # was 20
-  planner_attempts: 200  # was 100
+  planner_time: 5.0  # was 20
+  planner_attempts: 20  # was 100
   reference_frame: "/gripper_ur5_base_link"
   workspace: [-1.6, -1.2, 0.0, 0.25, 1.2, 1.7]
   tolerance: 0.010

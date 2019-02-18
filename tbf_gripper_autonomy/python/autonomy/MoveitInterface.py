@@ -64,6 +64,7 @@ class MoveitInterface(object):
         # Instantiate a PlanningSceneInterface object. This object is an interface to the world surrounding
         #  the robot.
         self.scene = moveit_commander.PlanningSceneInterface()
+        self.scene.remove_world_object()  # Removes all objects since no name is given
         # Instantiate a MoveGroupCommander object.  This object is an interface to one group of joints. In this
         # case the group is the joints in the arm.  This interface can be used to plan and execute motions on the
         # arm.
@@ -89,6 +90,7 @@ class MoveitInterface(object):
                                                             queue_size=10)
         self.eef_link = self.parameter["eef_link"]
         self.touch_links = self.parameter["touch_links"]
+        self.max_attempts = self.parameter["max_attempts"]
         self.attached_equipment = None
 
     def _set_start_state(self):
@@ -122,9 +124,10 @@ class MoveitInterface(object):
         :type target: list or Pose
         :param info: short information about the context of the given pose
         :type info: str
-        :return: -
-        :rtype: -
+        :return: success
+        :rtype: bool
         """
+        retValue = False
         self.group.clear_pose_targets()
         start = self._set_start_state()
         rospy.logdebug("MoveitInterface.move_to_target(): Current Joint value %s",
@@ -160,12 +163,15 @@ class MoveitInterface(object):
             sys.exit(-1)
         plan = None
         plan_valid = False
-        while not plan_valid:
+        attempts = 0
+        while not plan_valid and attempts < self.max_attempts:
             rospy.loginfo("MoveitInterface.move_to_target(): Planning " + info + " to: \n%s",
                           target)
             plan = self.group.plan()
+            attempts += 1
             if len(plan.joint_trajectory.points) == 0:
-                rospy.loginfo("MoveitInterface.move_to_target(): No valid plan found, trying again ...")
+                rospy.loginfo("MoveitInterface.move_to_target(): No valid plan found, trying again (%d/%d) ..." %
+                              (attempts, self.max_attempts))
                 rospy.logdebug("MoveitInterface.move_to_target(): Current Joint values[deg] %s",
                                ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
                                )
@@ -174,15 +180,19 @@ class MoveitInterface(object):
             rospy.loginfo("MoveitInterface.move_to_target(): Please confirm the plan using the interactive marker on "
                           "topic: '/confirm_plan_marker/markers/update'")
             plan_valid = wait_for_confirmation(service_ns="~confirm_plan", timeout=60)
-            # Check Plan - inline
-            # plan_valid = continue_by_console("Is robot allowed to execute presented plan?")
+
+        if attempts >= self.max_attempts:
+            # We can't plan to the specified target
+            return False
         rospy.loginfo("MoveitInterface.move_to_target(): Executing ...")
-        if not self.group.execute(plan):
+        executed = self.group.execute(plan)
+        retValue = executed
+        if not executed:
             rospy.logdebug("MoveitInterface.move_to_target(): Execution returned False")
             # if continue_by_console("Try again?"):
             if True:
-                self.move_to_target(target, info=info)
-        return
+                retValue = self.move_to_target(target, info=info)
+        return retValue
 
     def add_equipment(self, eq, pose=None):
         """
@@ -198,6 +208,7 @@ class MoveitInterface(object):
             rospy.logwarn("MoveitInterface.add_equipment(): %s was allready present in the scene, removing it and add "
                           "it again" % eq.name)
             self.scene.remove_attached_object(link=self.eef_link, name=eq.name)
+            rospy.sleep(0.5)
         if pose is None:
             self.scene.add_mesh(name=eq.name, pose=eq.robot_pick_pose, filename=eq.mesh_path,
                                 size=(eq.scale.x, eq.scale.y, eq.scale.z))
@@ -218,8 +229,11 @@ class MoveitInterface(object):
         #   - Removing the original object from the environment
         #   - Attaching the object to the robot
         # self.scene.remove_world_object(equipment.name)
-        rospy.loginfo("AttachEquip: to: {} equip: {}".format(self.eef_link, equipment.name))
-        self.scene.attach_mesh(link=self.eef_link, name=equipment.name, touch_links=self.touch_links)
+        rospy.loginfo("MoveitInterface.attach_equipment: {} equip: {}".format(self.eef_link, equipment.name))
+        self.scene.remove_world_object(equipment.name)
+        rospy.sleep(2.0)
+        self.scene.attach_mesh(link=self.eef_link, name=equipment.name, filename=equipment.mesh_path,
+                               pose=equipment.robot_pick_pose, touch_links=self.touch_links)
         self.attached_equipment = equipment
 
     def detach_equipment(self):
