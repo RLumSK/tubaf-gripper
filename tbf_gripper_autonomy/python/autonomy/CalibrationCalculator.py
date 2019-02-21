@@ -35,13 +35,11 @@
 # The International Journal of Robotics Research, 2001, 20. Jg., Nr. 3, S. 228-248.
 import rospy
 import numpy as np
-from docutils.parsers import null
+
 from scipy.linalg import null_space
 from numpy.linalg import matrix_rank
-
 from scipy.optimize import lsq_linear
-import geomstats as gs
-import geomstats.rigid_transformations as transform
+
 
 class CalibrationCalculator:
     """
@@ -56,7 +54,7 @@ class CalibrationCalculator:
     #     """
 
     @staticmethod
-    def estimate_X(lst_A, lst_B, lam=1):
+    def estimate_X(lst_A, lst_B, lam=-0.072928):
         """
         Estimate the transformation from camera (eye) to gripper (hand)
         :param lst_A: list with affine transformations of the camera
@@ -97,20 +95,22 @@ class CalibrationCalculator:
             pose_A = lst_A[i]
             pose_B = lst_B[i]
             # From Equation (6)
-            u = pose_A[3, :3]/lam
+            u = pose_A[:3, 3]/lam
             # a = u
             # b = np.identity(3)-pose_A[:3, :3]
             # print a
             # print b
             # print np.vstack((b, np.transpose(a))).transpose()
             mat_42_l[3*i:3*i+3, :] = np.vstack((np.identity(3)-pose_A[:3, :3], np.transpose(-u))).transpose()
-            vec_42_r[3*i:3*i+3] = np.dot(-Rx, pose_B[3, :3])
-        vec_42_l = lsq_linear(mat_42_l, vec_42_r)
-        tx = vec_42_l.x[:3]
-        lam_calc = vec_42_l.x[3]
+            vec_42_r[3*i:3*i+3] = np.dot(-Rx, pose_B[:3, 3])
+        solution = lsq_linear(mat_42_l, vec_42_r)
+        vec_42_l = solution.x
+        tx = vec_42_l[:3]
+        lam_calc = vec_42_l[3]
+        rospy.loginfo("CalibrationCalculator.estimate_X(): Calculated lambda=%f" % lam_calc)
         X = np.identity(4)
         X[:3, :3] = Rx
-        X[3, :3] = tx
+        X[:3, 3] = tx
         return X
 
     @staticmethod
@@ -124,14 +124,14 @@ class CalibrationCalculator:
         :return: affine transformation between p0 and p1
         :rtype: numpy.ndarray
         """
-        import numpy as np
         return np.matmul(p1, np.linalg.inv(p0))
 
     @staticmethod
-    def average_X(lst_X):
+    def optimal_X(lst_X):
         """
-        Averaging all given affine transformations
+        Determine the optimal affine transformations
         :param lst_X: a list of affine transformations
+        :type lst_X: list(numpy.ndarray)
         :return: affine transformation
         """
         raise NotImplementedError()
@@ -150,3 +150,16 @@ class CalibrationCalculator:
         #
         # gs.rotation_vector_from_rotation_matrix(R)
 
+    @staticmethod
+    def export_pickle(lst_X, path):
+        """
+        Export a list of transformations into a pickle
+        :param lst_X: list of affine transformations
+        :type lst_X: list(numpy.ndarray)
+        :param path: export path
+        :type path: str
+        :return: -
+        :rtype: None
+        """
+        import pickle
+        pickle.dump(lst_X, open(path, "wb"))
