@@ -9,9 +9,10 @@ find_package(catkin REQUIRED COMPONENTS
 	roscpp
 	shape_msgs
 	geometric_shapes
-        pcl_conversions
-        pcl_ros
-        cv_bridge
+    pcl_conversions
+    pcl_ros
+    cv_bridge
+    message_generation
 	)
 
 find_package(Boost REQUIRED system)
@@ -22,6 +23,18 @@ find_package(OpenCV)
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
 catkin_python_setup()
 
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  CalcPointCloudTransform.srv
+  GetCameraTransform.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
+  sensor_msgs
+)
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
@@ -34,9 +47,13 @@ catkin_package(
  CATKIN_DEPENDS
     shape_msgs
     geometric_shapes
+    geometry_msgs
+    sensor_msgs
     cv_bridge
 #  DEPENDS system_lib
 )
+
+
 
 add_compile_options(-std=c++11)
 add_executable(mesh_importer src/mesh_importer.cpp)

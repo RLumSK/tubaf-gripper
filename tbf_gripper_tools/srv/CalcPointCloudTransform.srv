@@ -1,0 +1,5 @@
+sensor_msgs/PointCloud2 old_cloud
+sensor_msgs/PointCloud2 new_cloud
+geometry_msgs/PoseStamped initial_transform
+---
+geometry_msgs/PoseStamped transformation

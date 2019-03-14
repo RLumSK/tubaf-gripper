@@ -34,12 +34,14 @@ from pyquaternion import Quaternion
 import autonomy.Task
 import numpy as np
 
+from
+
 
 class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
     """
     Class that moves the end-effector to the next way-point
     """
-    def __init__(self):
+    def __init__(self, get_E, get_C):
         """
         Default constructor
         """
@@ -51,6 +53,7 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
         self.base_frame = rospy.get_param("base_frame", "gripper_ur5_base_link")
         self.ee_frame = rospy.get_param("ee_frame", "gripper_ur5_ee_link")
         self.is_redundant = False
+        self.lst_EC = []  # list of pairs with corresponding end-effector poses E, and camera poses C
 
     def _perform(self):
         """
@@ -62,6 +65,7 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
         self.move_wait(self.waypoints["pos_"+str(self.index)], v=self.j_arm_speed, a=self.j_arm_acceleration,
                        move_cmd="movel")
         rospy.loginfo("EndEffectorMoveTask.perform(): Reached Position "+str(self.index))
+        self.lst_EC.append((self.getEEtransformation(), self.getCameraTransformation()))
         self.index += 1
         if self.index > len(self.waypoints)-1:
             self.index = 0
@@ -91,6 +95,14 @@ class CalibrationCameraEEMoveTask(autonomy.Task.MoveTask):
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 continue
         return np.matrix(Pe)
+
+    def getCameraTransformation(self):
+        """
+        Return the current Camera transformation NOT using the tf, but an independent method, i.e. ICP, RGB-D SLAM
+        :return: 
+        :rtype:
+        """
+
 
     def start(self):
         """

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="camera_name" default="gripper_camera" />
+    <arg name="mode"        default="rgbd" />
+
+    <include if="$(eval arg('mode')=='rgbd')" file="$(find tbf_gripper_tools)/launch/camera_transform_rgbd.launch">
+        <arg name="camera_name" value="$(arg camera_name)" />
+    </include>
+    <include if="$(eval arg('mode')=='icp')" file="$(find tbf_gripper_tools)/launch/camera_transform_icp.launch">
+        <arg name="camera_name" value="$(arg camera_name)" />
+    </include>
+
+</launch>

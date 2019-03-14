@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2015, TU Bergakademie Freiberg
+# Copyright (c) 2018, TU Bergakademie Freiberg
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
