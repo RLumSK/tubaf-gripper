@@ -177,6 +177,7 @@ class WlanSetTask(autonomy.Task.GraspTask):
             self.eef_link = rospy.get_param("~eef_link", "gripper_robotiq_palm_planning")
             rospy.loginfo("WlanSetTask.__init__() Adding Collision Object...")
             #  Add collision object to planning scene
+            rospy.logdebug("WlanSetTask.__init__(): Previous known objects %s", self.mvit_scene.get_known_object_names())
             # Smart Sensor Box (SSB)
             ssb_default_pose = rospy.get_param("~ssb_default_pose", geometry_msgs.msg.Pose())
             self.ssb_default_ps = geometry_msgs.msg.PoseStamped()
@@ -195,7 +196,7 @@ class WlanSetTask(autonomy.Task.GraspTask):
             self.ssb_name = "Smart_Sensor_Box"
             if len(self.mvit_scene.get_attached_objects([self.ssb_name])) != 0:
                 self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.ssb_name)
-            # rospy.sleep(2.0)
+            rospy.sleep(2.0)
             self.mvit_scene.add_mesh(name=self.ssb_name, pose=self.ssb_default_ps, filename=ssb_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
             # Water Sample Station (WSS)
@@ -213,16 +214,17 @@ class WlanSetTask(autonomy.Task.GraspTask):
             x_scale = rospy.get_param("~wss_x_scale", 1.0)
             y_scale = rospy.get_param("~wss_y_scale", 1.0)
             z_scale = rospy.get_param("~wss_z_scale", 1.0)
-            self.wss_name = "Water Sample Station"
+            self.wss_name = "Water_Sample_Station"
             if len(self.mvit_scene.get_attached_objects([self.wss_name])) != 0:
                 self.mvit_scene.remove_attached_object(link=self.eef_link, name=self.wss_name)
-            # rospy.sleep(2.0)
             self.mvit_scene.add_mesh(name=self.wss_name, pose=self.wss_default_ps, filename=wss_mesh_filename,
                                      size=(x_scale, y_scale, z_scale))
+            rospy.sleep(2.0)
+            rospy.logdebug("WlanSetTask.__init__(): Now known objects %s",  self.mvit_scene.get_known_object_names())
 
         except Exception as ex:
             rospy.logwarn("[WlanSetTask.__init__()]: MoveIt failed to initalize")
-            rospy.logwarn("[WlanSetTask.__init__()]: %s", ex.message)
+            rospy.logwarn("[WlanSetTask.__init__()]: [%s] %s" % (type(ex), ex.message))
             sys.exit()
 
         prefix = "gripper_robotiq_"
@@ -518,6 +520,7 @@ class WlanSetTask(autonomy.Task.GraspTask):
         """
         rospy.loginfo("WlanSetTask.start():")
         self.run_as_process(WlanSetTask.perform)
+        rospy.loginfo("WlanSetTask.start(): Done")
 
 
 if __name__ == '__main__':
@@ -527,7 +530,8 @@ if __name__ == '__main__':
         if obj is None or obj.exec_thread is None:
             obj = WlanSetTask(i)
             rospy.loginfo("wlan_set_task.py: main(): Start station: %d", i)
-            obj.start()
+            # obj.start()
+            obj.perform()
         while obj.exec_thread is not None:
             rospy.sleep(0.5)
     rospy.spin()

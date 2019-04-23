@@ -39,7 +39,7 @@ publisher_name: "/hand/SModelRobotOutput"
 subscriber_name: "/hand/SModelRobotInput"
 hand_server_name: "/hand/gripper_action"
 eef_link: "gripper_robotiq_palm_planning"
-#Wlan Station - Pose Stamped
+#Wlan Station - Pose Stamped - link: base_footprint
 ssb_default_pose:
     position:
       x: 0.03
@@ -50,16 +50,16 @@ ssb_default_pose:
       y: 0
       z: 0.7071
       w: 0.7071
-#Water Sample Station - Pose Stamped
+#Water Sample Station - Pose Stamped - link: water_sample_station_mount_link
 wss_default_pose:
     position:
-      x: -0.05
-      y: 0.105
-      z: -0.03
+      x: 0.23
+      y: -0.02
+      z: 0.13
     orientation:
-      x: -0.7071
+      x: 0
       y: 0
-      z: 0
+      z: 0.7071
       w: 0.7071
 # Planning
 # KPIECEkConfigDefault, RRTConnectkConfigDefault, RRTstarkConfigDefault, TRRTkConfigDefault
