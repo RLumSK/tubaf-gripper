@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="smart_equipment_demo" pkg="tbf_gripper_tools" type="smart_equipment_set.py" output="screen">
+    <rosparam command="load" file="$(find tbf_gripper_tools)/config/smart_equipment.yaml" />
+  </node>
+
+  <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_plan_marker" output="screen">
+        <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_default.yaml"/>
+        <param name="service_ns" value="equipment_handler/confirm_plan"/>
+        <param name="target_frame" value="gripper_robotiq_palm_planning"/>
+  </node>
+
+</launch>

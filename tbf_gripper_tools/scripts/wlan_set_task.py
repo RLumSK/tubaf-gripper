@@ -210,7 +210,7 @@ class WlanSetTask(autonomy.Task.GraspTask):
             self.wss_default_ps.header.frame_id = "water_sample_station_mount_link"
 
             wss_mesh_filename = rospy.get_param("~wss_mesh_filename", os.path.join(
-                rospkg.RosPack().get_path('tbf_gripper_tools'), 'resources', 'mesh', 'water_station_scaled.stl'))
+                rospkg.RosPack().get_path('tbf_gripper_tools'), 'resources', 'mesh', 'water_station.stl'))
             x_scale = rospy.get_param("~wss_x_scale", 1.0)
             y_scale = rospy.get_param("~wss_y_scale", 1.0)
             z_scale = rospy.get_param("~wss_z_scale", 1.0)
@@ -283,6 +283,7 @@ class WlanSetTask(autonomy.Task.GraspTask):
         msg.joint_state = js
         aco = self.mvit_scene.get_attached_objects()
         if len(aco) != 0:  # checks if dictionary is empty
+            #ERROR_ can't find tubaf_tools
             msg.attached_collision_objects = [tubaf_tools.fill_message(moveit_msgs.msg.AttachedCollisionObject(),
                                                                        self.mvit_scene.get_attached_objects())]
         rospy.logdebug("WlanSetTask._set_start_state(): Type(msg.attachecd_collision_object) is %s",
