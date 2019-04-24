@@ -268,7 +268,7 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("GraspTask.start():")
+        rospy.loginfo("EquipmentTask.start():")
         self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # super(EquipmentTask, self).run_as_process(self.perform)
 

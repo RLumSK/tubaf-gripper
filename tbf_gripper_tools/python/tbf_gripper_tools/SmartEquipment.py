@@ -85,7 +85,6 @@ class SmartEquipment:
         self.ps.pose.orientation.y = entry["pose"]["orientation"]["y"]
         self.ps.pose.orientation.z = entry["pose"]["orientation"]["z"]
         self.ps.pose.orientation.w = entry["pose"]["orientation"]["w"]
-        print rospkg.RosPack().get_path('rospy')
         self.mesh_path = os.path.join(rospkg.RosPack().get_path(entry['mesh']['pkg']), *entry['mesh']['path'])
         self.pickup_waypoints = entry["pickup_waypoints"]
         self.place_waypoints = entry["place_waypoints"]

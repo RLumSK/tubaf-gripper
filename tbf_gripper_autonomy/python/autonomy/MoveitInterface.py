@@ -248,7 +248,7 @@ class MoveitInterface(object):
         self.scene.remove_world_object(equipment.name)
         rospy.sleep(2.0)
         self.scene.attach_mesh(link=self.eef_link, name=equipment.name, filename=equipment.mesh_path,
-                               pose=equipment.pose, touch_links=self.touch_links)
+                               pose=equipment.ps, touch_links=self.touch_links)
         self.attached_equipment = equipment
 
     def detach_equipment(self):
