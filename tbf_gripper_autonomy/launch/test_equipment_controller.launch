@@ -1,6 +1,8 @@
 <launch>
     <node name="equipment_handler" pkg="tbf_gripper_autonomy" type="EquipmentTask.py" respawn="false" output="screen">
-        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/equipment_task.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
     </node>
 

@@ -1,0 +1,55 @@
+# MoveIt!
+moveit:
+  eef_link: "gripper_robotiq_palm_planning"
+  max_attempts: 3
+  planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
+    #    - SBLkConfigDefault
+    #    - ESTkConfigDefault
+    #    - LBKPIECEkConfigDefault
+    #    - BKPIECEkConfigDefault
+    #    - KPIECEkConfigDefault
+    #    - RRTkConfigDefault
+    #    - RRTConnectkConfigDefault
+    #    - RRTstarkConfigDefault
+    #    - TRRTkConfigDefault
+    #    - PRMkConfigDefault
+    #    - PRMstarkConfigDefault
+    #    - FMTkConfigDefault
+    #    - BFMTkConfigDefault
+    #    - PDSTkConfigDefault
+    #    - STRIDEkConfigDefault
+    #    - BiTRRTkConfigDefault
+    #    - LBTRRTkConfigDefault
+    #    - BiESTkConfigDefault
+    #    - ProjESTkConfigDefault
+    #    - LazyPRMkConfigDefault
+    #    - LazyPRMstarkConfigDefault
+    #    - SPARSkConfigDefault
+    #    - SPARStwokConfigDefault
+  planner_time: 5.0  # was 20
+  planner_attempts: 20  # was 100
+  reference_frame: "/gripper_ur5_base_link"
+  workspace: [-1.6, -1.2, 0.0, 0.25, 1.2, 1.7]
+  tolerance: 0.010
+  planned_path_publisher: "julius_moveit/move_group/display_planned_path"
+  group_name: "UR5"
+  goal_tolerance: 0.05
+  goal_position_tolerance: 0.01
+  goal_orientation_tolerance: 0.01
+  goal_joint_tolerance: 0.02  #was 0.1
+  allow_looking: False
+  allow_replanning: False
+  touch_links:
+  - gripper_robotiq_palm
+  - gripper_robotiq_finger_1_link_0
+  - gripper_robotiq_finger_1_link_1
+  - gripper_robotiq_finger_1_link_2
+  - gripper_robotiq_finger_1_link_3
+  - gripper_robotiq_finger_2_link_0
+  - gripper_robotiq_finger_2_link_1
+  - gripper_robotiq_finger-2_link_2
+  - gripper_robotiq_finger_2_link_3
+  - gripper_robotiq_finger_middle_link_0
+  - gripper_robotiq_finger_middle_link_1
+  - gripper_robotiq_finger_middle_link_2
+  - gripper_robotiq_finger_middle_link_3

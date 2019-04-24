@@ -59,12 +59,15 @@ class SmartEquipment:
     Class for handling equipment on the robot with the manipulation unit, ie gripper
     """
     def __init__(self, entry={'name': "Empty", 'pose': {'frame': "/base_link",
-                                                        'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
-                                                        'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
+                                                        'position':     {'x': 0.0, 'y': 0.0, 'z': 0.0},
+                                                        'orientation':  {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
                               'mesh': {'pkg': "tbf_gripper_tools", 'path': ['resources', 'mesh', 'water_station.stl']},
                               'pickup_waypoints': {'pre_grasp': [], 'grasp': [], 'lift': [], 'post_grasp': []},
                               'place_waypoints': {'pre_set': [], 'set': [], 'lift': [], 'post_set': []},
-                              'release': True
+                              'place_pose': {'frame': "/gripper_ur5_base_link",
+                                             'position':    {'x': 0.0, 'y': 0.0, 'z': 0.0},
+                                             'oientation':  {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
+                              'hold_on_set': 0.0
                               }):
         """
         Default Constructor, may give an dict() with parameters
@@ -82,16 +85,27 @@ class SmartEquipment:
         self.ps.pose.orientation.y = entry["pose"]["orientation"]["y"]
         self.ps.pose.orientation.z = entry["pose"]["orientation"]["z"]
         self.ps.pose.orientation.w = entry["pose"]["orientation"]["w"]
+        print rospkg.RosPack().get_path('rospy')
         self.mesh_path = os.path.join(rospkg.RosPack().get_path(entry['mesh']['pkg']), *entry['mesh']['path'])
         self.pickup_waypoints = entry["pickup_waypoints"]
         self.place_waypoints = entry["place_waypoints"]
-        self.release = entry["release"]
+        self.place_ps = PoseStamped()
+        self.place_ps.header.stamp = rospy.Time.now()
+        self.place_ps.header.frame_id = entry["place_pose"]["frame"]
+        self.place_ps.pose.position.x = entry["place_pose"]["position"]["x"]
+        self.place_ps.pose.position.y = entry["place_pose"]["position"]["y"]
+        self.place_ps.pose.position.z = entry["place_pose"]["position"]["z"]
+        self.place_ps.pose.orientation.x = entry["place_pose"]["orientation"]["x"]
+        self.place_ps.pose.orientation.y = entry["place_pose"]["orientation"]["y"]
+        self.place_ps.pose.orientation.z = entry["place_pose"]["orientation"]["z"]
+        self.place_ps.pose.orientation.w = entry["place_pose"]["orientation"]["w"]
+        self.hold_on_set = entry["hold_on_set"]
         self.grasp_offset = TransformStamped()
 
     def __str__(self):
         return self.name + \
                "\npose:\n" + str(self.ps) + \
-               "\nrelease: " + str(self.release) + \
+               "\nhold_on_set: " + str(self.hold_on_set) + \
                "\nmesh_path: " + str(self.mesh_path) + \
                "\npickup_waypoints[pre]:\n" + str(self.pickup_waypoints["pre_grasp"]) + \
                "\npickup_waypoints[grasp]:\n" + str(self.pickup_waypoints["grasp"]) + \

@@ -39,7 +39,6 @@ import numpy as np
 from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 
-from tbf_gripper_tools.Equipment import Equipment
 from tubaf_tools import parse_to_os_path, fill_message
 from tubaf_tools.confirm_service import wait_for_confirmation
 import tbf_gripper_rviz.ssb_marker as marker
@@ -199,28 +198,44 @@ class MoveitInterface(object):
         Add the given equipment to the planning scene
         :param pose: add equipment at specified pose
         :type pose: PoseStamped
-        :param eq: Equipment
-        :type eq: Equipment
+        :param eq: SmartEquipment
+        :type eq: SmartEquipment
         :return: -
         :rtype: -
         """
-        if len(self.scene.get_attached_objects([eq.name])) != 0:
-            rospy.logwarn("MoveitInterface.add_equipment(): %s was allready present in the scene, removing it and add "
-                          "it again" % eq.name)
-            self.scene.remove_attached_object(link=self.eef_link, name=eq.name)
-            rospy.sleep(0.5)
+        known_objects = self.scene.get_known_object_names()
+        rospy.logdebug("MoveitInterface.add_equipment(): Previous known objects %s", known_objects)
+        if eq.name in known_objects:
+            rospy.loginfo("MoveitInterface.add_equipment(): Already known:  %s", eq.name)
+            return
         if pose is None:
-            self.scene.add_mesh(name=eq.name, pose=eq.robot_pick_pose, filename=eq.mesh_path,
-                                size=(eq.scale.x, eq.scale.y, eq.scale.z))
+            pose = eq.ps
+        self.scene.add_mesh(name=eq.name, pose=pose, filename=eq.mesh_path, size=(1.0, 1.0, 1.0))
+
+    def remove_equipment(self, name):
+        """
+        Remove an object with the given name from the planning scene
+        :param name: name of the object
+        :type name: str
+        :return: -
+        :rtype: -
+        """
+        lst_names = self.scene.get_known_object_names()
+        if name in lst_names:
+            lst_attached_obj = self.scene.get_attached_objects()
+            if name in lst_attached_obj:
+                self.scene.remove_attached_object(self.eef_link, name)
+            else:
+                self.scene.remove_world_object(name)
         else:
-            self.scene.add_mesh(name=eq.name, pose=pose, filename=eq.mesh_path,
-                                size=(eq.scale.x, eq.scale.y, eq.scale.z))
+            rospy.logwarn("MoveitInterface.remove_equipment(): %s is not present in the scene and hence can't be removed"
+                          " known objects are: %s" % (name, lst_names))
 
     def attach_equipment(self, equipment):
         """
         Attach the given equipment to the end effector
         :param equipment: grasp equipment
-        :type equipment: Equipment
+        :type equipment: SmartEquipment
         :return: -
         :rtype: -
         """
@@ -233,14 +248,14 @@ class MoveitInterface(object):
         self.scene.remove_world_object(equipment.name)
         rospy.sleep(2.0)
         self.scene.attach_mesh(link=self.eef_link, name=equipment.name, filename=equipment.mesh_path,
-                               pose=equipment.robot_pick_pose, touch_links=self.touch_links)
+                               pose=equipment.pose, touch_links=self.touch_links)
         self.attached_equipment = equipment
 
     def detach_equipment(self):
         """
         Detach equipment from the robot
         :return: former attached equipment, pose unknown to this class, but should be known to outer scope
-        :rtype: Equipment
+        :rtype: SmartEquipment
         """
         # http://docs.ros.org/indigo/api/pr2_moveit_tutorials/html/planning/src/doc/planning_scene_ros_api_tutorial.html
         # Detaching an object from the robot requires two operations

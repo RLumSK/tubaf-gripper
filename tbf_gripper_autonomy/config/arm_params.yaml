@@ -1,37 +1,10 @@
-planned_path_publisher: "julius_moveit/move_group/display_planned_path"
-group_name: "UR5"
-planning_frame: "/base_link"
-planning_time: 10
-planning_attempts: 1000
-goal_tolerance: 0.01
-goal_position_tolerance: 0.01
-goal_orientation_tolerance: 0.01
-goal_joint_tolerance: 0.1
-planner: "RRTConnectkConfigDefault"  # for parameter see the ompl_planning.yaml at julius_moveit
-# SBLkConfigDefault
-# ESTkConfigDefault
-# LBKPIECEkConfigDefault
-# BKPIECEkConfigDefault
-# KPIECEkConfigDefault
-# RRTkConfigDefault
-# RRTConnectkConfigDefault
-# RRTstarkConfigDefault
-# TRRTkConfigDefault
-# PRMkConfigDefault
-# PRMstarkConfigDefault
-ee_links:
-  - gripper_robotiq_palm
-  - gripper_robotiq_finger_1_link_0
-  - gripper_robotiq_finger_1_link_1
-  - gripper_robotiq_finger_1_link_2
-  - gripper_robotiq_finger_1_link_3
-  - gripper_robotiq_finger_2_link_0
-  - gripper_robotiq_finger_2_link_1
-  - gripper_robotiq_finger-2_link_2
-  - gripper_robotiq_finger_2_link_3
-  - gripper_robotiq_finger_middle_link_0
-  - gripper_robotiq_finger_middle_link_1
-  - gripper_robotiq_finger_middle_link_2
-  - gripper_robotiq_finger_middle_link_3
-allow_looking: False
-allow_replanning: False
+# Arm
+arm:
+  backup_joint_values: [-180, -90, 0.0, -90, 0.00, 0.0]
+  home_joint_values:   [0.00, -90, 0.0, -90, 0.00, 0.0]
+  watch_joint_values:  [-180, -90, -90, -80, 90.0, 125]
+  linear_tcp_speed: 60.0
+  linear_tcp_acceleration: 20.0
+  joint_speed: 10.0
+  joint_acceleration: 5.0
+  joint_states_topic: "/ur5/joint_states"
