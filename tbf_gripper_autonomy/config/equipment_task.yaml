@@ -11,6 +11,7 @@ equipment:
     # robot_set_pose: #None
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
     mesh_url: "package://julius_base/meshes/parts/wlan_box.stl"
+
     scale: {x: 1.0, y: 1.0, z: 1.0}
     pick_waypoints:
       pre_joint_values:   [-171.5, -137.2, 120.3, -163.53, -80.8, 45.2]
