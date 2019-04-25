@@ -49,7 +49,9 @@ from geometry_msgs.msg import QuaternionStamped, Pose, PoseStamped
 from tf import TransformListener, transformations
 from numpy import pi
 
-from tubaf_tools.help import invert_pose, add_pose
+from tbf_gripper_tools.SmartEquipment import SmartEquipment
+# from tubaf_tools.help import invert_pose, add_pose
+import os
 
 
 class SSBMarker(InteractiveMarker):
@@ -63,7 +65,7 @@ class SSBMarker(InteractiveMarker):
         @:param ns: namespace of this marker
         @:type ns: str
         @:param pose: inital pose of the marker
-        @:type pose: geometry_msgs.msg.Pose
+        @:type pose: geometry_msgs.msg.PoseStamped
         """
         super(SSBMarker, self).__init__()
 
@@ -76,23 +78,27 @@ class SSBMarker(InteractiveMarker):
         self.tf_listener = TransformListener()
         rospy.sleep(0.2)
         # Marker
-        self._reference_frame = rospy.get_param(ns+"reference_frame", "base_footprint")
-        self.header.frame_id = self._reference_frame
-        self.name = rospy.get_param(ns+"name", "SSB"+ns)
+        self._reference_frame = None
+
+        self.name = rospy.get_param(ns+"name", "SSB")
         self.description = "["+ns+"]Smart Sensor Box Marker"
         self.scale = rospy.get_param(ns+"scale", 0.5)
 
-        self._server_name = rospy.get_param(ns+"server_name", "ssb_marker_server"+ns[0:-1])
+        self._server_name = rospy.get_param(ns+"server_name", "ssb_marker_server")
         self._server = InteractiveMarkerServer(self._server_name)
 
         if pose is None:
-            pose = rospy.get_param(ns+"ssb_default_pose", geometry_msgs.msg.Pose())
-        self.pose = pose
+            pose = rospy.get_param(ns+"ssb_default_pose", geometry_msgs.msg.PoseStamped())
+            self._reference_frame = rospy.get_param(ns + "reference_frame", "base_footprint")
+        else:
+            self._reference_frame = pose.header.frame_id
+        self.pose = pose.pose
+        self.header.frame_id = self._reference_frame
 
         self._mesh_marker = Marker()
         self._mesh_marker.type = Marker.MESH_RESOURCE
         if mesh is None:
-            mesh = rospy.get_param(ns+"ssb_mesh_resource", 'package://tbf_gripper_tools/resources/mesh/wlan_box.stl')
+            mesh = rospy.get_param(ns+"ssb_mesh_resource", 'package://tbf_gripper_tools/resources/mesh/old_ssb.stl')
         self._mesh_marker.mesh_resource = mesh
         self._mesh_marker.scale.x = rospy.get_param(ns+"ssb_x_scale", 1.0)
         self._mesh_marker.scale.y = rospy.get_param(ns+"ssb_y_scale", 1.0)
@@ -144,9 +150,29 @@ class SSBMarker(InteractiveMarker):
         if gripper_offset is not None:
             self.gripper = self._generate_gripper(gripper_offset)
             self._mesh_cntrl.markers.append(self.gripper)
+            self.gripper = None
         else:
             self.gripper = None
         self._server.applyChanges()
+        rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
+        rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
+        rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
+        rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
+
+    @classmethod
+    def from_SmartEquipment(cls, se):
+        """
+        Constructor using Smart Equipment
+        :param se: equipment
+        :type se: SmartEquipment
+        """
+        rospy.logdebug("%s", se)
+        pose = se.place_ps
+        mesh = os.path.join("package://"+se.mesh_pkg, se.mesh_rel_path)
+        # gripper_offset = se.get_grasp_pose(se.ps, se.ps.header.frame_id)
+        return cls(ns="~", pose=pose, mesh=mesh, gripper_offset=None)
+
+
 
     def getMeshResourcePath(self):
         """
@@ -184,9 +210,9 @@ class SSBMarker(InteractiveMarker):
         :rtype: -
         """
         self.onFeedback(feedback)
-        ps = geometry_msgs.msg.PoseStamped()
-        ps.header.frame_id = self.header.frame_id
-        ps.pose = self.pose
+        ps = PoseStamped()
+        ps.header = feedback.header
+        ps.pose = self.pose  # pose is updated by onFeedback
         self._pub_pose_stamped.publish(ps)
 
     def onUpdateNormal(self, feedback):
@@ -302,8 +328,8 @@ class SSBGraspMarker(object):
         Default constructor
         @:param ssb_marker: parent marker
         @:type ssb_marker: SSBMarker
-        @:param nr: number of this ssb marker
-        @:type nr: int
+        @:param ns: number of this ssb marker
+        @:type ns: str
         """
         self.ssb_marker = ssb_marker
         ssb_marker.add_custom_menu_entry("Select Grasp here", self.onGraspSelect)

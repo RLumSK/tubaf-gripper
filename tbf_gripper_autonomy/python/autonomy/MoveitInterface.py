@@ -42,6 +42,9 @@ from sensor_msgs.msg import JointState
 from tubaf_tools import parse_to_os_path, fill_message
 from tubaf_tools.confirm_service import wait_for_confirmation
 import tbf_gripper_rviz.ssb_marker as marker
+from tbf_gripper_tools.SmartEquipment import SmartEquipment
+
+from pyassimp.errors import AssimpError
 
 
 class MoveitInterface(object):
@@ -210,7 +213,12 @@ class MoveitInterface(object):
             return
         if pose is None:
             pose = eq.ps
-        self.scene.add_mesh(name=eq.name, pose=pose, filename=eq.mesh_path, size=(1.0, 1.0, 1.0))
+
+        try:
+            self.scene.add_mesh(name=eq.name, pose=pose, filename=eq.mesh_path, size=(1.0, 1.0, 1.0))
+        except AssimpError as ex:
+            rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
+            rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (eq.name, eq.mesh_path))
 
     def remove_equipment(self, name):
         """
@@ -243,7 +251,6 @@ class MoveitInterface(object):
         # Attaching an object requires two operations:
         #   - Removing the original object from the environment
         #   - Attaching the object to the robot
-        # self.scene.remove_world_object(equipment.name)
         rospy.loginfo("MoveitInterface.attach_equipment: {} equip: {}".format(self.eef_link, equipment.name))
         self.scene.remove_world_object(equipment.name)
         rospy.sleep(2.0)
@@ -281,11 +288,36 @@ class MoveitInterface(object):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("MoveitInterface.clear_octomap_on_marker(): Equipment %s", equipment)
+        rospy.logdebug("MoveitInterface.clear_octomap_on_marker(): Equipment %s", equipment)
         p = parse_to_os_path(equipment.getMeshResourcePath())
-        rospy.loginfo("WlanSetTask._clear_octomap_on_marker(): MeshPath %s", p)
+        rospy.logdebug("MoveitInterface._clear_octomap_on_marker(): MeshPath %s", p)
         ps = PoseStamped(header=equipment.header, pose=equipment.pose)
         self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=equipment.getMeshScale())
         # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         self.scene.remove_world_object(name="tmp_marker")
         return
+
+    def get_object_pose(self, name):
+        """
+        Get current pose of the object
+        :param name: name of the object
+        :type name: str
+        :return: pose of the object
+        :rtype: PoseStamped
+        """
+        ps = PoseStamped()
+        ps.header.stamp = rospy.Time.now()
+        ps.header.frame_id = self.group.get_pose_reference_frame()
+        if name in self.scene.get_known_object_names():
+            ps.pose = self.scene.get_object_poses(name)
+        return ps
+
+
+if __name__ == '__main__':
+    rospy.init_node("MoveIt_Interface", log_level=rospy.INFO)
+    # Init Moveit
+    obj = MoveitInterface("~moveit")
+    # Equipment Parameter
+    for equip in rospy.get_param("~smart_equipment"):
+        eq = SmartEquipment(equip)
+        obj.add_equipment(eq)

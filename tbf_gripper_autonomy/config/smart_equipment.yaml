@@ -26,16 +26,16 @@ smart_equipment:
       post_set: [-190.6, -193.3, -86.9, 87.1, 100.3, 31.7]
     place_pose:
       frame:
-        "gripper_ur5_base_link"
+        "base_footprint"
       position:
-        x: -0.61133
-        y: 0.17586
-        z: -0.72082
+        x: -0.93
+        y: 0.15
+        z: 0.0
       orientation:
-        x: 0.068
-        y: 0.769
-        z: -0.026
-        w: 0.636
+        x: 0.0
+        y: 0.0
+        z: 0.7071
+        w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
   - name:
@@ -54,7 +54,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'knauf_ssb_small.STL']
+      path: ['resources', 'mesh', 'knauf_ssb.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
       grasp: [-173.6, -84.6, 46.4, -107.5, 90.5, 45.3]
@@ -65,7 +65,7 @@ smart_equipment:
       post_set: [1.4, -13.4, 116.0, -280.2, -93.2, 47.6]
     place_pose:
       frame:
-        "gripper_ur5_base_link"
+        "base_footprint"
       position:
         x: -0.4618
         y: -0.107
@@ -93,7 +93,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'kugel_ssb_small.STL']
+      path: ['resources', 'mesh', 'kugel_ssb.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
       grasp: [-179.8, -95.6, 69.9, 25,7, 102.8, 227.4]
@@ -104,7 +104,7 @@ smart_equipment:
       post_set: [-26.0, -18.0, 119.3, -94.6, -92.5, 227.6]
     place_pose:
       frame:
-        "gripper_ur5_base_link"
+        "base_footprint"
       position:
         x: -0.5629
         y: 0.1343
@@ -131,7 +131,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'water_station_small.stl']
+      path: ['resources', 'mesh', 'water_station.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-12.18, -75.06, -31.19, -132.94, 80.34, -142.55]
       grasp: [-13.50, -99.22, -35.34, -130.96, 80.41, -142.55]

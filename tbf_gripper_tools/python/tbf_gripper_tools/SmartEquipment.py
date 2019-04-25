@@ -85,7 +85,9 @@ class SmartEquipment:
         self.ps.pose.orientation.y = entry["pose"]["orientation"]["y"]
         self.ps.pose.orientation.z = entry["pose"]["orientation"]["z"]
         self.ps.pose.orientation.w = entry["pose"]["orientation"]["w"]
-        self.mesh_path = os.path.join(rospkg.RosPack().get_path(entry['mesh']['pkg']), *entry['mesh']['path'])
+        self.mesh_pkg = entry['mesh']['pkg']
+        self.mesh_rel_path = os.path.join(*entry['mesh']['path'])
+        self.mesh_path = os.path.join(rospkg.RosPack().get_path(self.mesh_pkg), *entry['mesh']['path'])
         self.pickup_waypoints = entry["pickup_waypoints"]
         self.place_waypoints = entry["place_waypoints"]
         self.place_ps = PoseStamped()
@@ -109,9 +111,9 @@ class SmartEquipment:
                "\npickup_waypoints[pre]:\n" + str(self.pickup_waypoints["pre_grasp"]) + \
                "\npickup_waypoints[grasp]:\n" + str(self.pickup_waypoints["grasp"]) + \
                "\npickup_waypoints[post]:\n" + str(self.pickup_waypoints["post_grasp"])  + \
-               "\npickup_waypoints[pre]:\n" + str(self.pickup_waypoints["pre_set"]) + \
-               "\npickup_waypoints[grasp]:\n" + str(self.pickup_waypoints["set"]) + \
-               "\npickup_waypoints[post]:\n" + str(self.pickup_waypoints["post_set"])
+               "\nplace_waypoints[pre]:\n" + str(self.place_waypoints["pre_set"]) + \
+               "\nplace_waypoints[set]:\n" + str(self.place_waypoints["set"]) + \
+               "\nplace_waypoints[post]:\n" + str(self.place_waypoints["post_set"])
 
     def calculate_grasp_offset(self, attached_frame, planning_frame, tf_listener=None):
         """
@@ -165,7 +167,7 @@ class SmartEquipment:
 
         rospy.logdebug("Equipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
 
-    def get_grasp_pose(self, object_pose_stamped, planning_frame, tf_listener):
+    def get_grasp_pose(self, object_pose_stamped, planning_frame, tf_listener=None):
         """
         Temporarily add a frame to the tf listener and extract the grasp pose relative to the planning frame
         :param object_pose_stamped: current pose of the object
@@ -177,6 +179,8 @@ class SmartEquipment:
         :return: grasp pose
         :rtype: PoseStamped
         """
+        if tf_listener is None:
+            tf_listener = TransformListener()
         tmp_frame = "temp_frame"
         eq_pose_transform = pose_to_tf(object_pose_stamped.pose, tmp_frame, object_pose_stamped.header.frame_id)
         # print("object_raw", eq_pose_transform)
@@ -188,3 +192,11 @@ class SmartEquipment:
         ps.pose.orientation.w = 1.
         check_ps = tf_listener.transformPose(planning_frame, ps)
         return check_ps
+
+
+if __name__ == '__main__':
+    rospy.init_node("SmartEquipment", log_level=rospy.INFO)
+    # Equipment Parameter
+    for equip in rospy.get_param("~smart_equipment"):
+        eq = SmartEquipment(equip)
+        rospy.loginfo("[SmartEquipment] %s", eq)

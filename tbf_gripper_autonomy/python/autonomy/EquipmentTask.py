@@ -125,8 +125,10 @@ class EquipmentTask(GraspTask):
 
         rospy.loginfo("EquipmentTask.generate_goal(): query_pose: \n %s", query_pose)
         rospy.logdebug("EquipmentTask.generate_goal(): moveit.group.get_pose_reference_frame(): \n %s", target_frame)
-
-        return self.moveit.attached_equipment.get_grasp_pose(query_pose, target_frame, self.tf_listener)
+        ret_value = self.moveit.attached_equipment
+        if ret_value is None:
+            ret_value = self.selected_equipment
+        return ret_value.get_grasp_pose(query_pose, target_frame, self.tf_listener)
 
     def perform(self, stages=range(9)):
         """
@@ -193,20 +195,18 @@ class EquipmentTask(GraspTask):
             # 4. Query Goal from User Interface
             if 4 in stages:
                 rospy.loginfo("STAGE 4: Ask for target Pose")
-                int_marker = marker.SSBMarker(pose=self.selected_equipment.place_ps,
-                                              mesh=self.selected_equipment.mesh_path,
-                                              gripper_offset=self.selected_equipment.grasp_offset)
+                int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
                 query_pose_topic = int_marker.get_pose_topic()
                 query_pose_subscriber = message_filters.Subscriber(query_pose_topic, PoseStamped)
                 query_pose_cache = message_filters.Cache(query_pose_subscriber, 5)
                 while query_pose is None:
                     query_pose = query_pose_cache.getLast()
-                    rospy.logdebug("EquipmentTask.perform(): Set equipment to pose: \n %s", query_pose)
+                    rospy.logdebug("EquipmentTask.perform(@Stage4): Set equipment to pose: \n %s", query_pose)
                     rospy.sleep(0.5)
-
-            if query_pose is None :
+            if query_pose is None:
                 rospy.logwarn("EquipmentTask.perform(): There is no interactive marker for the target pose")
                 query_pose = self.selected_equipment.place_ps
+
             # 5. Calculate target pose
             if 5 in stages:
                 rospy.loginfo("STAGE 5: Calculate Target Pose")
@@ -214,7 +214,7 @@ class EquipmentTask(GraspTask):
                 # Formulate Planning Problem
                 if int_marker is not None:
                     self.moveit.clear_octomap_on_marker(int_marker)
-                target_pose = self.generate_goal(query_pose)
+                target_pose = query_pose  # self.generate_goal(query_pose)
                 while target_pose is None:
                     rospy.loginfo("EquipmentTask.perform(): Query new Equipment Pose")
                     now = rospy.Time.now()
@@ -269,12 +269,13 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         rospy.loginfo("EquipmentTask.start():")
-        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.perform([4, 5, 6, 7, 8, 9])
+        #self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # super(EquipmentTask, self).run_as_process(self.perform)
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.INFO)
+    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
     obj.start()
     rospy.spin()
