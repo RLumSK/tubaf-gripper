@@ -47,7 +47,7 @@ moveit:
   - gripper_robotiq_finger_1_link_3
   - gripper_robotiq_finger_2_link_0
   - gripper_robotiq_finger_2_link_1
-  - gripper_robotiq_finger-2_link_2
+  - gripper_robotiq_finger_2_link_2
   - gripper_robotiq_finger_2_link_3
   - gripper_robotiq_finger_middle_link_0
   - gripper_robotiq_finger_middle_link_1

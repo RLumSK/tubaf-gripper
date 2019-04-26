@@ -233,7 +233,7 @@ class EquipmentTask(GraspTask):
                 # Plan Path using Moveit
                 intermediate_pose = copy.deepcopy(target_pose.pose)
                 intermediate_pose.position.z += 0.3
-                # debug_pose_pub.publish(PoseStamped(pose=intermediate_pose, header=target_pose.header))
+                debug_pose_pub.publish(PoseStamped(pose=intermediate_pose, header=target_pose.header))
                 if not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE"):
                     continue
 
@@ -269,8 +269,8 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         rospy.loginfo("EquipmentTask.start():")
-        self.perform([4, 5, 6, 7, 8, 9])
-        #self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # self.perform([3, 4, 5, 6, 7, 8, 9])
+        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # super(EquipmentTask, self).run_as_process(self.perform)
 
 

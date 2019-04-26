@@ -39,7 +39,7 @@ import numpy as np
 from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 
-from tubaf_tools import parse_to_os_path, fill_message
+from tubaf_tools import parse_to_os_path
 from tubaf_tools.confirm_service import wait_for_confirmation
 import tbf_gripper_rviz.ssb_marker as marker
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
@@ -93,6 +93,7 @@ class MoveitInterface(object):
         self.eef_link = self.parameter["eef_link"]
         self.touch_links = self.parameter["touch_links"]
         self.max_attempts = self.parameter["max_attempts"]
+        self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
         self.attached_equipment = None
 
     def _set_start_state(self):
@@ -108,14 +109,15 @@ class MoveitInterface(object):
         js.name = self.robot.get_joint_names(self.group.get_name())[0:6]
         js.position = self.group.get_current_joint_values()
         msg.joint_state = js
-        aco = self.scene.get_attached_objects()
-        if len(aco) != 0:  # checks if dictionary is empty
-            msg.attached_collision_objects = [fill_message(moveit_msgs.msg.AttachedCollisionObject(),
-                                                           self.scene.get_attached_objects())]
-        rospy.logdebug("MoveitInterface._set_start_state(): Type(msg.attachecd_collision_object) is %s",
-                       type(msg.attached_collision_objects))
-        rospy.logdebug("MoveitInterface._set_start_state():msg.attachecd_collision_object \n %s",
-                       msg.attached_collision_objects)
+        dict_collision_objects = self.scene.get_attached_objects()
+        for name, aco in dict_collision_objects.iteritems():
+            rospy.logdebug("MoveitInterface._set_start_state(): %s is attached", name)
+            msg.attached_collision_objects.append(aco)
+        # if len(msg.attached_collision_objects) != 0:
+        #     rospy.logdebug("MoveitInterface._set_start_state(): dict_collision_objects \n %s",
+        #                    dict_collision_objects)
+        #     for item in msg.attached_collision_objects:
+        #         rospy.logdebug("MoveitInterface._set_start_state(): @msg \n %s", item)
         return msg
 
     def move_to_target(self, target, info=""):
@@ -196,29 +198,33 @@ class MoveitInterface(object):
                 retValue = self.move_to_target(target, info=info)
         return retValue
 
-    def add_equipment(self, eq, pose=None):
+    def add_equipment(self, equipment, pose=None):
         """
         Add the given equipment to the planning scene
         :param pose: add equipment at specified pose
         :type pose: PoseStamped
-        :param eq: SmartEquipment
-        :type eq: SmartEquipment
+        :param equipment: SmartEquipment
+        :type equipment: SmartEquipment
         :return: -
         :rtype: -
         """
         known_objects = self.scene.get_known_object_names()
         rospy.logdebug("MoveitInterface.add_equipment(): Previous known objects %s", known_objects)
-        if eq.name in known_objects:
-            rospy.loginfo("MoveitInterface.add_equipment(): Already known:  %s", eq.name)
+        if equipment.name in known_objects:
+            rospy.loginfo("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
+            if equipment.name in self.scene.get_attached_objects():
+                rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
+                self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
             return
         if pose is None:
-            pose = eq.ps
+            pose = equipment.ps
 
         try:
-            self.scene.add_mesh(name=eq.name, pose=pose, filename=eq.mesh_path, size=(1.0, 1.0, 1.0))
+            rospy.loginfo("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
+            self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(1.0, 1.0, 1.0))
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
-            rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (eq.name, eq.mesh_path))
+            rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (equipment.name, equipment.mesh_path))
 
     def remove_equipment(self, name):
         """
