@@ -39,6 +39,7 @@ import numpy as np
 from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 
+from tf import TransformListener
 from tubaf_tools import parse_to_os_path
 from tubaf_tools.confirm_service import wait_for_confirmation
 import tbf_gripper_rviz.ssb_marker as marker
@@ -52,11 +53,14 @@ class MoveitInterface(object):
     Interface to the move_group wrapper
     """
 
-    def __init__(self, param_group_name="~moveit"):
+    def __init__(self, param_group_name="~moveit", tf_listener=None):
         """
         Default constructor - Parameters are given via yaml file loaded onto the parameter server
         """
         self.parameter = rospy.get_param(param_group_name, dict())
+        if tf_listener is None:
+            tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
+        self.tf_listener = tf_listener
         # Initialize MoveIt!
         # https://github.com/ros-planning/moveit_tutorials/blob/indigo-devel/doc/pr2_tutorials/planning/scripts/move_group_python_interface_tutorial.py
         moveit_commander.roscpp_initialize(sys.argv)
@@ -125,7 +129,7 @@ class MoveitInterface(object):
         Move to designated target by using MoveIt interface
         :param target: either end_effector pose of joint values of the target pose (assumed to be in the reference frame
          of the MoveIt planning group)
-        :type target: list or Pose
+        :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
         :return: success
@@ -146,9 +150,19 @@ class MoveitInterface(object):
                     target_dict[joint_name[j]] = np.deg2rad(target[j])
                 rospy.logdebug("MoveitInterface.move_to_target(): Planning Joint target %s", target_dict)
                 self.group.set_joint_value_target(target_dict)
-            elif target is Pose or PoseStamped:
+            elif type(target) is Pose:
                 rospy.logdebug("MoveitInterface.move_to_target(): Planning Pose target %s", target)
                 self.group.set_pose_target(target, end_effector_link=self.eef_link)
+            elif type(target) is PoseStamped:
+                target_frame = self.group.get_pose_reference_frame()
+                rospy.logdebug("MoveitInterface.move_to_target(): Transforming PoseStamped:\n %s\n Target Frame is %s" %
+                               (target, target_frame))
+                self.tf_listener.waitForTransform(target_frame=target_frame,
+                                                  source_frame=target.header.frame_id,
+                                                  time=rospy.Time.now(),
+                                                  timeout=rospy.Duration(5.0))
+                ps = self.tf_listener.transformPose(target_frame=target_frame, ps=target)
+                self.move_to_target(ps.pose, info)
             else:
                 rospy.logwarn("MoveitInterface.move_to_target(): Illegal target type: %s", type(target))
                 return
@@ -173,6 +187,7 @@ class MoveitInterface(object):
                           target)
             plan = self.group.plan()
             attempts += 1
+            rospy.logdebug("MoveitInterface.move_to_target(): Plan:\n%s", plan)
             if len(plan.joint_trajectory.points) == 0:
                 rospy.loginfo("MoveitInterface.move_to_target(): No valid plan found, trying again (%d/%d) ..." %
                               (attempts, self.max_attempts))

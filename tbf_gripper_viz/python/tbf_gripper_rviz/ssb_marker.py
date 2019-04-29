@@ -59,7 +59,7 @@ class SSBMarker(InteractiveMarker):
     Class for the smart sensor box interactive marker
     """
 
-    def __init__(self, ns="~", pose=None, mesh=None, gripper_offset=None):
+    def __init__(self, ns="~", pose=None, mesh=None, gripper_pose=None):
         """
         Default constructor
         @:param ns: namespace of this marker
@@ -147,32 +147,34 @@ class SSBMarker(InteractiveMarker):
         self._server.insert(self, self.onFeedback, feedback_type=InteractiveMarkerServer.DEFAULT_FEEDBACK_CB)
         # self._server.insert(self, self.onUpdateNormal)
         self._menu_handler.apply(self._server, self.name)
-        if gripper_offset is not None:
-            self.gripper = self._generate_gripper(gripper_offset)
+        if gripper_pose is not None:
+            self.gripper = self._generate_gripper(gripper_pose)
             self._mesh_cntrl.markers.append(self.gripper)
             self.gripper = None
         else:
             self.gripper = None
         self._server.applyChanges()
-        rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
-        rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
-        rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
-        rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
+        # rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
+        # rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
+        # rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
+        # rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
 
     @classmethod
-    def from_SmartEquipment(cls, se):
+    def from_SmartEquipment(cls, se, tf_listener=None):
         """
         Constructor using Smart Equipment
         :param se: equipment
         :type se: SmartEquipment
         """
         rospy.logdebug("%s", se)
+        if tf_listener is None:
+            tf_listener = TransformListener()
+            rospy.sleep(2.0)
         pose = se.place_ps
         mesh = os.path.join("package://"+se.mesh_pkg, se.mesh_rel_path)
-        # gripper_offset = se.get_grasp_pose(se.ps, se.ps.header.frame_id)
-        return cls(ns="~", pose=pose, mesh=mesh, gripper_offset=None)
-
-
+        gripper_pose = se.get_grasp_pose(se.place_ps, tf_listener=tf_listener)
+        # rospy.logdebug("ssb_marker.SSBMarker.from_SmartEquipment(): gripper_pose\n%s", gripper_pose)
+        return cls(ns="~", pose=pose, mesh=mesh, gripper_pose=gripper_pose)
 
     def getMeshResourcePath(self):
         """
@@ -292,11 +294,11 @@ class SSBMarker(InteractiveMarker):
         """
         return self.pose_topic
 
-    def _generate_gripper(self, offset):
+    def _generate_gripper(self, gripper_pose):
         """
         Spawn a gripper marker on the determined position to query the orientation
-        :param offset: relative position on the marker
-        :type offset: PoseStamped
+        :param gripper_pose: pose of the gripper
+        :type gripper_pose: PoseStamped
         :return: interactive gripper marker
         :rtype: InteractiveMarker
         """
@@ -306,11 +308,10 @@ class SSBMarker(InteractiveMarker):
         marker = Marker()
         marker.type = Marker.MESH_RESOURCE
         marker.mesh_resource = rospy.get_param("gripper_mesh_resource",
-                                               'package://robotiq_s_model_visualization/meshes/s-model/'
-                                               'visual/GRIPPER_CLOSED.stl')
-        # inv_offset = invert_pose(offset.pose)
-        # marker.pose = add_pose(self.pose, inv_offset)
-        marker.pose = offset.pose
+                                               'package://robotiq_s_model_visualization/meshes/s-model_articulated/'
+                                               'visual/full_hand.stl')
+        marker.header = gripper_pose.header
+        marker.pose = gripper_pose.pose
         marker.color.r = 0
         marker.color.g = 1
         marker.color.b = 0

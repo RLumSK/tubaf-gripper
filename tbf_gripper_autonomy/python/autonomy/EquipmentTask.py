@@ -69,9 +69,9 @@ class EquipmentTask(GraspTask):
         """
         Default constructor, start ROS, hand_model and demo_monitoring
         """
-
+        self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         # Init Moveit
-        self.moveit = MoveitInterface("~moveit")
+        self.moveit = MoveitInterface("~moveit", self.tf_listener)
         # Equipment Parameter
         self.lst_equipment = []
         for equip in rospy.get_param("~smart_equipment"):
@@ -93,7 +93,6 @@ class EquipmentTask(GraspTask):
                                             j_s=rospy.get_param("~arm/joint_speed"),
                                             j_a=rospy.get_param("~arm/joint_acceleration"))
 
-        self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         rospy.loginfo("EquipmentTask.__init__(): initialized")
 
     def select_equipment(self, name="Smart_Sensor_Box"):
@@ -121,14 +120,11 @@ class EquipmentTask(GraspTask):
         :return: pose expressed in suitable reference frame
         :rtype: PoseStamped
         """
-        target_frame = self.moveit.group.get_pose_reference_frame()
-
         rospy.loginfo("EquipmentTask.generate_goal(): query_pose: \n %s", query_pose)
-        rospy.logdebug("EquipmentTask.generate_goal(): moveit.group.get_pose_reference_frame(): \n %s", target_frame)
         ret_value = self.moveit.attached_equipment
         if ret_value is None:
             ret_value = self.selected_equipment
-        return ret_value.get_grasp_pose(query_pose, target_frame, self.tf_listener)
+        return ret_value.get_grasp_pose(query_pose, tf_listener=self.tf_listener)
 
     def perform(self, stages=range(9)):
         """
@@ -180,8 +176,7 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
             self.moveit.attach_equipment(self.selected_equipment)
-            self.selected_equipment.calculate_grasp_offset(self.moveit.eef_link, self.moveit.group.get_planning_frame(),
-                                                           self.tf_listener)
+            self.selected_equipment.calculate_grasp_offset(self.moveit.eef_link, self.tf_listener)
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
@@ -201,11 +196,11 @@ class EquipmentTask(GraspTask):
                 query_pose_cache = message_filters.Cache(query_pose_subscriber, 5)
                 while query_pose is None:
                     query_pose = query_pose_cache.getLast()
-                    rospy.logdebug("EquipmentTask.perform(@Stage4): Set equipment to pose: \n %s", query_pose)
                     rospy.sleep(0.5)
             if query_pose is None:
                 rospy.logwarn("EquipmentTask.perform(): There is no interactive marker for the target pose")
                 query_pose = self.selected_equipment.place_ps
+            rospy.logdebug("EquipmentTask.perform(@Stage4): Set equipment to pose: \n %s", query_pose)
 
             # 5. Calculate target pose
             if 5 in stages:
@@ -214,7 +209,7 @@ class EquipmentTask(GraspTask):
                 # Formulate Planning Problem
                 if int_marker is not None:
                     self.moveit.clear_octomap_on_marker(int_marker)
-                target_pose = query_pose  # self.generate_goal(query_pose)
+                target_pose = self.generate_goal(query_pose)
                 while target_pose is None:
                     rospy.loginfo("EquipmentTask.perform(): Query new Equipment Pose")
                     now = rospy.Time.now()
@@ -231,9 +226,9 @@ class EquipmentTask(GraspTask):
             if 6 in stages:
                 rospy.loginfo("STAGE 6: Move to Intermediate Pose")
                 # Plan Path using Moveit
-                intermediate_pose = copy.deepcopy(target_pose.pose)
-                intermediate_pose.position.z += 0.3
-                debug_pose_pub.publish(PoseStamped(pose=intermediate_pose, header=target_pose.header))
+                intermediate_pose = copy.deepcopy(target_pose)
+                intermediate_pose.pose.position.z += 0.5
+                debug_pose_pub.publish(intermediate_pose)
                 if not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE"):
                     continue
 
@@ -269,7 +264,7 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         rospy.loginfo("EquipmentTask.start():")
-        # self.perform([3, 4, 5, 6, 7, 8, 9])
+        # self.perform([4, 5, 6, 7, 8, 9])
         self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # super(EquipmentTask, self).run_as_process(self.perform)
 
@@ -277,5 +272,6 @@ class EquipmentTask(GraspTask):
 if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
+    obj.hand_controller.closeHand()
     obj.start()
     rospy.spin()

@@ -33,7 +33,8 @@ import copy
 import rospy
 import rospkg
 from geometry_msgs.msg import PoseStamped, TransformStamped
-from tf import TransformListener
+from tf import TransformListener, transformations as tft
+import numpy as np
 
 
 def pose_to_tf(pose, frame_name, parent_frame, time=None):
@@ -115,15 +116,13 @@ class SmartEquipment:
                "\nplace_waypoints[set]:\n" + str(self.place_waypoints["set"]) + \
                "\nplace_waypoints[post]:\n" + str(self.place_waypoints["post_set"])
 
-    def calculate_grasp_offset(self, attached_frame, planning_frame, tf_listener=None):
+    def calculate_grasp_offset(self, attached_frame, tf_listener=None):
         """
         Calculates and stores the offset between the pick pose and the given frame
-        :param planning_frame: Planning frame of the moveit planning group, see MoveItInterface
-        :type planning_frame: str
+        :param attached_frame: typically the end effector frame
+        :type attached_frame: str
         :param tf_listener: information about current transformations of the robot
         :type tf_listener: TransformListener
-        :param attached_frame: typically the planinge frame from MoveIt
-        :type attached_frame: str
         :return: -
         :rtype: -
         """
@@ -132,66 +131,66 @@ class SmartEquipment:
         initial_equipment_pose = copy.deepcopy(self.ps)
         initial_equipment_pose.header.stamp = rospy.Time()
 
-        tmp_frame = "temp_frame"
+        tmp_frame = self.name+"_frame"
 
-        eq_pose_transform = pose_to_tf(initial_equipment_pose.pose,tmp_frame, initial_equipment_pose.header.frame_id)
-        # print("object_raw", eq_pose_transform)
+        eq_pose_transform = pose_to_tf(initial_equipment_pose.pose, tmp_frame, initial_equipment_pose.header.frame_id)
         tf_listener.setTransform(eq_pose_transform)
 
         T_ZERO = rospy.Time()
-        # print("planning frame: ", planning_frame)
         tf_listener.waitForTransform(attached_frame, tmp_frame, rospy.Time(), rospy.Duration.from_sec(5.0))
-        ps = PoseStamped()
-        ps.header.frame_id = tmp_frame
-        ps.pose.orientation.w = 1.
-        check_ps = tf_listener.transformPose(planning_frame, ps)
-        # print("check_ps", check_ps)
-        # print("object", tf_listener.lookupTransform(tmp_frame, planning_frame, T_ZERO))
-        # print("hand  ", tf_listener.lookupTransform(attached_frame, planning_frame, T_ZERO))
-
-        offset_t, offset_r = tf_listener.lookupTransform(tmp_frame,attached_frame,T_ZERO)
+        offset_t, offset_r = tf_listener.lookupTransform(tmp_frame, attached_frame, T_ZERO)
 
         r = self.grasp_offset.transform.rotation
         r.x, r.y, r.z, r.w = offset_r
         t = self.grasp_offset.transform.translation
         t.x, t.y, t.z = offset_t
-        self.grasp_offset.header.frame_id = tmp_frame
-        self.grasp_offset.child_frame_id = "temp_frame2"
+        self.grasp_offset.header.frame_id = attached_frame
+        self.grasp_offset.child_frame_id = tmp_frame
         self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
+        rospy.logdebug("SmartEquipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
 
-        # ps = PoseStamped()
-        # ps.header.frame_id = "temp_frame2"
-        # ps.pose.orientation.w = 1.
-        # check_ps = tf_listener.transformPose(planning_frame, ps)
-        # print("with offset: ", check_ps)
-
-        rospy.logdebug("Equipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
-
-    def get_grasp_pose(self, object_pose_stamped, planning_frame, tf_listener=None):
+    def get_grasp_pose(self, object_pose_stamped, tf_listener=None):
         """
-        Temporarily add a frame to the tf listener and extract the grasp pose relative to the planning frame
+        Calculating the current gripper pose, based on the saved offset and given object pose
         :param object_pose_stamped: current pose of the object
         :type object_pose_stamped: PoseStamped
-        :param planning_frame: planning frame of the moveit group
-        :type planning_frame: str
-        :param tf_listener: tf interface
-        :type tf_listener: TransformListener
         :return: grasp pose
         :rtype: PoseStamped
         """
-        if tf_listener is None:
-            tf_listener = TransformListener()
-        tmp_frame = "temp_frame"
-        eq_pose_transform = pose_to_tf(object_pose_stamped.pose, tmp_frame, object_pose_stamped.header.frame_id)
-        # print("object_raw", eq_pose_transform)
-        tf_listener.setTransform(eq_pose_transform)
-        self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
-        tf_listener.setTransform(self.grasp_offset)
+        if self.grasp_offset.header.stamp.is_zero():
+            rospy.logdebug("SmartEquipment.get_grasp_pose(): grasp_offset is Zero")
+            self.calculate_grasp_offset("gripper_robotiq_palm_planning", tf_listener=tf_listener)
+        # rospy.logdebug("SmartEquipment.get_grasp_pose(): Saved Transformation is: %s", self.grasp_offset)
+        # https://answers.ros.org/question/215656/how-to-transform-a-pose/
+        gt_trans_mat = tft.translation_matrix([self.grasp_offset.transform.translation.x,
+                                        self.grasp_offset.transform.translation.y,
+                                        self.grasp_offset.transform.translation.z])
+        gt_rot_mat = tft.quaternion_matrix([self.grasp_offset.transform.rotation.x,
+                                       self.grasp_offset.transform.rotation.y,
+                                       self.grasp_offset.transform.rotation.z,
+                                       self.grasp_offset.transform.rotation.w])
+        gt_mat = np.dot(gt_trans_mat, gt_rot_mat)
+
+        op_trans_mat = tft.translation_matrix([object_pose_stamped.pose.position.x,
+                                               object_pose_stamped.pose.position.y,
+                                               object_pose_stamped.pose.position.z])
+        op_rot_mat = tft.quaternion_matrix([object_pose_stamped.pose.orientation.x,
+                                            object_pose_stamped.pose.orientation.y,
+                                            object_pose_stamped.pose.orientation.z,
+                                            object_pose_stamped.pose.orientation.w])
+        op_mat = np.dot(op_trans_mat, op_rot_mat)
+
+        ret_mat = np.dot(op_mat, gt_mat)
+
+        ret_rot = tft.quaternion_from_matrix(ret_mat)
+        ret_trans = tft.translation_from_matrix(ret_mat)
+
         ps = PoseStamped()
-        ps.header.frame_id = "temp_frame2"
-        ps.pose.orientation.w = 1.
-        check_ps = tf_listener.transformPose(planning_frame, ps)
-        return check_ps
+        ps.header = object_pose_stamped.header
+        ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = ret_trans
+        ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = ret_rot
+        # rospy.logdebug("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", ps)
+        return ps
 
 
 if __name__ == '__main__':
