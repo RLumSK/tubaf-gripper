@@ -158,7 +158,9 @@ class MoveitInterface(object):
                 rospy.logdebug("NAME: IST; SOLL = SET")
                 for name, ist, soll in zip(self.group.get_active_joints(), self.group.get_current_joint_values(),
                                            self.get_ik(target)):
-                    solu = np.rad2deg((soll % 2*np.pi)-np.pi)
+                    # We want to have an joint angle between -180° and 180°
+                    # Therefore we first add 180°, transform it to[0, 360°] and then substract 180°
+                    solu = np.rad2deg(((soll+np.pi) % 2*np.pi)-np.pi)
                     lst_joint_target.append(solu)
                     rospy.logdebug("%s: %4.2f; %4.2f = %4.2f" % (name, ist, soll, solu))
                 self.move_to_target(target=lst_joint_target)
