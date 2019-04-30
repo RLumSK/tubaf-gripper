@@ -34,6 +34,8 @@ import sys
 import rospy
 import moveit_commander
 import moveit_msgs.msg
+from moveit_commander import RobotState
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
 import numpy as np
 
 from geometry_msgs.msg import Pose, PoseStamped
@@ -66,7 +68,6 @@ class MoveitInterface(object):
         moveit_commander.roscpp_initialize(sys.argv)
         # Instantiate a RobotCommander object.  This object is an interface to the robot as a whole.
         self.robot = moveit_commander.RobotCommander()
-        rospy.logdebug("MoveitInterface.__init__(): Planning frame is %s", self.robot.get_planning_frame())
         # Instantiate a PlanningSceneInterface object. This object is an interface to the world surrounding
         #  the robot.
         self.scene = moveit_commander.PlanningSceneInterface()
@@ -89,8 +90,6 @@ class MoveitInterface(object):
         # Planning frame is /base_footprint
         self.group.set_workspace(self.parameter["workspace"])
         self.group.set_goal_tolerance(self.parameter["tolerance"])
-        rospy.logdebug("MoveitInterface.__init__(): Reference Frame is %s",
-                       self.group.get_pose_reference_frame())
         self.display_trajectory_publisher = rospy.Publisher("/move_group/display_planned_path",
                                                             moveit_msgs.msg.DisplayTrajectory,
                                                             queue_size=10)
@@ -138,9 +137,9 @@ class MoveitInterface(object):
         retValue = False
         self.group.clear_pose_targets()
         start = self._set_start_state()
-        rospy.logdebug("MoveitInterface.move_to_target(): Current Joint value %s",
-                       ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
-                       )
+        # rospy.logdebug("MoveitInterface.move_to_target(): Current Joint value %s",
+        #                ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
+        #                )
         self.group.set_start_state(start)
         try:
             if type(target) is list:
@@ -151,18 +150,28 @@ class MoveitInterface(object):
                 rospy.logdebug("MoveitInterface.move_to_target(): Planning Joint target %s", target_dict)
                 self.group.set_joint_value_target(target_dict)
             elif type(target) is Pose:
-                rospy.logdebug("MoveitInterface.move_to_target(): Planning Pose target %s", target)
+                rospy.logwarn("MoveitInterface.move_to_target(): Planning Pose target %s", target)
                 self.group.set_pose_target(target, end_effector_link=self.eef_link)
             elif type(target) is PoseStamped:
-                target_frame = self.group.get_pose_reference_frame()
-                rospy.logdebug("MoveitInterface.move_to_target(): Transforming PoseStamped:\n %s\n Target Frame is %s" %
-                               (target, target_frame))
-                self.tf_listener.waitForTransform(target_frame=target_frame,
-                                                  source_frame=target.header.frame_id,
-                                                  time=rospy.Time.now(),
-                                                  timeout=rospy.Duration(5.0))
-                ps = self.tf_listener.transformPose(target_frame=target_frame, ps=target)
-                self.move_to_target(ps.pose, info)
+                lst_joint_target = []
+                rospy.loginfo("MoveitInterface.move_to_target():")
+                rospy.logdebug("NAME: IST; SOLL = SET")
+                for name, ist, soll in zip(self.group.get_active_joints(), self.group.get_current_joint_values(),
+                                           self.get_ik(target)):
+                    solu = np.rad2deg((soll % 2*np.pi)-np.pi)
+                    lst_joint_target.append(solu)
+                    rospy.logdebug("%s: %4.2f; %4.2f = %4.2f" % (name, ist, soll, solu))
+                self.move_to_target(target=lst_joint_target)
+                #target_frame = self.group.get_pose_reference_frame()
+                #self.get_ik(target)
+                #rospy.logdebug("MoveitInterface.move_to_target(): Transforming PoseStamped:\n %s\n Target Frame is %s" %
+                #               (target, target_frame))
+                #self.tf_listener.waitForTransform(target_frame=target_frame,
+                #                                  source_frame=target.header.frame_id,
+                #                                  time=rospy.Time.now(),
+                #                                  timeout=rospy.Duration(5.0))
+                #ps = self.tf_listener.transformPose(target_frame=target_frame, ps=target)
+                #self.move_to_target(ps.pose, info)
             else:
                 rospy.logwarn("MoveitInterface.move_to_target(): Illegal target type: %s", type(target))
                 return
@@ -224,9 +233,9 @@ class MoveitInterface(object):
         :rtype: -
         """
         known_objects = self.scene.get_known_object_names()
-        rospy.logdebug("MoveitInterface.add_equipment(): Previous known objects %s", known_objects)
+        # rospy.logdebug("MoveitInterface.add_equipment(): Previous known objects %s", known_objects)
         if equipment.name in known_objects:
-            rospy.loginfo("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
+            # rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
             if equipment.name in self.scene.get_attached_objects():
                 rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
                 self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
@@ -235,7 +244,7 @@ class MoveitInterface(object):
             pose = equipment.ps
 
         try:
-            rospy.loginfo("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
+            rospy.logdebug("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
             self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(1.0, 1.0, 1.0))
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
@@ -332,6 +341,44 @@ class MoveitInterface(object):
         if name in self.scene.get_known_object_names():
             ps.pose = self.scene.get_object_poses(name)
         return ps
+
+    def get_ik(self, ps, ik_link_name="gripper_robotiq_palm_planning"):
+        """
+        Compute an inverse kinematic using the service provided by MoveIt!
+        :param ps: Desired pose of the end-effector
+        :type ps: PoseStamped
+        :param ik_link_name: name of the end effector link (used to interpret the given pose)
+        :type ik_link_name: str
+        :return: joint states computed by the IK if any
+        :rtype: list
+        """
+        # http://wiki.ros.org/ROS/Tutorials/WritingServiceClient%28python%29#rospy_tutorials.2BAC8-Tutorials.2BAC8-WritingServiceClient.The_Code-1
+        srv_name = 'compute_ik'
+        rospy.wait_for_service(srv_name)
+        response = GetPositionIKResponse()
+        try:
+            srv_call = rospy.ServiceProxy(srv_name, GetPositionIK)
+            request = GetPositionIKRequest()
+            request.ik_request.group_name = self.group.get_name()
+            request.ik_request.robot_state = self.robot.get_current_state()  # type: RobotState
+            request.ik_request.avoid_collisions = True
+            request.ik_request.ik_link_name = ik_link_name
+            request.ik_request.pose_stamped = ps
+            request.ik_request.timeout = rospy.Duration(10.0)
+            request.ik_request.attempts = 50000
+            response = srv_call(request)  # type: GetPositionIKResponse
+        except rospy.ServiceException, e:
+            rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)
+        if response.error_code.val != 1:
+            rospy.logwarn("MoveitInterface.get_ik(): Failed with error code %s", response.error_code)
+            return None
+        # Filter joints
+        ret_values = []
+        active_joints = self.group.get_active_joints()
+        for js_name, js_pos in zip(response.solution.joint_state.name, response.solution.joint_state.position):
+            if js_name in active_joints:
+                ret_values.append(js_pos)
+        return ret_values
 
 
 if __name__ == '__main__':

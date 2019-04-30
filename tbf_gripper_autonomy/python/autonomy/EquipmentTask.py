@@ -162,10 +162,10 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 2: Pickup Equipment")
             # TODO: Select Equipment
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"], info="PreGrasp")
-            rospy.loginfo("EquipmentTask.perform(): Opening hand ...")
+            # rospy.logdebug("EquipmentTask.perform(): Opening hand ...")
             self.hand_controller.openHand()
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp")
-            rospy.loginfo("EquipmentTask.perform(): Grasp equipment")
+            # rospy.logdebug("EquipmentTask.perform(): Grasp equipment")
             # Grasp station
             self.hand_controller.closeHand()
             rospy.sleep(5.)
@@ -176,7 +176,8 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
             self.moveit.attach_equipment(self.selected_equipment)
-            self.selected_equipment.calculate_grasp_offset(self.moveit.eef_link, self.tf_listener)
+            #self.selected_equipment.calculate_grasp_offset(self.moveit.eef_link, self.tf_listener)
+            self.selected_equipment.calculate_grasp_offset("gripper_robotiq_palm", self.tf_listener)  # we use the source frame of the mesh here
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
@@ -263,7 +264,7 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        rospy.loginfo("EquipmentTask.start():")
+        #rospy.loginfo("EquipmentTask.start():")
         # self.perform([4, 5, 6, 7, 8, 9])
         self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # super(EquipmentTask, self).run_as_process(self.perform)

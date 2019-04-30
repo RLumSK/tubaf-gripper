@@ -159,7 +159,7 @@ class SmartEquipment:
         """
         if self.grasp_offset.header.stamp.is_zero():
             rospy.logdebug("SmartEquipment.get_grasp_pose(): grasp_offset is Zero")
-            self.calculate_grasp_offset("gripper_robotiq_palm_planning", tf_listener=tf_listener)
+            self.calculate_grasp_offset("gripper_robotiq_palm", tf_listener=tf_listener)
         # rospy.logdebug("SmartEquipment.get_grasp_pose(): Saved Transformation is: %s", self.grasp_offset)
         # https://answers.ros.org/question/215656/how-to-transform-a-pose/
         gt_trans_mat = tft.translation_matrix([self.grasp_offset.transform.translation.x,
