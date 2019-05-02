@@ -49,6 +49,29 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 
 from pyassimp.errors import AssimpError
 
+def convert_angle(ist, sol, interval=360.0):
+    """
+    Given the current angle an desired one, compute the closest equivalent joint value
+    :param ist: current joint value
+    :type ist: float
+    :param sol: desired joint value
+    :type sol: float
+    :param interval: full circle - 360 for degree and 2*pi for radian - default is 360.0
+    :return: equivalent angle
+    :rtype: float
+    """
+    diff = sol - ist
+    rest = diff % interval
+    sol1 = ist + rest
+    sol2 = ist - interval + rest
+    # print("DIFF:%4.2f Rest:%4.2f" % (diff, rest))
+    # print("SOLL: %4.2f, 1.:%4.2f, 2.:%4.2f" % (sol, sol1, sol2))
+    if abs(sol1 - ist) < abs(sol2 -ist):
+        # print("IST: %3.2f SOLL: %3.2f CALC: %3.2f\n" % (ist, sol, sol1))
+        return sol1
+    else:
+        # print("IST: %3.2f SOLL: %3.2f CALC: %3.2f\n" % (ist, sol, sol2))
+        return sol2
 
 class MoveitInterface(object):
     """
@@ -158,11 +181,9 @@ class MoveitInterface(object):
                 rospy.logdebug("NAME: IST; SOLL = SET")
                 for name, ist, soll in zip(self.group.get_active_joints(), self.group.get_current_joint_values(),
                                            self.get_ik(target)):
-                    # We want to have an joint angle between -180° and 180°
-                    # Therefore we first add 180°, transform it to[0, 360°] and then substract 180°
-                    solu = np.rad2deg(((soll+np.pi) % 2*np.pi)-np.pi)
+                    solu = convert_angle(ist, soll, interval=2*np.pi)
                     lst_joint_target.append(solu)
-                    rospy.logdebug("%s: %4.2f; %4.2f = %4.2f" % (name, ist, soll, solu))
+                    rospy.logdebug("%s: %4.2f; %4.2f = %4.2f" % np.rad2deg(name, ist, soll, solu))
                 self.move_to_target(target=lst_joint_target)
                 #target_frame = self.group.get_pose_reference_frame()
                 #self.get_ik(target)
