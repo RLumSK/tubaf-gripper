@@ -72,13 +72,13 @@ class EquipmentTask(GraspTask):
         self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         # Init Moveit
         self.moveit = MoveitInterface("~moveit", self.tf_listener)
+        rospy.loginfo("EquipmentTask.__init__(): Moveit initialized")
         # Equipment Parameter
-        self.lst_equipment = []
-        for equip in rospy.get_param("~smart_equipment"):
-            eq = SmartEquipment(equip)
+        self.lst_equipment = SmartEquipment.from_parameter_server(id="~smart_equipment")
+        for eq in self.lst_equipment:
             self.moveit.add_equipment(eq)
-            self.lst_equipment.append(eq)
         self.selected_equipment = self.lst_equipment[0]
+        rospy.loginfo("EquipmentTask.__init__(): Equipment initialized")
 
         # Static joint values for specific well known poses
         self.backup_joint_values = rospy.get_param("~arm/backup_joint_values", [-180, -90, 0.0, -90, 0.00, 0.0])
@@ -148,7 +148,6 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 0: Open Hand")
             rospy.loginfo("EquipmentTask.perform(): Equipment handling started - Robot starting at HOME position")
             self.hand_controller.openHand()
-            rospy.sleep(1.0)
         # 1. Scan Environment
         if 1 in stages:
             rospy.loginfo("STAGE 1: Scan Env")
@@ -168,7 +167,6 @@ class EquipmentTask(GraspTask):
             # rospy.logdebug("EquipmentTask.perform(): Grasp equipment")
             # Grasp station
             self.hand_controller.closeHand()
-            rospy.sleep(5.)
 
         debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         # 3. Update Planning Scene - Attach collision object to end effector
@@ -176,7 +174,6 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
             self.moveit.attach_equipment(self.selected_equipment)
-            #self.selected_equipment.calculate_grasp_offset(self.moveit.eef_link, self.tf_listener)
             self.selected_equipment.calculate_grasp_offset("gripper_robotiq_palm", self.tf_listener)  # we use the source frame of the mesh here
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
@@ -221,6 +218,7 @@ class EquipmentTask(GraspTask):
                         target_pose = self.generate_goal(query_pose)
                     else:
                         rospy.logdebug("EquipmentTask.perform(): No new Equipment Pose yet")
+                rospy.loginfo("EquipmentTask.perform([5]): target Pose:\n%s", target_pose)
                 rospy.sleep(2.0)
                 # debug_pose_pub.publish(target_pose)
 
@@ -247,15 +245,14 @@ class EquipmentTask(GraspTask):
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp")
             rospy.loginfo("EquipmentTask.perform(): Release Equipment")
             self.hand_controller.openHand()
-            rospy.sleep(5.)
-            self.moveit.scene.remove_attached_object(link=self.moveit.eef_link, name=self.selected_equipment.name)
-            rospy.sleep(0.5)
+            self.moveit.detach_equipment()
+
         if 9 in stages:
             rospy.loginfo("STAGE 9: Return to home pose")
             # Plan back to home station
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
-            self.moveit.scene.remove_world_object(name=self.selected_equipment.name)
-            rospy.sleep(0.5)
+            self.moveit.remove_equipment(self.selected_equipment.name)
+
         rospy.loginfo("EquipmentTask.perform(): Finished")
 
     def start(self):

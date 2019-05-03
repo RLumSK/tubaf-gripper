@@ -31,36 +31,18 @@
 import rospy
 
 from autonomy.MoveitInterface import MoveitInterface
-from moveit_msgs.srv import GetPositionFK, GetPositionFKRequest, GetPositionFKResponse
-
-
-def service_call(request):
-    srv_name = 'compute_fk'
-    rospy.wait_for_service(srv_name)
-    rospy.loginfo("Service call: %s", srv_name)
-    try:
-        srv_call = rospy.ServiceProxy(srv_name, GetPositionFK)
-        response = srv_call.call(request)  # type: GetPositionFKResponse
-        if response.error_code.val != 1:
-            rospy.logwarn("Error code: %s", response.error_code)
-        return response
-    except rospy.ServiceException:
-        rospy.logwarn("Service call failed")
-        return None
-
+from tbf_gripper_tools.SmartEquipment import SmartEquipment
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
+    rospy.init_node("test_moveit_scene_interaction", log_level=rospy.DEBUG)
     mvit = MoveitInterface()
-    rospy.loginfo("%s", mvit)
-    fk_request = GetPositionFKRequest()
-    fk_request.header.stamp = rospy.Time.now()
-    fk_request.fk_link_names = mvit.robot.get_link_names(mvit.group.get_name())
-    fk_request.robot_state = mvit.robot.get_current_state()
-    fk_response = service_call(fk_request)
-    rospy.loginfo("%s", fk_response)
-
-    # The end-effector pose of our forward kinematic is the target pose for our inverse kinematic
-    result = mvit.get_ik(fk_response.pose_stamped[-1])
-    rospy.loginfo("%s", result)
+    lst_equipment = SmartEquipment.from_parameter_server(id="~smart_equipment")
+    for eq in lst_equipment:
+        mvit.add_equipment(eq)
+    while not rospy.is_shutdown():
+        mvit._set_start_state()
+        for selected_equipment in lst_equipment:
+            mvit.attach_equipment(selected_equipment)
+            rospy.sleep(2.0)
+            mvit.detach_equipment()
     rospy.spin()

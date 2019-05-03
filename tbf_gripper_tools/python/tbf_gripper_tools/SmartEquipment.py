@@ -104,6 +104,21 @@ class SmartEquipment:
         self.hold_on_set = entry["hold_on_set"]
         self.grasp_offset = TransformStamped()
 
+    @classmethod
+    def from_parameter_server(cls, id="~smart_equipment"):
+        """
+        Constructing a list with smart equipment, assuming the needed parameters are avaible on the ROS parameter server
+        :param id: identifier on the parameter server
+        :type id: str
+        :return: list of Smart Equipment
+        :rtype: list
+        """
+        ret_lst = []
+        for equip in rospy.get_param(id):
+            rospy.logdebug("%s", equip)
+            ret_lst.append(SmartEquipment(equip))
+        return ret_lst
+
     def __str__(self):
         return self.name + \
                "\npose:\n" + str(self.ps) + \

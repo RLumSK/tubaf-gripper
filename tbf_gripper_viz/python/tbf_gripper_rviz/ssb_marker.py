@@ -166,7 +166,7 @@ class SSBMarker(InteractiveMarker):
         :param se: equipment
         :type se: SmartEquipment
         """
-        rospy.logdebug("%s", se)
+        # rospy.logdebug("%s", se)
         if tf_listener is None:
             tf_listener = TransformListener()
             rospy.sleep(2.0)
@@ -200,7 +200,7 @@ class SSBMarker(InteractiveMarker):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
+        # rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
         self.pose = feedback.pose
 
     def onPublishPose(self, feedback):
@@ -233,8 +233,8 @@ class SSBMarker(InteractiveMarker):
             qs = self._normal_cache.getLast()
             source = qs.header.frame_id
             transform_available = self.tf_listener.canTransform(target_frame=target, source_frame=source, time=t)
-            rospy.logdebug("SSBMarker.onUpdateNormal(): canTransform from '%s' to '%s' at time '%s'? %r" %
-                          (target, source, t, transform_available))
+            # rospy.logdebug("SSBMarker.onUpdateNormal(): canTransform from '%s' to '%s' at time '%s'? %r" %
+            #               (target, source, t, transform_available))
             rospy.sleep(0.2)
         qs = self.tf_listener.transformQuaternion(self._reference_frame, qs)
         pose = Pose()
@@ -294,7 +294,8 @@ class SSBMarker(InteractiveMarker):
         """
         return self.pose_topic
 
-    def _generate_gripper(self, gripper_pose):
+    @staticmethod
+    def _generate_gripper(gripper_pose):
         """
         Spawn a gripper marker on the determined position to query the orientation
         :param gripper_pose: pose of the gripper
@@ -383,7 +384,7 @@ class SSBGraspMarker(object):
         grasp_pose.pose.orientation.y = res[1]
         grasp_pose.pose.orientation.z = res[2]
         self.pub_GraspPose.publish(grasp_pose)
-        rospy.logdebug("SSBGraspMarker.onGraspPose(): Grasp Pose is %s" % grasp_pose)
+        # rospy.logdebug("SSBGraspMarker.onGraspPose(): Grasp Pose is %s" % grasp_pose)
 
     def onOrientationFeedback(self, feedback):
         """
@@ -393,7 +394,7 @@ class SSBGraspMarker(object):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("SSBGraspMarker.onOrientationFeedback(): %s" % feedback)
+        # rospy.logdebug("SSBGraspMarker.onOrientationFeedback(): %s" % feedback)
         self.pose = feedback.pose
 
     def _generate_gripper(self, offset):
@@ -463,6 +464,6 @@ class SSBGraspMarker(object):
 
 if __name__ == '__main__':
     rospy.init_node("SSBGraspMarker", log_level=rospy.INFO)
-    gm = SSBGraspMarker()
     sm = SSBMarker()
+    gm = SSBGraspMarker(sm)
     rospy.spin()
