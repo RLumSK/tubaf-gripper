@@ -179,4 +179,5 @@ class Equipment:
         ps.header.frame_id = "temp_frame2"
         ps.pose.orientation.w = 1.
         check_ps = tf_listener.transformPose(planning_frame, ps)
+        rospy.loginfo("Equipment.get_grasp_pose(): Calculated Pose:\n%s", check_ps)
         return check_ps

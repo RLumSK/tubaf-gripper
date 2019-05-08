@@ -64,14 +64,14 @@ smart_equipment:
       frame:
         "base_footprint"
       position:
-        x: -0.4618
-        y: -0.107
-        z: -0.5444
+        x: -0.93
+        y: 0.15
+        z: 0.0
       orientation:
-        x: 0.591
-        y: 0.606
-        z: 0.341
-        w: 0.409
+        x: 0.0
+        y: 0.0
+        z: 0.7071
+        w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
   - name:
@@ -103,14 +103,14 @@ smart_equipment:
       frame:
         "base_footprint"
       position:
-        x: -0.5629
-        y: 0.1343
-        z: -0.722
+        x: -0.93
+        y: 0.15
+        z: 0.0
       orientation:
-        x: 0.164
-        y: 0.971
-        z: -0.141
-        w: 0.103
+        x: 0.0
+        y: 0.0
+        z: 0.7071
+        w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
   - name:
@@ -140,14 +140,14 @@ smart_equipment:
       post_set: [-6.83, -86.84, 87.12, 0.87, 88.67, -130.3]
     place_pose:
       frame:
-        "gripper_ur5_base_link"
+        "base_footprint"
       position:
-        x: -0.50667
-        y: -0.05197
-        z: -0.41973
+        x: -0.93
+        y: 0.15
+        z: 0.29
       orientation:
-        x: 0.196
-        y: 0.873
-        z: -0.102
-        w: 0.435
+        x: 0.7071
+        y: 0.0
+        z: 0.0
+        w: 0.7071
     hold_on_set: 25.0  # 0 is release, else is Duration in seconds

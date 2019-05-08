@@ -28,12 +28,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 import os
-import copy
 
 import rospy
 import rospkg
 from geometry_msgs.msg import PoseStamped, TransformStamped
-from tf import TransformListener, transformations as tft
+from tf import TransformListener,  transformations as tft
 import numpy as np
 
 
@@ -76,7 +75,7 @@ class SmartEquipment:
         :type entry: dict
         """
         self.name = entry["name"]
-        self.ps = PoseStamped()
+        self.ps = PoseStamped()  # type: PoseStamped
         self.ps.header.stamp = rospy.Time.now()
         self.ps.header.frame_id = entry["pose"]["frame"]
         self.ps.pose.position.x = entry["pose"]["position"]["x"]
@@ -102,21 +101,21 @@ class SmartEquipment:
         self.place_ps.pose.orientation.z = entry["place_pose"]["orientation"]["z"]
         self.place_ps.pose.orientation.w = entry["place_pose"]["orientation"]["w"]
         self.hold_on_set = entry["hold_on_set"]
-        self.grasp_offset = TransformStamped()
+        self.grasp_offset = np.eye(4)  # type: np.ndarray
 
     @classmethod
-    def from_parameter_server(cls, id="~smart_equipment"):
+    def from_parameter_server(cls, group_name="~smart_equipment"):
         """
         Constructing a list with smart equipment, assuming the needed parameters are avaible on the ROS parameter server
-        :param id: identifier on the parameter server
-        :type id: str
-        :return: list of Smart Equipment
+        :param group_name: identifier on the parameter server
+        :type group_name: str
+        :return: list
         :rtype: list
         """
-        ret_lst = []
-        for equip in rospy.get_param(id):
-            rospy.logdebug("%s", equip)
-            ret_lst.append(SmartEquipment(equip))
+        ret_lst = []  # type: list
+        for entry in rospy.get_param(group_name):
+            # rospy.logdebug("%s", entry)
+            ret_lst.append(SmartEquipment(entry))
         return ret_lst
 
     def __str__(self):
@@ -133,7 +132,7 @@ class SmartEquipment:
 
     def calculate_grasp_offset(self, attached_frame, tf_listener=None):
         """
-        Calculates and stores the offset between the pick pose and the given frame
+        Calculates and stores the offset between the pick pose and the given frame as PoseStamped
         :param attached_frame: typically the end effector frame
         :type attached_frame: str
         :param tf_listener: information about current transformations of the robot
@@ -141,50 +140,65 @@ class SmartEquipment:
         :return: -
         :rtype: -
         """
+        # Transform all poses in one coordinate frame
         if tf_listener is None:
             tf_listener = TransformListener()
-        initial_equipment_pose = copy.deepcopy(self.ps)
-        initial_equipment_pose.header.stamp = rospy.Time()
+        self.ps.header.stamp = rospy.Time.now()
+        tf_listener.waitForTransform(target_frame=self.ps.header.frame_id, source_frame=attached_frame,
+                                     time=rospy.Time.now(), timeout=rospy.Duration.from_sec(2.0))
+        bare_gripper_pose = PoseStamped()
+        bare_gripper_pose.header.frame_id = attached_frame
+        bare_gripper_pose.header.stamp = rospy.Time.now()
+        gripper_pose = None
+        while gripper_pose is None:
+            try:
+                gripper_pose = tf_listener.transformPose(target_frame=self.ps.header.frame_id, ps=bare_gripper_pose)
+                if self.grasp_offset is None:
+                    rospy.sleep(2.0)
+            except Exception as ex:
+                rospy.logwarn("SmartEquipment.calculate_grasp_offset(): %s", ex)
+        # rospy.logdebug("SmartEquipment.calculate_grasp_offset(): gripper_pose:\n%s", gripper_pose)
+        # Both Pose are now in the same coordinate Frame
+        # Calculate Offset as the missing connection(O) between gripper (G) and smart equipment pose (E)
+        # G = E*O --> E^-1*G = O
+        # https://answers.ros.org/question/215656/how-to-transform-a-pose/
+        E_T = tft.translation_matrix([self.ps.pose.position.x, self.ps.pose.position.y, self.ps.pose.position.z])
+        E_R = tft.quaternion_matrix([self.ps.pose.orientation.x, self.ps.pose.orientation.y, self.ps.pose.orientation.z,
+                                     self.ps.pose.orientation.w])
+        E = np.dot(E_T, E_R)
 
-        tmp_frame = self.name+"_frame"
+        G_T = tft.translation_matrix([gripper_pose.pose.position.x, gripper_pose.pose.position.y,
+                                      gripper_pose.pose.position.z])
+        G_R = tft.quaternion_matrix([gripper_pose.pose.orientation.x, gripper_pose.pose.orientation.y,
+                                     gripper_pose.pose.orientation.z, gripper_pose.pose.orientation.w])
+        G = np.dot(G_T, G_R)
 
-        eq_pose_transform = pose_to_tf(initial_equipment_pose.pose, tmp_frame, initial_equipment_pose.header.frame_id)
-        tf_listener.setTransform(eq_pose_transform)
-
-        T_ZERO = rospy.Time()
-        tf_listener.waitForTransform(attached_frame, tmp_frame, rospy.Time(), rospy.Duration.from_sec(5.0))
-        offset_t, offset_r = tf_listener.lookupTransform(tmp_frame, attached_frame, T_ZERO)
-
-        r = self.grasp_offset.transform.rotation
-        r.x, r.y, r.z, r.w = offset_r
-        t = self.grasp_offset.transform.translation
-        t.x, t.y, t.z = offset_t
-        self.grasp_offset.header.frame_id = attached_frame
-        self.grasp_offset.child_frame_id = tmp_frame
-        self.grasp_offset.header.stamp = eq_pose_transform.header.stamp
-        rospy.logdebug("SmartEquipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
+        O = np.dot(np.linalg.inv(E), G)
+        self.grasp_offset = O
+        # O_T = tft.translation_from_matrix(O)
+        # O_R = tft.quaternion_from_matrix(O)
+        #
+        # self.grasp_offset = PoseStamped()
+        # self.grasp_offset.header = gripper_pose.header
+        # self.grasp_offset.pose.position.x, self.grasp_offset.pose.position.y, self.grasp_offset.pose.position.z = O_T
+        # self.grasp_offset.pose.orientation.x, self.grasp_offset.pose.orientation.y, \
+        # self.grasp_offset.pose.orientation.z, self.grasp_offset.pose.orientation.w = O_R
+        # rospy.logdebug("SmartEquipment.calculate_grasp_offset(): offset:\n {}".format(self.grasp_offset))
 
     def get_grasp_pose(self, object_pose_stamped, tf_listener=None):
         """
         Calculating the current gripper pose, based on the saved offset and given object pose
         :param object_pose_stamped: current pose of the object
         :type object_pose_stamped: PoseStamped
+        :param tf_listener: Transformation Listener from the ROS tf library
+        :type tf_listener: TransformListener
         :return: grasp pose
         :rtype: PoseStamped
         """
-        if self.grasp_offset.header.stamp.is_zero():
+        if np.array_equal(self.grasp_offset, np.eye(4)):
             rospy.logdebug("SmartEquipment.get_grasp_pose(): grasp_offset is Zero")
-            self.calculate_grasp_offset("gripper_robotiq_palm", tf_listener=tf_listener)
+            self.calculate_grasp_offset(attached_frame="gripper_robotiq_palm", tf_listener=tf_listener)
         # rospy.logdebug("SmartEquipment.get_grasp_pose(): Saved Transformation is: %s", self.grasp_offset)
-        # https://answers.ros.org/question/215656/how-to-transform-a-pose/
-        gt_trans_mat = tft.translation_matrix([self.grasp_offset.transform.translation.x,
-                                        self.grasp_offset.transform.translation.y,
-                                        self.grasp_offset.transform.translation.z])
-        gt_rot_mat = tft.quaternion_matrix([self.grasp_offset.transform.rotation.x,
-                                       self.grasp_offset.transform.rotation.y,
-                                       self.grasp_offset.transform.rotation.z,
-                                       self.grasp_offset.transform.rotation.w])
-        gt_mat = np.dot(gt_trans_mat, gt_rot_mat)
 
         op_trans_mat = tft.translation_matrix([object_pose_stamped.pose.position.x,
                                                object_pose_stamped.pose.position.y,
@@ -195,7 +209,7 @@ class SmartEquipment:
                                             object_pose_stamped.pose.orientation.w])
         op_mat = np.dot(op_trans_mat, op_rot_mat)
 
-        ret_mat = np.dot(op_mat, gt_mat)
+        ret_mat = np.dot(op_mat, self.grasp_offset)
 
         ret_rot = tft.quaternion_from_matrix(ret_mat)
         ret_trans = tft.translation_from_matrix(ret_mat)

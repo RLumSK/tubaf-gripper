@@ -71,13 +71,13 @@ class EquipmentTask(GraspTask):
         """
         self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         # Init Moveit
-        self.moveit = MoveitInterface("~moveit", self.tf_listener)
+        self.moveit = MoveitInterface("~moveit", self.tf_listener)  # type: MoveitInterface
         rospy.loginfo("EquipmentTask.__init__(): Moveit initialized")
         # Equipment Parameter
-        self.lst_equipment = SmartEquipment.from_parameter_server(id="~smart_equipment")
+        self.lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
         for eq in self.lst_equipment:
             self.moveit.add_equipment(eq)
-        self.selected_equipment = self.lst_equipment[0]
+        self.selected_equipment = self.lst_equipment[0]  # type: SmartEquipment
         rospy.loginfo("EquipmentTask.__init__(): Equipment initialized")
 
         # Static joint values for specific well known poses
@@ -120,11 +120,13 @@ class EquipmentTask(GraspTask):
         :return: pose expressed in suitable reference frame
         :rtype: PoseStamped
         """
-        rospy.loginfo("EquipmentTask.generate_goal(): query_pose: \n %s", query_pose)
+        # rospy.loginfo("EquipmentTask.generate_goal(): query_pose: \n %s", query_pose)
         ret_value = self.moveit.attached_equipment
         if ret_value is None:
             ret_value = self.selected_equipment
-        return ret_value.get_grasp_pose(query_pose, tf_listener=self.tf_listener)
+        ret_pose = ret_value.get_grasp_pose(query_pose, tf_listener=self.tf_listener)
+        # rospy.loginfo("EquipmentTask.generate_goal():  goal_pose: \n %s", ret_pose)
+        return ret_pose
 
     def perform(self, stages=range(9)):
         """
@@ -148,12 +150,12 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 0: Open Hand")
             rospy.loginfo("EquipmentTask.perform(): Equipment handling started - Robot starting at HOME position")
             self.hand_controller.openHand()
+            self.moveit.move_to_target(self.home_joint_values, info="HOME")
         # 1. Scan Environment
         if 1 in stages:
             rospy.loginfo("STAGE 1: Scan Env")
-            rospy.loginfo("EquipmentTask.perform(): Closing hand  and scan the environment by given watch pose")
+            rospy.loginfo("EquipmentTask.perform(): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand()
-            self.moveit.move_to_target(self.home_joint_values, info="HOME")
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
 
         # 2. Pick Up Equipment
@@ -163,7 +165,9 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"], info="PreGrasp")
             # rospy.logdebug("EquipmentTask.perform(): Opening hand ...")
             self.hand_controller.openHand()
-            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp")
+
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp"):
+                rospy.loginfo("EquipmentTask.perform([2]): Try to plan grasping again")
             # rospy.logdebug("EquipmentTask.perform(): Grasp equipment")
             # Grasp station
             self.hand_controller.closeHand()
@@ -180,11 +184,11 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
 
         set_successfully = False
-        target_pose = None
         while not set_successfully:
             int_marker = None
             query_pose = None
             query_pose_cache = None
+            target_pose = None
             # 4. Query Goal from User Interface
             if 4 in stages:
                 rospy.loginfo("STAGE 4: Ask for target Pose")
@@ -218,7 +222,7 @@ class EquipmentTask(GraspTask):
                         target_pose = self.generate_goal(query_pose)
                     else:
                         rospy.logdebug("EquipmentTask.perform(): No new Equipment Pose yet")
-                rospy.loginfo("EquipmentTask.perform([5]): target Pose:\n%s", target_pose)
+                # rospy.loginfo("EquipmentTask.perform([5]): target Pose:\n%s", target_pose)
                 rospy.sleep(2.0)
                 # debug_pose_pub.publish(target_pose)
 
@@ -233,8 +237,8 @@ class EquipmentTask(GraspTask):
 
             if 7 in stages:
                 rospy.loginfo("STAGE 7: Move to Target Pose")
-                # debug_pose_pub.publish(target_pose)
-                set_successfully = self.moveit.move_to_target(target_pose.pose, info="TARGET_POSE")
+                debug_pose_pub.publish(target_pose)
+                set_successfully = self.moveit.move_to_target(target_pose, info="TARGET_POSE")
 
         if 8 in stages:
             rospy.loginfo("STAGE 8: Set equipment to Target Pose")
@@ -262,14 +266,16 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         #rospy.loginfo("EquipmentTask.start():")
-        # self.perform([4, 5, 6, 7, 8, 9])
-        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # self.perform([3, 4, 5, 6, 7, 8, 9])
+        self.perform([0, 2, 3, 4, 5, 6, 7, 8, 9])
         # super(EquipmentTask, self).run_as_process(self.perform)
 
 
 if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
+    obj.hand_controller.openHand()
+    rospy.sleep(1.0)
     obj.hand_controller.closeHand()
     obj.start()
     rospy.spin()

@@ -50,6 +50,7 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 
 from pyassimp.errors import AssimpError
 
+
 def convert_angle(ist, sol, interval=360.0):
     """
     Given the current angle an desired one, compute the closest equivalent joint value
@@ -161,27 +162,27 @@ class MoveitInterface(object):
         """
         self.group.clear_pose_targets()
         start = self._set_start_state()
-        rospy.logdebug("MoveitInterface.move_to_target(): Current Joint value %s",
-                       ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
-                       )
+        # rospy.logdebug("MoveitInterface.move_to_target(): Current Joint value %s",
+        #               ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
+        #                )
         self.group.set_start_state(start)
         # rospy.logdebug("MoveitInterface.move_to_target(): Start State set")
         try:
+            current_values = self.group.get_current_joint_values()
             if type(target) is list:
                 target_dict = dict()
                 joint_name = self.robot.get_joint_names(self.group.get_name())[0:6]
-                for j in range(len(target)):
-                    target_dict[joint_name[j]] = np.deg2rad(target[j])
+                for j, ist in zip(range(len(target)), current_values):
+                    target_dict[joint_name[j]] = np.deg2rad(convert_angle(ist, target[j]))
                 rospy.logdebug("MoveitInterface.move_to_target(): Planning Joint target %s", target_dict)
                 self.group.set_joint_value_target(target_dict)
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.move_to_target(): Planning Pose target %s", target)
                 self.group.set_pose_target(target, end_effector_link=self.eef_link)
             elif type(target) is PoseStamped:
-                rospy.logwarn("MoveitInterface.move_to_target(): Transforming PoseStamped target %s", target)
+                # rospy.logdebug("MoveitInterface.move_to_target(): Transforming PoseStamped target %s", target)
                 lst_joint_target = []
                 active_joints = self.group.get_active_joints()
-                current_values = self.group.get_current_joint_values()
                 target_values = self.get_ik(target)
                 # rospy.logdebug("MoveitInterface.move_to_target(): Active Joints: %s", active_joints)
                 # rospy.logdebug("MoveitInterface.move_to_target(): current_values: %s", current_values)
@@ -257,18 +258,18 @@ class MoveitInterface(object):
         :return: -
         :rtype: -
         """
-        known_objects = self.scene.get_known_object_names()
-        # rospy.logdebug("MoveitInterface.add_equipment(): Previous known objects %s", known_objects)
-        if equipment.name in known_objects:
-            # rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
-            if equipment.name in self.scene.get_attached_objects():
-                rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
-                self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
-                rospy.sleep(2.0)
-            return
+        rospy.logdebug("MoveitInterface.add_equipment(): Attached objects %s", self.scene.get_attached_objects().keys())
+        if equipment.name in self.scene.get_attached_objects().keys():
+            rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
+            self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
+            rospy.sleep(2.0)
+        rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s",  self.scene.get_known_object_names())
+        if equipment.name in self.scene.get_known_object_names():
+            rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
+            #return
+
         if pose is None:
             pose = equipment.ps
-
         try:
             rospy.logdebug("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
             self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(1.0, 1.0, 1.0))
@@ -358,6 +359,7 @@ class MoveitInterface(object):
         ps = PoseStamped(header=equipment.header, pose=equipment.pose)
         ps.header.stamp = rospy.Time.now()
         self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=equipment.getMeshScale())
+        rospy.sleep(2.0)
         # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         self.scene.remove_world_object(name="tmp_marker")
         return
@@ -402,7 +404,7 @@ class MoveitInterface(object):
             request.ik_request.timeout = rospy.Duration(10.0)
             request.ik_request.attempts = 50000
             response = srv_call(request)  # type: GetPositionIKResponse
-        except rospy.ServiceException, e:
+        except rospy.ServiceException as e:
             rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)
         if response.error_code.val != 1:
             rospy.logwarn("MoveitInterface.get_ik(): Failed with error code %s", response.error_code)
