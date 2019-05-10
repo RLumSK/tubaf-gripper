@@ -1,33 +1,34 @@
 # MoveIt!
 moveit:
   eef_link: "gripper_robotiq_palm_planning"
-  max_attempts: 3
   planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
-    #    - SBLkConfigDefault
-    #    - ESTkConfigDefault
-    #    - LBKPIECEkConfigDefault
-    #    - BKPIECEkConfigDefault
-    #    - KPIECEkConfigDefault
-    #    - RRTkConfigDefault
-    #    - RRTConnectkConfigDefault
-    #    - RRTstarkConfigDefault
-    #    - TRRTkConfigDefault
-    #    - PRMkConfigDefault
-    #    - PRMstarkConfigDefault
-    #    - FMTkConfigDefault
-    #    - BFMTkConfigDefault
-    #    - PDSTkConfigDefault
-    #    - STRIDEkConfigDefault
-    #    - BiTRRTkConfigDefault
-    #    - LBTRRTkConfigDefault
-    #    - BiESTkConfigDefault
-    #    - ProjESTkConfigDefault
-    #    - LazyPRMkConfigDefault
-    #    - LazyPRMstarkConfigDefault
-    #    - SPARSkConfigDefault
-    #    - SPARStwokConfigDefault
-  planner_time: 15.0  # was 20
-  planner_attempts: 200  # was 100
+  planner:
+    - SBLkConfigDefault
+    - ESTkConfigDefault
+    - LBKPIECEkConfigDefault
+    - BKPIECEkConfigDefault
+    - KPIECEkConfigDefault
+    - RRTkConfigDefault
+    - RRTConnectkConfigDefault
+    - RRTstarkConfigDefault
+    - TRRTkConfigDefault
+    - PRMkConfigDefault
+    - PRMstarkConfigDefault
+    - FMTkConfigDefault
+    - BFMTkConfigDefault
+    - PDSTkConfigDefault
+    - STRIDEkConfigDefault
+    - BiTRRTkConfigDefault
+    - LBTRRTkConfigDefault
+    - BiESTkConfigDefault
+    - ProjESTkConfigDefault
+    - LazyPRMkConfigDefault
+    - LazyPRMstarkConfigDefault
+    - SPARSkConfigDefault
+    - SPARStwokConfigDefault
+  planner_time: 1.0  # was 20
+  planner_attempts: 100  # was 100
+  max_attempts: 5
   reference_frame: "/gripper_ur5_base_link"
   workspace: [-1.6, -1.2, 0.0, 0.25, 1.2, 1.7]
   tolerance: 0.005
@@ -40,16 +41,16 @@ moveit:
   allow_looking: False
   allow_replanning: False
   touch_links:
-  - gripper_robotiq_palm
-  - gripper_robotiq_finger_1_link_0
-  - gripper_robotiq_finger_1_link_1
-  - gripper_robotiq_finger_1_link_2
-  - gripper_robotiq_finger_1_link_3
-  - gripper_robotiq_finger_2_link_0
-  - gripper_robotiq_finger_2_link_1
-  - gripper_robotiq_finger_2_link_2
-  - gripper_robotiq_finger_2_link_3
-  - gripper_robotiq_finger_middle_link_0
-  - gripper_robotiq_finger_middle_link_1
-  - gripper_robotiq_finger_middle_link_2
-  - gripper_robotiq_finger_middle_link_3
+    - gripper_robotiq_palm
+    - gripper_robotiq_finger_1_link_0
+    - gripper_robotiq_finger_1_link_1
+    - gripper_robotiq_finger_1_link_2
+    - gripper_robotiq_finger_1_link_3
+    - gripper_robotiq_finger_2_link_0
+    - gripper_robotiq_finger_2_link_1
+    - gripper_robotiq_finger_2_link_2
+    - gripper_robotiq_finger_2_link_3
+    - gripper_robotiq_finger_middle_link_0
+    - gripper_robotiq_finger_middle_link_1
+    - gripper_robotiq_finger_middle_link_2
+    - gripper_robotiq_finger_middle_link_3

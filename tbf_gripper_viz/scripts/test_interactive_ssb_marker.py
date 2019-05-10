@@ -31,17 +31,27 @@
 
 import rospy
 from tf import TransformListener
-import tbf_gripper_rviz.ssb_marker as viz
+from tbf_gripper_rviz.ssb_marker import SSBMarker
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
-from geometry_msgs.msg import Pose
+from autonomy.MoveitInterface import MoveitInterface
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     rospy.init_node("SSB_marker", log_level=rospy.DEBUG)
     tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
+    mvit = MoveitInterface(tf_listener=tf_listener)  # type: MoveitInterface
     lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
+    lst_marker = []  # type: list
     for se in lst_equipment:  # type: SmartEquipment
-        se.calculate_grasp_offset("gripper_robotiq_palm", tf_listener)
+        se.calculate_grasp_offset(attached_frame="gripper_robotiq_palm_planning", tf_listener=tf_listener)
         rospy.loginfo(se.grasp_offset)
-        v_marker = viz.SSBMarker.from_SmartEquipment(se, tf_listener)
+        v_marker = SSBMarker.from_SmartEquipment(se, tf_listener)
+        mvit.clear_octomap_on_marker(v_marker)
+        lst_marker.append(v_marker)
+    while True:
+        for marker in lst_marker:  # type: SSBMarker
+            marker.enable_marker()
+            rospy.sleep(5.0)
+            marker.disable_marker()
+
     rospy.spin()

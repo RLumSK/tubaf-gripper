@@ -54,6 +54,25 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 import os
 
 
+# https://www.tutorialspoint.com/python_design_patterns/python_design_patterns_singleton.htm
+class MarkerServerSingleton:
+    __instance = None
+    @staticmethod
+    def get_instance():
+        """ Static access method. """
+        if MarkerServerSingleton.__instance is None:
+            MarkerServerSingleton()
+        return MarkerServerSingleton.__instance
+
+    def __init__(self):
+        """ Virtually private constructor. """
+        if MarkerServerSingleton.__instance is not None:
+            raise Exception("[MarkerServerSingleton] This class is a singleton!")
+        else:
+            MarkerServerSingleton.__instance = InteractiveMarkerServer(rospy.get_param("interactive_marker_server_name",
+                                                                                       "SE_MarkerServer"))
+
+
 class SSBMarker(InteractiveMarker):
     """
     Class for the smart sensor box interactive marker
@@ -83,15 +102,12 @@ class SSBMarker(InteractiveMarker):
         self.description = "["+self.name+"] Marker"
         self.scale = rospy.get_param(name + "scale", 0.5)
 
-        self._server_name = self.name+"_server"
-        self._server = InteractiveMarkerServer(self._server_name)
-
         if pose is None:
             pose = geometry_msgs.msg.PoseStamped()
             self._reference_frame = "base_footprint"
         else:
             self._reference_frame = pose.header.frame_id
-        rospy.loginfo(pose)
+        # rospy.loginfo(pose)
         self.pose = pose.pose
         self.header.frame_id = self._reference_frame
 
@@ -144,16 +160,8 @@ class SSBMarker(InteractiveMarker):
         self._menu_handler.insert("Update Normal", callback=self.onUpdateNormal)
         self._menu_handler.insert("Publish Pose", callback=self.onPublishPose)
 
-        self._server.insert(self, self.onFeedback, feedback_type=InteractiveMarkerServer.DEFAULT_FEEDBACK_CB)
-        # self._server.insert(self, self.onUpdateNormal)
-        self._menu_handler.apply(self._server, self.name)
-        if gripper_pose is not None:
-            self.gripper = self._generate_gripper(gripper_pose)
-            self._mesh_cntrl.markers.append(self.gripper)
-            # self.gripper = None
-        else:
-            self.gripper = None
-        self._server.applyChanges()
+        self.gripper_pose = gripper_pose
+        self.gripper = None
         # rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
         # rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
         # rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
@@ -197,7 +205,7 @@ class SSBMarker(InteractiveMarker):
         :return: -
         :rtype: -
         """
-        # rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
+        rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
         self.pose = feedback.pose
 
     def onPublishPose(self, feedback):
@@ -211,7 +219,10 @@ class SSBMarker(InteractiveMarker):
         self.onFeedback(feedback)
         ps = PoseStamped()
         ps.header = feedback.header
+        ps.header.seq = 0
+        ps.header.stamp = rospy.Time.now()
         ps.pose = self.pose  # pose is updated by onFeedback
+        rospy.logdebug("SSBMarker.onPublishPose(): \n%s", ps)
         self._pub_pose_stamped.publish(ps)
 
     def onUpdateNormal(self, feedback):
@@ -234,12 +245,13 @@ class SSBMarker(InteractiveMarker):
             #               (target, source, t, transform_available))
             rospy.sleep(0.2)
         qs = self.tf_listener.transformQuaternion(self._reference_frame, qs)
+        server = MarkerServerSingleton.get_instance()
         pose = Pose()
-        pose.position = self._server.get(self.name).pose.position
+        pose.position = server.get(self.name).pose.position
         pose.orientation = qs.quaternion
-        self._server.setPose(self.name, pose, header=qs.header)
+        server.setPose(self.name, pose, header=qs.header)
         rospy.loginfo("SSBMarker.onUpdateNormal(): New Pose is %s" % pose)
-        self._server.applyChanges()
+        server.applyChanges()
 
     def add_custom_menu_entry(self, menu_entry, callback, parent=None):
         """
@@ -256,16 +268,8 @@ class SSBMarker(InteractiveMarker):
         handle = self._added_menu_entry_before(menu_entry, parent)
         if handle is None:
             handle = self._menu_handler.insert(menu_entry, parent=parent, callback=callback)
-            self._menu_handler.reApply(self._server)
+            self._menu_handler.reApply(MarkerServerSingleton.get_instance())
         return handle
-
-    def get_server(self):
-        """
-        Get the server of the interaction marker
-        :return: server
-        :rtype: InteractiveMarkerServer
-        """
-        return self._server
 
     def _added_menu_entry_before(self, menu_entry, parent):
         """
@@ -316,6 +320,31 @@ class SSBMarker(InteractiveMarker):
         marker.color.a = factor
 
         return marker
+
+    def enable_marker(self):
+        """
+        Visualize the marker
+        :return: -
+        :rtype: -
+        """
+        MarkerServerSingleton.get_instance().insert(self, self.onFeedback, feedback_type=InteractiveMarkerServer.DEFAULT_FEEDBACK_CB)
+        # MarkerServerSingleton.get_instance().insert(self, self.onUpdateNormal)
+        self._menu_handler.apply(MarkerServerSingleton.get_instance(), self.name)
+        if self.gripper_pose is not None:
+            self.gripper = self._generate_gripper(self.gripper_pose)
+            self._mesh_cntrl.markers.append(self.gripper)
+        else:
+            self.gripper = None
+        MarkerServerSingleton.get_instance().applyChanges()
+
+    def disable_marker(self):
+        """
+        Disable/Hide the marker
+        :return: -
+        :rtype: -
+        """
+        MarkerServerSingleton.get_instance().clear()
+        MarkerServerSingleton.get_instance().applyChanges()
 
 
 class SSBGraspMarker(object):

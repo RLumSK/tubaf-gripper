@@ -101,12 +101,14 @@ class SmartEquipment:
         self.place_ps.pose.orientation.z = entry["place_pose"]["orientation"]["z"]
         self.place_ps.pose.orientation.w = entry["place_pose"]["orientation"]["w"]
         self.hold_on_set = entry["hold_on_set"]
-        self.grasp_offset = np.eye(4)  # type: np.ndarray
+        self.grasp_offset = np.eye(4)  # type: np.ndarray   # description: Affine transformation from mesh origin to
+                                                            # gripper pose
 
     @classmethod
     def from_parameter_server(cls, group_name="~smart_equipment"):
         """
-        Constructing a list with smart equipment, assuming the needed parameters are avaible on the ROS parameter server
+        Constructing a list with smart equipment, assuming the needed parameters are available on the ROS parameter
+        server
         :param group_name: identifier on the parameter server
         :type group_name: str
         :return: list
@@ -130,7 +132,7 @@ class SmartEquipment:
                "\nplace_waypoints[set]:\n" + str(self.place_waypoints["set"]) + \
                "\nplace_waypoints[post]:\n" + str(self.place_waypoints["post_set"])
 
-    def calculate_grasp_offset(self, attached_frame, tf_listener=None):
+    def calculate_grasp_offset(self, attached_frame="gripper_robotiq_palm_planning", tf_listener=None):
         """
         Calculates and stores the offset between the pick pose and the given frame as PoseStamped
         :param attached_frame: typically the end effector frame
@@ -197,7 +199,7 @@ class SmartEquipment:
         """
         if np.array_equal(self.grasp_offset, np.eye(4)):
             rospy.logdebug("SmartEquipment.get_grasp_pose(): grasp_offset is Zero")
-            self.calculate_grasp_offset(attached_frame="gripper_robotiq_palm", tf_listener=tf_listener)
+            self.calculate_grasp_offset(attached_frame="gripper_robotiq_palm_planning", tf_listener=tf_listener)
         # rospy.logdebug("SmartEquipment.get_grasp_pose(): Saved Transformation is: %s", self.grasp_offset)
 
         op_trans_mat = tft.translation_matrix([object_pose_stamped.pose.position.x,

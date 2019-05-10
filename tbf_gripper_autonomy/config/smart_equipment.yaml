@@ -151,3 +151,6 @@ smart_equipment:
         z: 0.0
         w: 0.7071
     hold_on_set: 25.0  # 0 is release, else is Duration in seconds
+
+### General Information ###
+interactive_marker_server_name: "SE_MarkerServer"

@@ -36,7 +36,7 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 if __name__ == '__main__':
     rospy.init_node("test_moveit_scene_interaction", log_level=rospy.DEBUG)
     mvit = MoveitInterface()
-    lst_equipment = SmartEquipment.from_parameter_server(id="~smart_equipment")
+    lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
     for eq in lst_equipment:
         mvit.add_equipment(eq)
     while not rospy.is_shutdown():
@@ -45,4 +45,5 @@ if __name__ == '__main__':
             mvit.attach_equipment(selected_equipment)
             rospy.sleep(2.0)
             mvit.detach_equipment()
+            rospy.sleep(2.0)
     rospy.spin()
