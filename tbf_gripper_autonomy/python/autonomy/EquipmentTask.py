@@ -187,6 +187,7 @@ class EquipmentTask(GraspTask):
 
         set_successfully = False
         int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
+        intermediate_pose = None
         while not set_successfully:
             query_pose = None
             target_pose = None
@@ -254,8 +255,12 @@ class EquipmentTask(GraspTask):
         if 9 in stages:
             rospy.loginfo("STAGE 9: Return to home pose")
             # Plan back to home station
+            if self.selected_equipment.hold_on_set == 0.0:
+                while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE"):
+                    rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
+
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
-            self.moveit.remove_equipment(self.selected_equipment.name)
+            # self.moveit.remove_equipment(self.selected_equipment.name)
 
         rospy.loginfo("EquipmentTask.perform(): Finished")
 
@@ -265,10 +270,7 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        #rospy.loginfo("EquipmentTask.start():")
-        # self.perform([4, 5, 6, 7, 8, 9])
         self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-        # super(EquipmentTask, self).run_as_process(self.perform)
 
 
 if __name__ == '__main__':
@@ -277,5 +279,7 @@ if __name__ == '__main__':
     obj.hand_controller.openHand()
     rospy.sleep(1.0)
     obj.hand_controller.closeHand()
-    obj.start()
-    rospy.spin()
+    for i in range(0, len(obj.lst_equipment)):
+        eq = obj.lst_equipment[i]  # type: SmartEquipment
+        if obj.select_equipment(eq.name):
+            obj.start()

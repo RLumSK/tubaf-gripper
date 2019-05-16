@@ -205,7 +205,7 @@ class SSBMarker(InteractiveMarker):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
+        # rospy.logdebug("SSBMarker.onFeedback(): %s" % feedback)
         self.pose = feedback.pose
 
     def onPublishPose(self, feedback):
@@ -222,7 +222,7 @@ class SSBMarker(InteractiveMarker):
         ps.header.seq = 0
         ps.header.stamp = rospy.Time.now()
         ps.pose = self.pose  # pose is updated by onFeedback
-        rospy.logdebug("SSBMarker.onPublishPose(): \n%s", ps)
+        # rospy.logdebug("SSBMarker.onPublishPose(): \n%s", ps)
         self._pub_pose_stamped.publish(ps)
 
     def onUpdateNormal(self, feedback):

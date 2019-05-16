@@ -31,7 +31,7 @@ smart_equipment:
       orientation:
         x: 0.0
         y: 0.0
-        z: 0.7071
+        z: -0.7071
         w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
@@ -54,7 +54,7 @@ smart_equipment:
       path: ['resources', 'mesh', 'knauf_ssb.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
-      grasp: [-173.6, -84.6, 46.4, -107.5, 90.5, 45.3]
+      grasp: [-174.5, -85.0, 46.4, -106.6, -84.9, 35.8]
       post_grasp: [-170.3, -95.4, 45.9, -96.2, -93.3, 47.2]
     place_waypoints:
       pre_set: [ 0.0, -110.0, 135.0, -169.5, -92.9, 47.0]
@@ -70,7 +70,7 @@ smart_equipment:
       orientation:
         x: 0.0
         y: 0.0
-        z: 0.7071
+        z: -0.7071
         w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
@@ -93,7 +93,7 @@ smart_equipment:
       path: ['resources', 'mesh', 'kugel_ssb.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
-      grasp: [-179.8, -95.6, 69.9, 25,7, 102.8, 227.4]
+      grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
       post_grasp: [-171.4, -97.3, 56.0, 25.8, 102.8, 227.4]
     place_waypoints:
       pre_set: [ -23.6, -76.2, 94.8, -27.1, 94.9, 233.7]
@@ -109,7 +109,7 @@ smart_equipment:
       orientation:
         x: 0.0
         y: 0.0
-        z: 0.7071
+        z: -0.7071
         w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 

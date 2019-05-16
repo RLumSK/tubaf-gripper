@@ -51,7 +51,6 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 from pyassimp.errors import AssimpError
 
 
-
 def convert_angle(ist, sol, interval=360.0):
     """
     Given the current angle an desired one, compute the closest equivalent joint value
@@ -66,10 +65,10 @@ def convert_angle(ist, sol, interval=360.0):
     diff = sol - ist
     rest = diff % interval
     sol1 = ist + rest
-    sol2 = ist - interval + rest
+    sol2 = ist + rest - interval
     # print("DIFF:%4.2f Rest:%4.2f" % (diff, rest))
     # print("SOLL: %4.2f, 1.:%4.2f, 2.:%4.2f" % (sol, sol1, sol2))
-    if abs(sol1 - ist) < abs(sol2 -ist):
+    if abs(sol1 - ist) < abs(sol2 - ist):
         # print("IST: %3.2f SOLL: %3.2f CALC: %3.2f\n" % (ist, sol, sol1))
         return sol1
     else:
@@ -210,19 +209,25 @@ class MoveitInterface(object):
                        )
         self.group.set_start_state(start)
         try:
-            current_values = self.group.get_current_joint_values()
+            current_values = self.group.get_current_joint_values()  # type: list
             if type(target) is list:
                 target_dict = dict()
                 joint_name = self.robot.get_joint_names(self.group.get_name())[0:6]
                 for j, ist in zip(range(len(target)), current_values):
-                    target_dict[joint_name[j]] = np.deg2rad(convert_angle(ist, target[j]))
-                rospy.logdebug("MoveitInterface.plan(): Planning Joint target %s", target_dict)
+                    target_dict[joint_name[j]] = np.deg2rad(convert_angle(np.rad2deg(ist), target[j]))
+                    rospy.logdebug("MoveitInterface.plan(): %4.2f (%4.2f) -> %4.2f" % (target[j], np.rad2deg(ist),
+                                                                                       np.rad2deg(
+                                                                                           target_dict[joint_name[j]])))
+                # rospy.logdebug("MoveitInterface.plan(): Planning Joint value %s",
+                #                ["%.2f" % v for v in np.rad2deg(target_dict.values())])
+                # rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
+                #                ["%.2f" % v for v in np.rad2deg(current_values)])
                 self.group.set_joint_value_target(target_dict)
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.plan(): Planning Pose target %s", target)
                 self.group.set_pose_target(target, end_effector_link=self.eef_link)
             elif type(target) is PoseStamped:
-                rospy.logdebug("MoveitInterface.plan(): Transforming PoseStamped target %s", target)
+                # rospy.logdebug("MoveitInterface.plan(): Transforming PoseStamped target %s", target)
                 lst_joint_target = []
                 active_joints = self.group.get_active_joints()
                 target_values = self.get_ik(target)  # type: list
@@ -234,7 +239,7 @@ class MoveitInterface(object):
                     for name, ist, soll in zip(active_joints, current_values, target_values):
                         solu = convert_angle(np.rad2deg(ist), np.rad2deg(soll))
                         lst_joint_target.append(solu)
-                    rospy.logdebug("MoveitInterface.plan(): move_to_target %s", lst_joint_target)
+                    # rospy.logdebug("MoveitInterface.plan(): move_to_target %s", lst_joint_target)
                     return self.plan(target=lst_joint_target, info=info)
             else:
                 rospy.logwarn("MoveitInterface.plan(): Illegal target type: %s", type(target))
@@ -257,7 +262,7 @@ class MoveitInterface(object):
         plan_valid = False
         attempts = 1
         while not plan_valid and attempts <= self.max_attempts:
-            rospy.loginfo("MoveitInterface.plan(): Planning %s to: \n%s\nPlanning time: %s" %
+            rospy.loginfo("MoveitInterface.plan(): Planning %s to: \n%s\tPlanning time: %s" %
                           (info, target, self.group.get_planning_time()))
             plan = self.group.plan()
             self.group.set_planning_time(self.parameter["planner_time"] * attempts ** 2)
@@ -301,10 +306,10 @@ class MoveitInterface(object):
         while not execute_ret:
             rospy.sleep(1.0)
             execute_ret = self.group.execute(plan)
-            rospy.logdebug("MoveitInterface.execute(): %s", execute_ret)
+            # rospy.logdebug("MoveitInterface.execute(): %s", execute_ret)
         return True
 
-    def move_to_target(self, target, info):
+    def move_to_target(self, target, info, endless=True):
         """
         Plan and execute
         :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the reference frame
@@ -315,7 +320,20 @@ class MoveitInterface(object):
         :return: success
         :rtype: bool
         """
-        return self.execute(self.plan(target, info))
+        plan = False
+        success = False
+        try:
+            while not plan:
+                plan = self.plan(target, info)
+                if plan:
+                    success = self.execute(plan)
+                if not endless or success:
+                    return success
+                rospy.loginfo("[MoveitInterface.move_to_target] Trying again ...")
+                plan = success
+        except Exception as ex:
+            rospy.logerr("[MoveitInterface.move_to_target] Exception %s", ex)
+        return False
 
     def add_equipment(self, equipment, pose=None):
         """
