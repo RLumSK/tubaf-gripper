@@ -62,18 +62,20 @@ def convert_angle(ist, sol, interval=360.0):
     :return: equivalent angle
     :rtype: float
     """
+    solution = 0.0
     diff = sol - ist
     rest = diff % interval
     sol1 = ist + rest
     sol2 = ist + rest - interval
-    # print("DIFF:%4.2f Rest:%4.2f" % (diff, rest))
-    # print("SOLL: %4.2f, 1.:%4.2f, 2.:%4.2f" % (sol, sol1, sol2))
-    if abs(sol1 - ist) < abs(sol2 - ist):
-        # print("IST: %3.2f SOLL: %3.2f CALC: %3.2f\n" % (ist, sol, sol1))
+
+    if solution > 359.9 or solution < -359.9:
+        return sol
+    if abs(sol1 - ist) < abs(sol2 - ist) and -359.9 <= sol1 <= 359.9:
         return sol1
-    else:
-        # print("IST: %3.2f SOLL: %3.2f CALC: %3.2f\n" % (ist, sol, sol2))
+    elif -359.9 <= sol2 <= 359.9:
         return sol2
+    else:
+        return sol
 
 
 class MoveitInterface(object):
@@ -204,24 +206,25 @@ class MoveitInterface(object):
         """
         self.group.clear_pose_targets()
         start = self._set_start_state()
+        current_values = self.group.get_current_joint_values()  # type: list
         rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
-                       ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
+                       ["%.2f" % v for v in np.rad2deg(current_values)]
                        )
         self.group.set_start_state(start)
         try:
-            current_values = self.group.get_current_joint_values()  # type: list
+            target_dict = dict()
             if type(target) is list:
-                target_dict = dict()
                 joint_name = self.robot.get_joint_names(self.group.get_name())[0:6]
                 for j, ist in zip(range(len(target)), current_values):
                     target_dict[joint_name[j]] = np.deg2rad(convert_angle(np.rad2deg(ist), target[j]))
-                    rospy.logdebug("MoveitInterface.plan(): %4.2f (%4.2f) -> %4.2f" % (target[j], np.rad2deg(ist),
-                                                                                       np.rad2deg(
+                    rospy.logdebug("MoveitInterface.plan(): %s \t%4.2f (%4.2f) ->\t%4.2f" % (joint_name[j], target[j],
+                                                                                          np.rad2deg(ist),
+                                                                                          np.rad2deg(
                                                                                            target_dict[joint_name[j]])))
-                # rospy.logdebug("MoveitInterface.plan(): Planning Joint value %s",
-                #                ["%.2f" % v for v in np.rad2deg(target_dict.values())])
-                # rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
-                #                ["%.2f" % v for v in np.rad2deg(current_values)])
+                rospy.logdebug("MoveitInterface.plan(): Planning Joint value %s",
+                               ["%.2f" % v for v in np.rad2deg(target_dict.values())])
+                rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
+                               ["%.2f" % v for v in np.rad2deg(current_values)])
                 self.group.set_joint_value_target(target_dict)
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.plan(): Planning Pose target %s", target)
@@ -246,17 +249,20 @@ class MoveitInterface(object):
                 return
         except moveit_commander.MoveItCommanderException as ex:
             rospy.logerr("MoveitInterface.plan(): MoveItCommanderException during planning: %s " % ex.message)
-            rospy.loginfo("MoveitInterface.plan(" + info + "): IST %s" %
-                          ["%.2f" % v for v in self.group.get_current_joint_values()])
-            rospy.loginfo("MoveitInterface.plan(" + info + "):SOLL %s" %
-                          ["%.2f" % v for v in np.deg2rad(target)])
-            rospy.loginfo("MoveitInterface.plan(" + info + "): SET %s" %
-                          ["%.2f" % v for v in self.group.get_joint_value_target()])
-            rospy.loginfo("MoveitInterface.plan(" + info + "):NAME %s" % target_dict.keys())
-            rospy.loginfo("MoveitInterface.plan(" + info + "): constraints %s" %
-                          self.group.get_known_constraints())
-
-            sys.exit(-1)
+            current_joints = self.group.get_current_joint_values()
+            planned_values = target_dict.values()
+            target_values = self.group.get_joint_value_target()
+            names = target_dict.keys()
+            rospy.logerr("MoveitInterface.plan(" + info + "): NAME \t\t\t IST SOLL CALC")
+            for ist, soll, calc, name in zip(current_joints, planned_values, target_values, names):
+                rospy.logerr("MoveitInterface.plan(" + info + "): %s \t %3.1f %3.1f %3.1f " % (name, np.rad2deg(ist),
+                                                                                               np.rad2deg(soll),
+                                                                                               np.rad2deg(calc)))
+            rospy.logerr("MoveitInterface.plan(" + info + "): constraints %s" % self.group.get_known_constraints())
+            rospy.loginfo("MoveitInterface.plan(" + info + "): target type: %s" % type(target))
+            rospy.loginfo("MoveitInterface.plan(" + info + "): self.group.set_joint_value_target(target_dict): "
+                                                           "target_dict: \n%s" % target_dict)
+            return False
 
         plan = None
         plan_valid = False

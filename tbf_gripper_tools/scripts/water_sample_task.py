@@ -33,8 +33,11 @@ import signal
 import sys
 
 import rospy
+import tf
 
-import autonomy.Task
+from autonomy.Task import GraspTask
+from autonomy.MoveitInterface import MoveitInterface
+from tbf_gripper_tools.SmartEquipment import SmartEquipment
 import numpy as np
 
 
@@ -57,7 +60,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-class WaterSampleTask(autonomy.Task.GraspTask):
+class WaterSampleTask(GraspTask):
     """
     Class to get a water sample
     """
@@ -74,6 +77,19 @@ class WaterSampleTask(autonomy.Task.GraspTask):
                                             j_s=rospy.get_param("~joint_speed"),
                                             j_a=rospy.get_param("~joint_acceleration"))
         self.waypoints = rospy.get_param("~waypoints")
+        self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
+        # Init Moveit
+        self.moveit = MoveitInterface("~moveit", self.tf_listener)  # type: MoveitInterface
+        # Equipment Parameter
+        self.lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
+        self.water_station = None
+        for eq in self.lst_equipment:  # type: SmartEquipment
+            self.moveit.add_equipment(eq)
+            if "Water_Sample_Station" in eq.name:
+                self.water_station = eq
+        if self.water_station is None:
+            rospy.logwarn("WaterSampleTask.__init__(): No Water_Sample_Station loaded as Smart Equipment from the "
+                          "Parameter Server.")
         self.exec_thread = None
 
     def perform(self):
@@ -93,6 +109,8 @@ class WaterSampleTask(autonomy.Task.GraspTask):
         # Grasp station
         rospy.sleep(1.)
         self.hand_controller.closeHand()
+        if self.water_station is not None:
+            self.moveit.attach_equipment(self.water_station)
         rospy.sleep(3.)
         self.move_wait(self.waypoints["lift"], v=self.l_arm_speed, a=self.l_arm_acceleration, move_cmd="movel")
         self.move_wait(self.waypoints["post_pickup"], v=self.j_arm_speed, a=self.j_arm_acceleration, move_cmd="movej")
@@ -124,6 +142,9 @@ class WaterSampleTask(autonomy.Task.GraspTask):
         rospy.loginfo("WaterSampleTask.perform(): Release station")
         # Release station
         self.hand_controller.openHand()
+        if self.water_station is not None:
+            self.moveit.detach_equipment()
+            self.moveit.add_equipment(self.water_station)
         rospy.sleep(3.)
 
         rospy.loginfo("WaterSampleTask.perform(): Move back to home station")
