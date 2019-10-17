@@ -34,7 +34,7 @@ import rospy
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
 from python_qt_binding.QtWidgets import QWidget
-from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
+from robotiq_3f_gripper_articulated_msgs.msg import Robotiq3FGripperRobotOutput as outputMsg
 from hand_module import RobotiqHandModel
 
 
@@ -191,7 +191,7 @@ class PinchGripper(Plugin):
         # Create QWidget
         self._widget = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'Gripper.ui')
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'), 'resource', 'Gripper.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_main, self._widget, {'PinchGripper': PinchGripper})
         # Give QObjects reasonable names
@@ -265,7 +265,7 @@ class BasicGripper(Plugin):
         # Create QWidget
         self._widget = QWidget()
         # Get path to UI file which should be in the "resource" folder of this package
-        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_rqt'), 'resource', 'Gripper.ui')
+        ui_file_main = os.path.join(rospkg.RosPack().get_path('tbf_gripper_viz'), 'resource', 'Gripper.ui')
         # Extend the widget with all attributes and children from UI file
         loadUi(ui_file_main, self._widget, {'BasicGripper': BasicGripper})
         # Give QObjects reasonable names

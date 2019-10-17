@@ -111,6 +111,7 @@ class GcaHand(Plugin):
         # initilize model
         rospy.loginfo("GcaHand.__init__(): Starting Model")
         self.model = GcaModel()
+        self.model.initClient(name="Robotiq3FGripperActionClient")
         self._wdg_main.dsb_gl_position.setMaximum(self.model.max_position)
         self._wdg_main.dsb_gl_position.setMinimum(self.model.min_position)
         self._wdg_main.dsb_gl_position.setSingleStep((self.model.max_position - self.model.min_position)/10.0)

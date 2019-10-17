@@ -38,15 +38,15 @@ from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi, QtCore, QtWidgets
 from python_qt_binding.QtWidgets import QWidget
 
-from robotiq_s_model_control.msg import SModel_robot_input  as inputMsg
-from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
+from robotiq_3f_gripper_articulated_msgs.msg import Robotiq3FGripperRobotInput  as inputMsg
+from robotiq_3f_gripper_articulated_msgs.msg import Robotiq3FGripperRobotOutput as outputMsg
 
 from finger_module import RobotiqFinger, RobotiqFingerModel
 
 """@package hand_module
 This package gives a controller (RobotiqHand) and model (RobotiqHandModel) for the GUI described in ../../resource/RobotiqHand.ui
-The state provided by the Robotiq ROS package via /SModelRobotInput (robotiq_s_model_control.msg.SModel_robot_input) is
-passed to the GUI and the changes made their published via /SModelRobotOutput (robotiq_s_model_control.msg.SModel_robot_output).
+The state provided by the Robotiq ROS package via /Robotiq3FGripperRobotInput (robotiq_3f_gripper_articulated_msgs.msgs.Robotiq3FGripperRobotInput) 
+is passed to the GUI and the changes made their published via /Robotiq3FGripperRobot (robotiq_3f_gripper_articulated_msgs.msgs.Robotiq3FGripperRobotOutput).
 The design follows the idea of the MVC pattern.
 @author: Steve Grehl
 """
@@ -142,7 +142,7 @@ class RobotiqHand(Plugin):
         self._cb_subTopic = QtWidgets.QComboBox()
         self._btn_refreshSubscriber = QtWidgets.QPushButton("refresh")
         self._lbl_pubTopic = QtWidgets.QLabel("Publish at: ")
-        self._le_pubTopic = QtWidgets.QLineEdit("/hand/SModelRobotOutput")
+        self._le_pubTopic = QtWidgets.QLineEdit("/hand/Robotiq3FGripperRobotOutput")
         self._btn_newPublisher = QtWidgets.QPushButton("set")
 
         self.actualize_topic_list()
@@ -368,7 +368,7 @@ class RobotiqHandModel(QtCore.QObject):
     def __init__(self):
         """
         Default constructor - initializes the data model of the gripper, setting all register to 0, 4 finger models and
-        subscribing to 'SModelRobotInput' as well as publishing messages via 'SModelRobotOutput'
+        subscribing to 'Robotiq3FGripperRobotInput' as well as publishing messages via 'Robotiq3FGripperRobotOutput'
         @return:
         """
         super(RobotiqHandModel, self).__init__()
@@ -400,8 +400,8 @@ class RobotiqHandModel(QtCore.QObject):
 
         #TODO: parameterize topics
 
-        self.subscriber = rospy.Subscriber("/hand/SModelRobotInput", inputMsg, self.onReceivedROSMessage)
-        self.publisher = rospy.Publisher('/hand/SModelRobotOutput', outputMsg, queue_size=10)
+        self.subscriber = rospy.Subscriber("/hand/Robotiq3FGripperRobotInput", inputMsg, self.onReceivedROSMessage)
+        self.publisher = rospy.Publisher('/hand/Robotiq3FGripperRobotOutput', outputMsg, queue_size=10)
 
     @QtCore.Slot(str)
     def onNewSubscriberTopic(self, topic):
@@ -460,7 +460,10 @@ class RobotiqHandModel(QtCore.QObject):
         @return: None
         """
         # rospy.logwarn("hand_module.py@RobotiqHandModel.onMODChanged(): obj="+str(obj)+" type:"+str(type(obj)))
-        self.rMOD = obj.id
+        if type(obj) is int:
+            self.rMOD = obj  # obj.id
+        else:
+            self.rMOD = obj.id
         # rospy.logwarn("hand_module.py@RobotiqHandModel.onMODChanged(): self.rMOD="+str(self.rMOD)+" type:"+str(type(self.rMOD)))
         self.sendROSMessage()
 
@@ -534,7 +537,7 @@ class RobotiqHandModel(QtCore.QObject):
 
     def sendROSMessage(self):
         """
-        publish the internal state via ROS using a 'SModelRobotOutput' message
+        publish the internal state via ROS using a 'Robotiq3FGripperRobotOutput' message
         @return: None
         """
         msg = outputMsg()
@@ -557,8 +560,8 @@ class RobotiqHandModel(QtCore.QObject):
         msg.rPRS = self.mdl_fingerS.rPR
         msg.rSPS = self.mdl_fingerS.rSP
         msg.rFRS = self.mdl_fingerS.rFR
-        rospy.logdebug("tbf_gripper_rqt.hand_module.py@RobotiqHandModel.sendROSMessage(): \n msg="+str(msg))
-        rospy.logdebug("tbf_gripper_rqt.hand_module.py@RobotiqHandModel.sendROSMessage(): at topic=" +
+        rospy.logwarn("tbf_gripper_rqt.hand_module.py@RobotiqHandModel.sendROSMessage(): \n msg="+str(msg))
+        rospy.logwarn("tbf_gripper_rqt.hand_module.py@RobotiqHandModel.sendROSMessage(): at topic=" +
                        str(self.publisher.name))
         self.publisher.publish(msg)
 
@@ -566,7 +569,7 @@ class RobotiqHandModel(QtCore.QObject):
         """
         callback for the ROS subscriber
         after receiving a ROS message the registers of the hand are set and the GUI, as well as fingers, is updated
-        @param data: ROS message of the type 'SModelRobotInput'
+        @param data: ROS message of the type 'Robotiq3FGripperRobotInput'
         @return: None
         """
         # rospy.logwarn("hand_module.py@RobotiqFingerModel.onReceivedROSMessage(): received message=\n"+str(data))

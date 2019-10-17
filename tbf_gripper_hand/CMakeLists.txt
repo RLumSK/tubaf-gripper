@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-    roscpp actionlib actionlib_msgs robotiq_s_model_control rospy tbf_gripper_viz sensor_msgs
+    roscpp actionlib actionlib_msgs robotiq_3f_gripper_control rospy tbf_gripper_viz sensor_msgs
     )
 
 ## System dependencies are found with CMake's conventions
@@ -63,11 +63,11 @@ add_action_files(
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-  DEPENDENCIES actionlib_msgs std_msgs robotiq_s_model_control # Or other packages containing msgs
+  DEPENDENCIES actionlib_msgs std_msgs robotiq_3f_gripper_articulated_msgs # Or other packages containing msgs
 )
 
 catkin_package(
-  CATKIN_DEPENDS actionlib_msgs robotiq_s_model_control
+  CATKIN_DEPENDS actionlib_msgs  # robotiq_s_model_control
 )
 
 ## Specify additional locations of header files

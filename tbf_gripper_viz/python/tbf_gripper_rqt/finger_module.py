@@ -39,8 +39,8 @@ from python_qt_binding import loadUi
 from python_qt_binding.QtWidgets import QWidget
 from python_qt_binding import QtCore
 
-from robotiq_s_model_control.msg import SModel_robot_input as inputMsg
-from robotiq_s_model_control.msg import SModel_robot_output as outputMsg
+from robotiq_3f_gripper_articulated_msgs.msg import Robotiq3FGripperRobotInput as inputMsg
+from robotiq_3f_gripper_articulated_msgs.msg import Robotiq3FGripperRobotOutput as outputMsg
 
 
 """@package finger_module

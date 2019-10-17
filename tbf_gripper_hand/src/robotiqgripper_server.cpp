@@ -3,8 +3,8 @@
 #include <tbf_gripper_hand/RobotiqGripperAction.h>
 
 //Robotiq messages
-#include <robotiq_s_model_control/SModel_robot_output.h>
-#include <robotiq_s_model_control/SModel_robot_input.h>
+#include <robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotOutput.h>
+#include <robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput.h>
 
 #include <boost/lexical_cast.hpp>
 #include <sstream>
@@ -31,7 +31,7 @@ private:
 	 * @param in message from the hand (looking for gIMC here)
 	 * @return string with the current hand status
 	 */
-	std::string getHandStatus(robotiq_s_model_control::SModel_robot_input in){
+	std::string getHandStatus(robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInput in){
 		switch(in.gIMC){
 		case 0: return "0 - reset";
 		case 1: return "1 - activating";
@@ -46,8 +46,8 @@ private:
 	 * http://support.robotiq.com/pages/viewpage.action?pageId=590044
 	 * @return message that will initialize the gripper
 	 */
-	static robotiq_s_model_control::SModel_robot_output initGripper(int mode = 0){
-		robotiq_s_model_control::SModel_robot_output msg;
+	static robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotOutput initGripper(int mode = 0){
+		robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotOutput msg;
 		msg.rACT = 1; // Activate Gripper (must stay on after activation routine is completed).
 		msg.rMOD = mode; // 0 - Basic, 1 -Pinch, 2 - Wide, 3 - Scissor
 		msg.rATR = 0; // 0 - Normal, 1 - Emergency Release
@@ -132,11 +132,11 @@ private:
 	}
 
     /**
-     * @brief Generates the hand status fom a SModel_robot_input Message
+     * @brief Generates the hand status fom a Robotiq3FGripperRobotInput Message
      * @return String with a formated description of the current hand status
      */
 	std::string generateHandStatus(){
-		const robotiq_s_model_control::SModel_robot_inputConstPtr msg = this->msg_from_gripper;
+		const robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr msg = this->msg_from_gripper;
 		std::stringstream ss;
 		// gACT : Initialization status, echo of the rACT bit (activation bit).
 		ss << "gACT = ";
@@ -387,9 +387,9 @@ protected:
   // create messages that are used to published feedback/result
   tbf_gripper_hand::RobotiqGripperFeedback feedback_;
   tbf_gripper_hand::RobotiqGripperResult result_;
-  robotiq_s_model_control::SModel_robot_inputConstPtr msg_from_gripper;
+  robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr msg_from_gripper;
   tbf_gripper_hand::RobotiqGripperGoalConstPtr  current_goal;
-  robotiq_s_model_control::SModel_robot_output msg_to_gripper;
+  robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotOutput msg_to_gripper;
   bool isRunning = false;
 
 public:
@@ -411,8 +411,8 @@ public:
     ros::master::getTopics(master_topics);
     for (ros::master::V_TopicInfo::iterator it = master_topics.begin() ; it != master_topics.end(); it++) {
               const ros::master::TopicInfo& info = *it;
-              ROS_DEBUG_STREAM(info.datatype << " == robotiq_s_model_control/SModel_robot_intput? " << (info.datatype == "robotiq_s_model_control/SModel_robot_input"));
-              if(info.datatype == "robotiq_s_model_control/SModel_robot_input"){
+              ROS_DEBUG_STREAM(info.datatype << " == robotiq_3f_gripper_articulated_msgs/SModel_robot_intput? " << (info.datatype == "robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput"));
+              if(info.datatype == "robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput"){
                   ROS_DEBUG_STREAM("Found: "<<info.name);
                   subscriber_name = info.name;
                   publisher_name = subscriber_name.substr(0, subscriber_name.find_last_of("/")) + "/SModelRobotOutput";
@@ -421,13 +421,13 @@ public:
     }
     */
     ROS_INFO_STREAM("RobotiqGripperAction: Subscribe to: " << subscriber_name << "\tPublish at: " << publisher_name);
-    this->gripper_pub = nh_.advertise<robotiq_s_model_control::SModel_robot_output>(publisher_name, 5);
+    this->gripper_pub = nh_.advertise<robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotOutput>(publisher_name, 5);
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
     this->gripper_sub = nh_.subscribe(subscriber_name, 5, &RobotiqGripperActionServer::onNewGripperState, this);
 
     ros::Duration nap(0.5);
     nap.sleep();
-    this->msg_from_gripper = robotiq_s_model_control::SModel_robot_inputConstPtr(new robotiq_s_model_control::SModel_robot_input());
+    this->msg_from_gripper = robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr(new robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInput());
 	this->msg_to_gripper = RobotiqGripperActionServer::initGripper();
     ROS_INFO("RobotiqGripperAction: Action server started.");
   }
@@ -439,7 +439,7 @@ public:
 	  this->gripper_sub.shutdown();
   }
 
-  void onNewGripperState(const robotiq_s_model_control::SModel_robot_inputConstPtr& msg){
+  void onNewGripperState(const robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr& msg){
   	if(lock == true){
   		return;
   	}
@@ -462,7 +462,7 @@ public:
     // feedback initialization
 	/*
 	 * #feedback
-	 * robotiq_s_model_control/SModel_robot_input hand_status
+	 * robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput hand_status
 	 */
     // start executing the action
     this->transcriptGoal();
@@ -477,7 +477,7 @@ public:
     success = !this->isRunning;
     /*
      * #result definition
-     * robotiq_s_model_control/SModel_robot_input hand_status hand_status
+     * robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput hand_status hand_status
      */
 	result_.hand_status =  *msg_from_gripper;
 	result_.hand_info = RobotiqGripperActionServer::generateHandStatus();
