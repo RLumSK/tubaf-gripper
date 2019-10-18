@@ -1,6 +1,6 @@
 #include <ros/ros.h>
 #include <actionlib/server/simple_action_server.h>
-#include <tbf_gripper_hand/RobotiqGripperAction.h>
+#include <control_msgs/GripperCommandAction.h>
 
 //Robotiq messages
 #include <robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotOutput.h>
@@ -96,7 +96,7 @@ private:
 	}
 
 	/**
-     * @brief calculate the value to be set to achieve a given speed
+   * @brief calculate the value to be set to achieve a given speed
 	 * @param speed speed in mm/s [22, 110]
 	 * @return value between 0-255 matching the given speed
 	 */
@@ -114,7 +114,7 @@ private:
 	}
 
 	/**
-     * @brief approximate the value to be set to achieve a given force (relation non-linear)
+   * @brief approximate the value to be set to achieve a given force (relation non-linear)
 	 * @param force force in N [15, 60]
 	 * @return value between 0-255 matching the given force
 	 */
@@ -130,6 +130,52 @@ private:
 			return (uint8_t)tmp;
 		}
 	}
+
+  /**
+   * @brief calcGapFromMsg calculate the current gripper positon a Robotiq3FGripperRobotInput message
+   * @param msg message from the Robotiq3FGripper
+   * @return current gap size in meters
+   */
+  float calcGapFromMsg(){
+    return (1.0-static_cast<float>(this->msg_from_gripper->gPOA)/255.0)*0.16;  //gPOA : Returns the actual position
+  }
+
+  /**
+   * @brief calcEffortFromMsg calculate the current gripper effort a Robotiq3FGripperRobotInput message
+   * @param msg message from the Robotiq3FGripper
+   * @return current effort in Newtons
+   */
+  float calcEffortFromMsg(){
+    return static_cast<float>(this->msg_from_gripper->gCUA)*0.175+15.0;  //gCUA : Returns a value that represents current consumption
+  }
+
+  /**
+   * @brief setStalledFromMsg set if the current gripper is stalled from Robotiq3FGripperRobotInput message
+   * @param msg message from the Robotiq3FGripper
+   * @return current stalled status
+   */
+  bool setStalledFromMsg(){
+//# gSTA : Motion status, returns the current motion of the Gripper fingers.
+//# 0x00 - Gripper is in motion towards requested position (only meaningful if gGTO = 1)
+//# 0x01 - Gripper is stopped. One or two fingers stopped before requested position
+//# 0x02 - Gripper is stopped. All fingers stopped before requested position
+//# 0x03 - Gripper is stopped. All fingers reached requested position
+    return this->msg_from_gripper->gSTA !=0 && this->msg_from_gripper->gSTA !=3;
+  }
+
+  /**
+   * @brief setGoalReachedFromMsg set if the current gripper is stalled from Robotiq3FGripperRobotInput message
+   * @param msg message from the Robotiq3FGripper
+   * @return current goal status
+   */
+  bool setGoalReachedFromMsg(){
+//# gSTA : Motion status, returns the current motion of the Gripper fingers.
+//# 0x00 - Gripper is in motion towards requested position (only meaningful if gGTO = 1)
+//# 0x01 - Gripper is stopped. One or two fingers stopped before requested position
+//# 0x02 - Gripper is stopped. All fingers stopped before requested position
+//# 0x03 - Gripper is stopped. All fingers reached requested position
+    return this->msg_from_gripper->gSTA == 3;
+  }
 
     /**
      * @brief Generates the hand status fom a Robotiq3FGripperRobotInput Message
@@ -344,16 +390,29 @@ private:
 		return ss.str();
 	}
 
-	/**
+  /**
      * @brief set the necessary bits in the gripper message to achieve the given goal
-	 */
-	void transcriptGoal(){
-		this->msg_to_gripper.rGTO = 1;
-		this->msg_to_gripper.rMOD = RobotiqGripperActionServer::parseMode(this->current_goal->mode);
-		this->msg_to_gripper.rPRA = this->current_goal->position;
-		this->msg_to_gripper.rSPA = RobotiqGripperActionServer::calcSpeed(this->current_goal->speed);
-		this->msg_to_gripper.rFRA = RobotiqGripperActionServer::approximateForce(this->current_goal->force);
-	}
+   */
+  void transcriptGoal(const control_msgs::GripperCommandGoalConstPtr &goal){
+    this->msg_to_gripper.rGTO = 1;
+    this->msg_to_gripper.rPRA = static_cast<int>((1.0-goal->command.position/0.16)*255.0);
+    this->msg_to_gripper.rFRA = static_cast<int>((goal->command.max_effort-15.0)/0.175);
+
+    if(this->msg_to_gripper.rPRA > 255){
+      this->msg_to_gripper.rPRA = 255;
+    }
+    else if(this->msg_to_gripper.rPRA < 0){
+      this->msg_to_gripper.rPRA = 0;
+    }
+
+    if(this->msg_to_gripper.rFRA > 255){
+      this->msg_to_gripper.rFRA = 255;
+    }
+    else if(this->msg_to_gripper.rFRA < 0){
+      this->msg_to_gripper.rFRA = 0;
+    }
+
+  }
 
 	/**
      * @brief Determine whether the gripper completed its task or not
@@ -363,18 +422,8 @@ private:
         if(this->msg_from_gripper->gGTO == 0){
             return false;
         }
-        bool isRunning = this->msg_from_gripper->gSTA==0?true:false;	// Gripper in Motion
+        bool isRunning = this->msg_from_gripper->gSTA == 3 ? true : false;	// Gripper in Motion
 		return isRunning;
-	}
-
-	/**
-     * @brief Determine whether the gripper completed its task successful or not
-	 * @param goal
-	 * @return true if the gripper successful reached its goal
-	 */
-	bool checkResult(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal){
-		bool succed =  this->msg_from_gripper->gFLT==0?true:false;	// Gripper not in fault status
-		return succed;
 	}
 
 protected:
@@ -382,54 +431,41 @@ protected:
   ros::NodeHandle nh_;
   ros::NodeHandle p_nh;
   // NodeHandle instance must be created before this line. Otherwise strange error may occur.
-  actionlib::SimpleActionServer<tbf_gripper_hand::RobotiqGripperAction> as_;
+  actionlib::SimpleActionServer<control_msgs::GripperCommandAction> as_;
   std::string action_name_;
   // create messages that are used to published feedback/result
-  tbf_gripper_hand::RobotiqGripperFeedback feedback_;
-  tbf_gripper_hand::RobotiqGripperResult result_;
+  control_msgs::GripperCommandFeedback feedback_;
+  control_msgs::GripperCommandResult result_;
   robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr msg_from_gripper;
-  tbf_gripper_hand::RobotiqGripperGoalConstPtr  current_goal;
   robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotOutput msg_to_gripper;
   bool isRunning = false;
 
 public:
 
-  RobotiqGripperActionServer(std::string name) :
+  RobotiqGripperActionServer(std::string name):
     p_nh("~"), /* init private node handle*/
-	as_(nh_, name, boost::bind(&RobotiqGripperActionServer::executeCB, this, _1), false),
+    as_(nh_, name, boost::bind(&RobotiqGripperActionServer::executeCB, this, _1), false),
     action_name_(name)
   {
 
-	ROS_INFO("RobotiqGripperAction: Action server starting.");
+    ROS_INFO_STREAM("[RobotiqGripperActionServer] Action server '" << name << "' starting.");
     as_.start();
 
-    std::string publisher_name = "SModelRobotOutput", subscriber_name = "SModelRobotInput";
-    p_nh.param<std::string>("publisher_name", publisher_name, "/SModelRobotOutput");
-    p_nh.param<std::string>("subscriber_name", subscriber_name, "/SModelRobotInput");
-    /*
-    ros::master::V_TopicInfo master_topics;
-    ros::master::getTopics(master_topics);
-    for (ros::master::V_TopicInfo::iterator it = master_topics.begin() ; it != master_topics.end(); it++) {
-              const ros::master::TopicInfo& info = *it;
-              ROS_DEBUG_STREAM(info.datatype << " == robotiq_3f_gripper_articulated_msgs/SModel_robot_intput? " << (info.datatype == "robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput"));
-              if(info.datatype == "robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput"){
-                  ROS_DEBUG_STREAM("Found: "<<info.name);
-                  subscriber_name = info.name;
-                  publisher_name = subscriber_name.substr(0, subscriber_name.find_last_of("/")) + "/SModelRobotOutput";
-                  break;
-              }
-    }
-    */
-    ROS_INFO_STREAM("RobotiqGripperAction: Subscribe to: " << subscriber_name << "\tPublish at: " << publisher_name);
+    std::string publisher_name = "Robotiq3FGripperRobotOutput", subscriber_name = "Robotiq3FGripperRobotInput";
+    p_nh.param<std::string>("publisher_name", publisher_name, "/Robotiq3FGripperRobotOutput");
+    p_nh.param<std::string>("subscriber_name", subscriber_name, "/Robotiq3FGripperRobotOutput");
+    ROS_INFO_STREAM("[RobotiqGripperActionServer] Subscribe to: " << subscriber_name << "\tPublish at: " << publisher_name);
     this->gripper_pub = nh_.advertise<robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotOutput>(publisher_name, 5);
+
     // http://answers.ros.org/question/108551/using-subscribercallback-function-inside-of-a-class-c/
     this->gripper_sub = nh_.subscribe(subscriber_name, 5, &RobotiqGripperActionServer::onNewGripperState, this);
 
     ros::Duration nap(0.5);
     nap.sleep();
     this->msg_from_gripper = robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr(new robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInput());
-	this->msg_to_gripper = RobotiqGripperActionServer::initGripper();
-    ROS_INFO("RobotiqGripperAction: Action server started.");
+    this->msg_to_gripper = RobotiqGripperActionServer::initGripper();
+    this->gripper_pub.publish(this->msg_to_gripper);
+    ROS_INFO_STREAM("[RobotiqGripperActionServer] Action server '" << name << "' started.");
   }
 
   ~RobotiqGripperActionServer(void)
@@ -440,62 +476,57 @@ public:
   }
 
   void onNewGripperState(const robotiq_3f_gripper_articulated_msgs::Robotiq3FGripperRobotInputConstPtr& msg){
-  	if(lock == true){
+    if(lock == true){
   		return;
   	}
   	this->lock = true;
-	ROS_DEBUG("RobotiqGripperAction.onNewGripperState: Received new message from gripper.");
-  	this->msg_from_gripper = msg;
-	this->feedback_.hand_status = *msg;
+    ROS_DEBUG("[RobotiqGripperActionServer] RobotiqGripperAction.onNewGripperState: Received new message from gripper.");
+    this->msg_from_gripper = msg;
+    this->feedback_.position = this->calcGapFromMsg();      // The current gripper gap size (in meters)
+    this->feedback_.effort = this->calcEffortFromMsg();        // The current effort exerted (in Newtons)
+    this->feedback_.stalled = this->setStalledFromMsg();       // True if the gripper is exerting max effort and not moving
+    this->feedback_.reached_goal = this->setGoalReachedFromMsg();  // # True iff the gripper position has reached the commanded setpoint
   	this->lock = false;
   }
 
-  void executeCB(const tbf_gripper_hand::RobotiqGripperGoalConstPtr &goal)
+  void executeCB(const control_msgs::GripperCommandGoalConstPtr &goal)
   {
-    ROS_INFO("RobotiqGripperAction.executeCB: Received new goal.");
-	this->current_goal = goal;
+    ROS_DEBUG("[RobotiqGripperActionServer] RobotiqGripperAction.executeCB: Received new goal.");
     // helper variables
     ros::Rate r(1);
     bool success = true;
-    this->isRunning = true;
 
-    // feedback initialization
-	/*
-	 * #feedback
-	 * robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput hand_status
-	 */
     // start executing the action
-    this->transcriptGoal();
+    this->transcriptGoal(goal);
+    this->feedback_.reached_goal = false;
     this->gripper_pub.publish(this->msg_to_gripper);
     // feedback-loop
-    while(this->isRunning && !as_.isPreemptRequested() && ros::ok()){
-    	isRunning = this->checkStatus();
-    	as_.publishFeedback(feedback_);
-        ROS_DEBUG("RobotiqGripperAction.executeCB: is running");
+    while(this->feedback_.reached_goal && !as_.isPreemptRequested() && ros::ok()){
+      ROS_DEBUG("[RobotiqGripperActionServer] RobotiqGripperAction.executeCB: is running");
+      as_.publishFeedback(this->feedback_);
     	r.sleep();
     }
     success = !this->isRunning;
-    /*
-     * #result definition
-     * robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput hand_status hand_status
-     */
-	result_.hand_status =  *msg_from_gripper;
-	result_.hand_info = RobotiqGripperActionServer::generateHandStatus();
+
+    this->result_.position = this->calcGapFromMsg();         // The current gripper gap size (in meters)
+    this->result_.effort = this->calcEffortFromMsg();        // The current effort exerted (in Newtons)
+    this->result_.stalled = this->setStalledFromMsg();       // True if the gripper is exerting max effort and not moving
+    this->result_.reached_goal = this->setGoalReachedFromMsg();  // # True iff the gripper position has reached the commanded setpoint
 
     if(as_.isPreemptRequested()){
-        ROS_INFO("RobotiqGripperAction.executeCB(): %s: Preempted", action_name_.c_str());
+        ROS_INFO("[RobotiqGripperActionServer] RobotiqGripperAction.executeCB(): %s: Preempted", action_name_.c_str());
         // set the action state to preempted
-        as_.setPreempted(result_);
+        as_.setPreempted(this->result_);
         return;
     }
     if(success)
     {
-    	as_.setSucceeded(result_);
+      as_.setSucceeded(this->result_);
     }
     else{
-    	as_.setAborted(result_);
+      as_.setAborted(this->result_);
     }
-    ROS_INFO("RobotiqGripperAction.executeCB: successful achieved goal? %s", BoolToString(success));
+    ROS_INFO("[RobotiqGripperActionServer] RobotiqGripperAction.executeCB: successful achieved goal? %s", BoolToString(success));
   }
 
 
@@ -503,9 +534,11 @@ public:
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "robotiqgripper_action_server");
-
-  RobotiqGripperActionServer action_server(ros::this_node::getName());
+  ros::init(argc, argv, "gripper_action_server", ros::init_options::AnonymousName);
+  ros::NodeHandle nh;
+  std::string as_name;
+  nh.param<std::string>("gripper_action_server_name", as_name, "robotiqgripper_action");
+  RobotiqGripperActionServer action_server(as_name);
   ros::spin();
 
   return 0;

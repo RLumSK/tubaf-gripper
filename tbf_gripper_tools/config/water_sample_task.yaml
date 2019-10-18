@@ -16,7 +16,7 @@ joint_speed: 15
 joint_acceleration: 7
 arm_joint_states: "/ur5/joint_states"
 # Hand/Gripper
-publisher_name: "/hand/SModelRobotOutput"
-subscriber_name: "/hand/SModelRobotInput"
+publisher_name: "/hand/Robotiq3FGripperRobotInput"
+subscriber_name: "/hand/Robotiq3FGripperRobotInput "
 hand_server_name: "/hand/gripper_action"
 hand_mode: "basic"

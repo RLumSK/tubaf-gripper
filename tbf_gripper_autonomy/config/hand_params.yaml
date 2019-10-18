@@ -1,4 +1,4 @@
-publisher_name: "/hand/SModelRobotOutput"
-subscriber_name: "/hand/SModelRobotInput"
+publisher_name: "/hand/Robotiq3FGripperRobotInput"
+subscriber_name: "/hand/Robotiq3FGripperRobotInput "
 hand_server_name: "/hand/gripper_action"
 hand_mode: "basic"
