@@ -15,7 +15,7 @@
 
 
   <group ns="$(arg group_name)">
-    <!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
+    <!-- Bringup Robotiq Hand - listening @Robotiq3FGripperRobotOutput-topic -->
     <node name="$(arg gripper_action_name)_tcp" pkg="robotiq_3f_gripper_control" type="Robotiq3FGripperTcpNode.py" args="$(arg hand_ip)" respawn="true" output="screen"/>
 
     <!-- translate the states from robotiq to ROS -->

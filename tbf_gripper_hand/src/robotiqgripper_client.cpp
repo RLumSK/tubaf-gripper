@@ -24,10 +24,10 @@ public:
       dist(0.0, 0.16),
       request_send(false),
       ac(as_name, true){
-        ROS_INFO("[RobotiqActionClientNode] Waiting for action server %s to start.", as_name);
+        ROS_INFO_STREAM("[RobotiqActionClientNode] Waiting for action server "<< as_name <<" to start.");
         // wait for the action server to start
         ac.waitForServer(); //will wait for infinite time
-        ROS_INFO("[RobotiqActionClientNode] Action server %s started, sending goal.", as_name);
+        ROS_INFO_STREAM("[RobotiqActionClientNode] Action server "<< as_name <<" started, sending goal.");
     }
 
     void start(float position, float force=20.0){
@@ -73,7 +73,7 @@ int main (int argc, char **argv)
   ros::init(argc, argv, "gripper_action_client", ros::init_options::AnonymousName);
   ros::NodeHandle nh;
   std::string as_name;
-  nh.param<std::string>("gripper_action_server_name", as_name, "robotiqgripper_action");
+  nh.param<std::string>("gripper_action_server_name", as_name, "Robotiq3FGripperServer");
   RobotiqActionClientNode my_node(as_name);
   ros::Duration pause(5, 0);
   while(ros::ok()){

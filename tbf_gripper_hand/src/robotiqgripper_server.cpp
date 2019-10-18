@@ -395,6 +395,7 @@ private:
    */
   void transcriptGoal(const control_msgs::GripperCommandGoalConstPtr &goal){
     this->msg_to_gripper.rGTO = 1;
+    this->msg_to_gripper.rSPA = 255;
     this->msg_to_gripper.rPRA = static_cast<int>((1.0-goal->command.position/0.16)*255.0);
     this->msg_to_gripper.rFRA = static_cast<int>((goal->command.max_effort-15.0)/0.175);
 
@@ -537,7 +538,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "gripper_action_server", ros::init_options::AnonymousName);
   ros::NodeHandle nh;
   std::string as_name;
-  nh.param<std::string>("gripper_action_server_name", as_name, "robotiqgripper_action");
+  nh.param<std::string>("gripper_action_server_name", as_name, "Robotiq3FGripperServer");
   RobotiqGripperActionServer action_server(as_name);
   ros::spin();
 
