@@ -42,13 +42,13 @@ from sensor_msgs.msg import JointState
 
 class DummyGripperAction(object):
 
-    def __init__(self, name):
-        self._action_name = name
+    def __init__(self):
+        self._action_name = rospy.get_param("gripper_action_server_name", "Robotiq3FGripperServer")
         self._as = actionlib.SimpleActionServer(self._action_name, control_msgs.msg.GripperCommandAction,
                                                 execute_cb=self.execute_cb, auto_start=False)
         # Publish joint_states
         prefix = rospy.get_param('~prefix', default='default')
-        joint_topic = rospy.get_param('~pub_topic', default='joint_states_hand')
+        joint_topic = rospy.get_param('~js_pub_topic', default='joint_states')
         self.publisher = rospy.Publisher(name=joint_topic, data_class=JointState, queue_size=10)
         self.names = ['finger_middle_joint_1', 'finger_1_joint_1', 'finger_2_joint_1','finger_middle_joint_2',
                       'finger_1_joint_2', 'finger_2_joint_2', 'finger_middle_joint_3', 'finger_1_joint_3',
@@ -102,8 +102,8 @@ class DummyGripperAction(object):
         :rtype: -
         """
         # imported from RobotiqJointStatePublisher, mimic data fields of the gripper output:
-        # 0.0 = open(0x00), 1.2 = close(0xFF)
-        data = 255 * (target / 1.2)
+        # 0.0 = open(0x00), 0.16 = close(0xFF)
+        data = 255 - int(round(255 * target / 0.16))
 
         off_0 = math.radians(55.0) - math.radians(45)
         off_1 = math.radians(-90.0) + math.radians(90)
@@ -115,18 +115,18 @@ class DummyGripperAction(object):
 
         # phalanx 0
         self.position[0] = off_0 + data * inc_0  # middle finger (A)
-        self.position[1] = off_0 + data * inc_0  # right finger (B) - connecters are the front
-        self.position[2] = off_0 + data * inc_0  # left finger (C)
+        self.position[1] = self.position[0]  # right finger (B) - connectors are the front
+        self.position[2] = self.position[0]  # left finger (C)
 
         # phalanx 1
         self.position[3] = off_1 + data * inc_1
-        self.position[4] = off_1 + data * inc_1
-        self.position[5] = off_1 + data * inc_1
+        self.position[4] = self.position[3]
+        self.position[5] = self.position[3]
 
         # phalanx 2
         self.position[6] = off_2 + data * inc_2
-        self.position[7] = off_2 + data * inc_2
-        self.position[8] = off_2 + data * inc_2
+        self.position[7] = self.position[6]
+        self.position[8] = self.position[6]
 
         # scissor angle
         scissor_angle = math.radians(23.0)
@@ -146,6 +146,6 @@ class DummyGripperAction(object):
 if __name__ == '__main__':
     # for a blueprint see:
     # http://wiki.ros.org/actionlib_tutorials/Tutorials/Writing%20a%20Simple%20Action%20Server%20using%20the%20Execute%20Callback%20%28Python%29
-    rospy.init_node("DummyGripperActionServer", log_level=rospy.DEBUG)
-    DummyGripperAction(rospy.get_name())
+    rospy.init_node("gripper_action_server", log_level=rospy.INFO)
+    DummyGripperAction()
     rospy.spin()

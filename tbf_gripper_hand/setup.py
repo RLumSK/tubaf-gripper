@@ -5,7 +5,8 @@ from distutils.core import setup
 from catkin_pkg.python_setup import generate_distutils_setup
 
 d = generate_distutils_setup(
-#    scripts=['scripts/marker_reg.py', 'scripts/model_tracker.py', 'scripts/rot_test.py', 'scripts/pl_interface.py'],
+    scripts=['scripts/dummy_gripper_action_server.py', 'scripts/HandTcpInterface.py',
+             'scripts/RobotiqJointStatePublisher.py'],
     packages=['tbf_gripper_hand'],
     package_dir={'': 'python'}
 )
