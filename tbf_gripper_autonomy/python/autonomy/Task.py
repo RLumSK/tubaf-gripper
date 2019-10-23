@@ -47,6 +47,7 @@ import thread
 
 import abc, six
 
+
 class InterruptError(Exception):
     def __init__(self, *args, **kwargs):
         super(InterruptError, self).__init__(*args, **kwargs)
@@ -168,9 +169,9 @@ class MoveTask(object):
         :type pose: (6x double)
         :param goal_tolerance: tolerance for the target (degree)
         :type goal_tolerance: double
-        :param v: velocity for the joint movement in deg/s
+        :param v: velocity for the joint or tcp in deg/s or mm/s
         :type v: double
-        :param a: acceleration for the joint values in deg/s2
+        :param a: acceleration for the joint values or tcp in deg/s2 or mm/s2
         :type a: double
         :param t: time
         :type t: double
@@ -184,14 +185,32 @@ class MoveTask(object):
         rospy.loginfo("MoveTask.move_wait(): %s to:\n %s", move_cmd,  str(pose))
         program = move_cmd + "(%s" % pos2str(pose)
         if a is not None:
-            program += ", a=%f" % np.deg2rad(a)
+            if move_cmd == "movej":
+                program += ", a=%f" % np.deg2rad(a)
+            elif move_cmd == "movel":
+                program += ", a=%f" % a
+        else:
+            if move_cmd == "movej":
+                program += ", a=%f" % np.deg2rad(self.j_arm_acceleration)
+            elif move_cmd == "movel":
+                program += ", a=%f" % self.l_arm_acceleration
         if v is not None:
             program += ", v=%f" % np.deg2rad(v)
+            if move_cmd == "movej":
+                program += ", v=%f" % np.deg2rad(v)
+            elif move_cmd == "movel":
+                program += ", v=%f" % v
+        else:
+            if move_cmd == "movej":
+                program += ", v=%f" % np.deg2rad(self.j_arm_speed)
+            elif move_cmd == "movel":
+                program += ", v=%f" % self.l_arm_speed
         if t is not None:
             program += ", t=%f" % t
         if t is not None:
             program += ", r=%f" % r
         program += ")"
+        rospy.loginfo("MoveTask.move_wait(): %s ", program)
         self.program_pub.publish(program)
         goal_rad = np.deg2rad(goal_tolerance)
         while True:

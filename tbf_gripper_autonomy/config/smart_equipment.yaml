@@ -1,4 +1,4 @@
-smart_equipment:
+lst_scan_joint_values:
   - name: "Smart_Sensor_Box"
     pose:
       frame: "base_footprint"

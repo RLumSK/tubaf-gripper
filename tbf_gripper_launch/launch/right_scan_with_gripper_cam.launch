@@ -1,0 +1,6 @@
+<launch>
+    <node name="gripper_scan_controller" pkg="tbf_gripper_autonomy" type="ScanTask.py" respawn="false" output="screen">
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/scan_task.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
+    </node>
+</launch>

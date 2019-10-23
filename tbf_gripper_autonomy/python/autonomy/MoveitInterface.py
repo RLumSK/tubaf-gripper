@@ -195,7 +195,7 @@ class MoveitInterface(object):
 
     def plan(self, target, info=""):
         """
-        Plan a trajactory towards the target using MoveIt
+        Plan a trajectory towards the target using MoveIt
         :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the reference frame
          of the MoveIt planning group)
         :type target: list or Pose or PoseStamped
