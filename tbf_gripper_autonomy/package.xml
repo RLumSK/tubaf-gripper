@@ -49,7 +49,7 @@
   <depend>cmake_modules</depend>
   <depend>geometric_shapes</depend>
 
-  <exec_depend>haf_grasping</exec_depend>
+  <!-- exec_depend>haf_grasping</exec_depend-->
   <exec_depend>ur_kinematics</exec_depend>
   <exec_depend>tbf_gripper_tools</exec_depend>
   <exec_depend>tubaf_tools</exec_depend>
