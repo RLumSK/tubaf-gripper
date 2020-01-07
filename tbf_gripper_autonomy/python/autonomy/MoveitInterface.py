@@ -62,20 +62,20 @@ def convert_angle(ist, sol, interval=360.0):
     :return: equivalent angle
     :rtype: float
     """
-    solution = 0.0
     diff = sol - ist
     rest = diff % interval
     sol1 = ist + rest
     sol2 = ist + rest - interval
 
-    if solution > 359.9 or solution < -359.9:
-        return sol
-    if abs(sol1 - ist) < abs(sol2 - ist) and -359.9 <= sol1 <= 359.9:
-        return sol1
-    elif -359.9 <= sol2 <= 359.9:
-        return sol2
+    retval = 0
+    if abs(sol1 - ist) < abs(sol2 - ist) and -interval/2.0 <= sol1 <= interval/2.0:
+        retval = sol1
+    elif -interval/2.0 <= sol2 <= interval/2.0:
+        retval = sol2
     else:
-        return sol
+        retval = sol
+    # rospy.logdebug("convert_angle(%g, %g, 360) -> %g oder %g -> %g" % (ist, sol, sol1, sol2, retval))
+    return retval
 
 
 class MoveitInterface(object):
@@ -213,19 +213,23 @@ class MoveitInterface(object):
         self.group.set_start_state(start)
         try:
             target_dict = dict()
+            set_values = [0, 0, 0, 0, 0, 0]
             if type(target) is list:
                 joint_name = self.robot.get_joint_names(self.group.get_name())[0:6]
                 for j, ist in zip(range(len(target)), current_values):
                     target_dict[joint_name[j]] = np.deg2rad(convert_angle(np.rad2deg(ist), target[j]))
+                    set_values[j] = target_dict[joint_name[j]]
                     rospy.logdebug("MoveitInterface.plan(): %s \t%4.2f (%4.2f) ->\t%4.2f" % (joint_name[j], target[j],
-                                                                                          np.rad2deg(ist),
-                                                                                          np.rad2deg(
-                                                                                           target_dict[joint_name[j]])))
-                rospy.logdebug("MoveitInterface.plan(): Planning Joint value %s",
-                               ["%.2f" % v for v in np.rad2deg(target_dict.values())])
-                rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
-                               ["%.2f" % v for v in np.rad2deg(current_values)])
-                self.group.set_joint_value_target(target_dict)
+                                                                                             np.rad2deg(ist),
+                                                                                             np.rad2deg(
+                                                                                                 target_dict[
+                                                                                                     joint_name[j]])))
+                    self.group.set_joint_value_target(joint_name[j], target_dict[joint_name[j]])
+                # rospy.logdebug("MoveitInterface.plan(): Planning Joint value %s",
+                #                ["%.2f" % v for v in np.rad2deg(target_dict.values())])
+                # rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
+                #                ["%.2f" % v for v in np.rad2deg(current_values)])
+                # self.group.set_joint_value_target(target_dict)
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.plan(): Planning Pose target %s", target)
                 self.group.set_pose_target(target, end_effector_link=self.eef_link)
@@ -250,18 +254,13 @@ class MoveitInterface(object):
         except moveit_commander.MoveItCommanderException as ex:
             rospy.logerr("MoveitInterface.plan(): MoveItCommanderException during planning: %s " % ex.message)
             current_joints = self.group.get_current_joint_values()
-            planned_values = target_dict.values()
             target_values = self.group.get_joint_value_target()
-            names = target_dict.keys()
-            rospy.logerr("MoveitInterface.plan(" + info + "): NAME \t\t\t IST SOLL CALC")
-            for ist, soll, calc, name in zip(current_joints, planned_values, target_values, names):
-                rospy.logerr("MoveitInterface.plan(" + info + "): %s \t %3.1f %3.1f %3.1f " % (name, np.rad2deg(ist),
-                                                                                               np.rad2deg(soll),
-                                                                                               np.rad2deg(calc)))
+            target_values.reverse()
+            rospy.logerr("MoveitInterface.plan(" + info + "): current_joints %s" % current_joints)
+            rospy.logerr("MoveitInterface.plan(" + info + "): set_values %s" % set_values)
+            rospy.logerr("MoveitInterface.plan(" + info + "): target_values %s" % target_values)
             rospy.logerr("MoveitInterface.plan(" + info + "): constraints %s" % self.group.get_known_constraints())
-            rospy.loginfo("MoveitInterface.plan(" + info + "): target type: %s" % type(target))
-            rospy.loginfo("MoveitInterface.plan(" + info + "): self.group.set_joint_value_target(target_dict): "
-                                                           "target_dict: \n%s" % target_dict)
+            rospy.logerr("MoveitInterface.plan(" + info + "): target type: %s" % type(target))
             return False
 
         plan = None
@@ -351,12 +350,14 @@ class MoveitInterface(object):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("MoveitInterface.add_equipment(): Attached objects %s", self.scene.get_attached_objects().keys())
-        if equipment.name in self.scene.get_attached_objects().keys():
+        ao_keys = self.scene.get_attached_objects().keys()
+        ko_names = self.scene.get_known_object_names()
+        rospy.logdebug("MoveitInterface.add_equipment(): Attached objects %s", ao_keys)
+        if equipment.name in ao_keys:
             rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
             self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
-        rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s",  self.scene.get_known_object_names())
-        if equipment.name in self.scene.get_known_object_names():
+        rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s",  ko_names)
+        if equipment.name in ko_names:
             rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
             #return
 
