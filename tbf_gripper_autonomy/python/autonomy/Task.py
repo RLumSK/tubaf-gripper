@@ -67,6 +67,25 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
+def play_service():
+    """
+    The new UR driver demands triggering play on the dashboard before work on a new program
+    :return: success or not
+    :rtype: bool
+    """
+    from std_srvs.srv import Trigger, TriggerResponse
+    # New UR Driver
+    # rosservice call /ur_hardware_interface/dashboard/play
+    rospy.wait_for_service('/ur_hardware_interface/dashboard/play')
+    try:
+        play = rospy.ServiceProxy('/ur_hardware_interface/dashboard/play', Trigger)
+        ret_value = play()  # type: TriggerResponse
+        rospy.logdebug("MoveTask.play_service(): %s" % ret_value)
+        return ret_value.success
+    except rospy.ServiceException as e:
+        rospy.logerr("MoveTask.move_wait(): dashboard play service call failed: %s" % e)
+
+
 @six.add_metaclass(abc.ABCMeta)
 class MoveTask(object):
     """
@@ -95,7 +114,7 @@ class MoveTask(object):
         self._joint_sub = message_filters.Subscriber(self.joint_states_topic, JointState)
         self.joint_cache = message_filters.Cache(self._joint_sub, 10)
 
-        self.program_pub = rospy.Publisher("/ur5/ur_driver/URScript", String, queue_size=1)
+        self.program_pub = rospy.Publisher("/ur_hardware_interface/script_command", String, queue_size=1)
         self.move_dur = 1.0
         self.exec_thread = None
 
@@ -147,8 +166,8 @@ class MoveTask(object):
         Converter function - Former Callback for the joint_states topic of the UR5
         :param js: joint states
         :type js: double
-        :return: -
-        :rtype: -
+        :return: most recent joint states in radian
+        :rtype: list(float)
         """
         pp = list(js.position)
         # Resolve mismatch of joint positions between older firmware version and newer
@@ -158,15 +177,18 @@ class MoveTask(object):
         pp[3] = js.position[js.name.index('gripper_ur5_wrist_1_joint')]
         pp[4] = js.position[js.name.index('gripper_ur5_wrist_2_joint')]
         pp[5] = js.position[js.name.index('gripper_ur5_wrist_3_joint')]
+        vls = np.asarray(pp)
+        vls[np.abs(vls) < 0.01] = 0
+        pp = vls.tolist()
         rospy.logdebug("MoveTask._convert_joint_States(): pp=%s", pp)
 
-        return np.rad2deg(pp)
+        return pp
 
     def move_wait(self, pose, goal_tolerance=1.0, v=None, a=None, t=0, r=0, move_cmd="movej"):
         """
         Move a UR5 to a given pose using the URScript interface
         :param pose: target pose as joint values
-        :type pose: (6x double)
+        :type pose: list(6x double)
         :param goal_tolerance: tolerance for the target (degree)
         :type goal_tolerance: double
         :param v: velocity for the joint or tcp in deg/s or mm/s
@@ -195,7 +217,6 @@ class MoveTask(object):
             elif move_cmd == "movel":
                 program += ", a=%f" % self.l_arm_acceleration
         if v is not None:
-            program += ", v=%f" % np.deg2rad(v)
             if move_cmd == "movej":
                 program += ", v=%f" % np.deg2rad(v)
             elif move_cmd == "movel":
@@ -211,8 +232,11 @@ class MoveTask(object):
             program += ", r=%f" % r
         program += ")"
         rospy.loginfo("MoveTask.move_wait(): %s ", program)
+
         self.program_pub.publish(program)
-        goal_rad = np.deg2rad(goal_tolerance)
+        while not play_service():
+            rospy.loginfo("MoveTask.move_wait(): wait for 'ros_control' @ Teach Pendant to be ready")
+            rospy.sleep(1.0)
         while True:
             tmp = self.joint_cache.getLast()
             if tmp is None:
@@ -220,14 +244,14 @@ class MoveTask(object):
                               self.joint_states_topic)
                 rospy.sleep(5.0)
                 continue
-            cur_pos = self._convert_joint_States(tmp)
+            cur_pos = np.rad2deg(np.asarray(self._convert_joint_States(tmp))).tolist()
             max_dst = np.max(np.abs(np.subtract(pose, cur_pos)))
             rospy.logdebug("MoveTask.move_wait(): cur_pos =%s", cur_pos)
-            rospy.logdebug("MoveTask.move_wait(): pose    =%s", pose)
-            rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_rad)
-            if max_dst < goal_rad:
+            rospy.logdebug("MoveTask.move_wait(): des_pos =%s", pose)
+            rospy.logdebug("MoveTask.move_wait(): max_dst = %s (tol=%s)", max_dst, goal_tolerance)
+            if max_dst < goal_tolerance:
                 break
-            rospy.sleep(0.1)
+            rospy.sleep(1.0)
         rospy.loginfo("MoveTask.move_wait(): Reached pose")
 
 

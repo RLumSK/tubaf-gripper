@@ -78,7 +78,7 @@ class HandController(object):
         # float64 max_effort
 
         goal.command.position = 0.0
-        goal.command.max_effort = 60
+        goal.command.max_effort = 120
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):

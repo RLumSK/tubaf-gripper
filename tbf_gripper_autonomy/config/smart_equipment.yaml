@@ -1,4 +1,4 @@
-lst_scan_joint_values:
+smart_equipment:
   - name: "Smart_Sensor_Box"
     pose:
       frame: "base_footprint"
@@ -36,7 +36,7 @@ lst_scan_joint_values:
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
   - name:
-      "Knauf_SSB"
+      "station_new" # Knauf_SSB
     pose:
       frame:
         "base_footprint"
