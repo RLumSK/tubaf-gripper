@@ -59,7 +59,7 @@ class FloorFilter(object):
         self._normal_publisher = rospy.Publisher(name=_normal_topic, data_class=QuaternionStamped, queue_size=10)
         self._pose_publisher = rospy.Publisher(name=_pose_topic, data_class=PoseStamped, queue_size=10)
         # Cache
-        self.cache = Cache(Subscriber(_tables_topic, TableArray), 1)
+        self._planes_cache = Cache(Subscriber(_tables_topic, TableArray), 1)
         self._tf = tf.TransformListener()
 
     def perform(self):
@@ -70,7 +70,7 @@ class FloorFilter(object):
         :rtype: None
         """
         while True:
-            msg = self.cache.getLast()
+            msg = self._planes_cache.getLast()
             if msg is None:
                 rospy.sleep(1.0)
                 continue
@@ -89,8 +89,7 @@ class FloorFilter(object):
                 ps_msg.pose = floor_plane.pose
                 self._pose_publisher.publish(ps_msg)
             else:
-                print msg
-                rospy.logwarn("[cluster_analysis::FloorFilter._on_new_tables] No floor plane found")
+                rospy.logwarn("[cluster_analysis::FloorFilter.perform] No floor plane found")
 
     def transform(self, frame_from, frame_to, pose):
         """
