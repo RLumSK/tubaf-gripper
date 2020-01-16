@@ -3,11 +3,11 @@ source1:
   type: RosKinect
   module: 'object_recognition_ros.io'
   parameters:
-    rgb_frame_id: gripper_camera_rgb_optical_frame
-    rgb_camera_info: /gripper_camera/rgb/camera_info
-    rgb_image_topic: /gripper_camera/rgb/image_raw
-    depth_image_topic: /gripper_camera/depth/image_raw
-    depth_camera_info: /gripper_camera/depth/camera_info
+    rgb_frame_id: rs_gripper_d435_color_optical_frame  # rs_gripper_d435_color_frame
+    rgb_camera_info: /gripper_d435/color/camera_info
+    rgb_image_topic: /gripper_d435/color/image_rect_color
+    depth_image_topic: /gripper_d435/depth/image_rect_raw
+    depth_camera_info: /gripper_d435/depth/camera_info
 
 sink1:
   type: TablePublisher
