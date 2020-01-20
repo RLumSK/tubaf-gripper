@@ -43,6 +43,10 @@ from object_recognition_msgs.msg import TableArray, Table
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import PoseStamped, Point
 
+from pylab import *
+import matplotlib.pyplot as plt
+
+
 
 class InterruptError(Exception):
     def __init__(self, *args, **kwargs):
@@ -79,6 +83,7 @@ class PoseGeneratorRosInterface(object):
         """
         _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
         _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
+        self.subsample = rospy.get_param("~sub_sample", 25)
 
         self._obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
         self._floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
@@ -88,7 +93,9 @@ class PoseGeneratorRosInterface(object):
         self._dbg_pub_projection = rospy.Publisher(_obstacle_topic+"_projected", MarkerArray, queue_size=1)
 
         self.result = [0, 0]
-        self.points = []
+        self.obs_points = []
+        self.hull_points = []
+
 
     def perform(self):
         """
@@ -110,8 +117,9 @@ class PoseGeneratorRosInterface(object):
         floor_msg = self._floor_cache.getLast()  # type: TableArray
         if obstacles_msg is None or floor_msg is None:
             return
-        self.points = self.extract_points(obstacles_msg, floor_msg.tables[0])
-        self.result = self._generate(self.points)  # type: list
+        self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
+
+        self.result = self._generate(self.obs_points + self.hull_points)  # type: list
         ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
         self.pub.publish(ps)
 
@@ -198,7 +206,7 @@ class PoseGeneratorRosInterface(object):
         :return: list with all points projected on the floor plane
         :rtype: list
         """
-        all_points = []
+        obs_points = []
         dbg_pnts = []
         dbg_markers = []
         plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
@@ -206,10 +214,10 @@ class PoseGeneratorRosInterface(object):
             i = 0
             for point in obstacle.points:  # type: Point
                 i += 1
-                if i % 17 != 0:
+                if i % self.subsample != 0:
                     continue
                 prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
-                all_points.append(prjt_pnt)
+                obs_points.append(prjt_pnt)
                 point.x = prjt_pnt[0]
                 point.y = prjt_pnt[1]
                 point.z = prjt_pnt[2]
@@ -217,9 +225,10 @@ class PoseGeneratorRosInterface(object):
             obstacle.points = []
 
         # Add convex hull to dataset
+        hull_pnts = []
         for i in range(0, len(flr_msg.convex_hull)):
             prjt_pnt = PoseGeneratorRosInterface.point_on_plane(flr_msg.convex_hull[i], plane_parameters)
-            all_points.append(prjt_pnt)
+            hull_pnts.append(prjt_pnt)
             a_point = Point()
             a_point.x = prjt_pnt[0]
             a_point.y = prjt_pnt[1]
@@ -229,7 +238,7 @@ class PoseGeneratorRosInterface(object):
         dbg_markers.append(obs_msg.markers[0])
         obs_msg.markers[0].points = dbg_pnts
         self._dbg_pub_projection.publish(obs_msg)
-        return all_points
+        return [obs_points, hull_pnts]
 
     @staticmethod
     def _as_pose_stamped(lst_pos, floor_msg):
@@ -383,23 +392,108 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
         return g
 
 
-def view_PoseGenerator(generator):
+class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
     """
-    View for PoseGeneratorRosInterface
-    :param generator: object to view
-    :type generator: PoseGeneratorRosInterface
+    Determine the Pose using KDE and discretization
     """
-    while len(generator.points) == 0:
-        rospy.sleep(1.0)
-        generator.once()
-        rospy.logdebug("[view_PoseGenerator()] #Points = %g" % len(generator.points))
 
-    import matplotlib.pyplot as plt
-    as_array = np.asarray(generator.points)
-    plt.plot(as_array[:, 0], as_array[:, 1], 'k.')
-    plt.plot(generator.result[0], generator.result[1], 'ro')
-    plt.show()
-    rospy.logdebug("[view_PoseGenerator()] Finished")
+    def __init__(self, topic):
+        """
+        Default constructor
+        :param topic: Topic where the calculated pose gets published
+        :type topic: str
+        """
+        super(MinimalDensityEstimatePoseGenerator, self).__init__(topic)
+        self.n_bins = rospy.get_param("~n_bins", 100)
+
+    def _generate(self, lst_points):
+        """
+        Algorithm to determine a valid pose given a floor plane and obstacles
+        :param lst_points: list with all points projected on the floor plane
+        :type lst_points: list
+        :return: tuple of the position [x, y, z]
+        :rtype: list
+        """
+        # see: https://stackoverflow.com/questions/41577705/how-does-2d-kernel-density-estimation-in-python-sklearn-work
+        from sklearn.neighbors import KernelDensity
+
+        def kde2D(X,  bandwidth=0.25, xbins=100j, ybins=100j, **kwargs):
+            """Build 2D kernel density estimate (KDE)."""
+            x = X[:, 0]
+            y = X[:, 1]
+            # create grid of sample locations (default: 100x100)
+            xx, yy = np.mgrid[x.min():x.max():xbins, y.min():y.max():ybins]
+            xy_sample = np.vstack([yy.ravel(), xx.ravel()]).T
+            xy_train = np.vstack([y, x]).T
+
+            kde_skl = KernelDensity(kernel='gaussian', bandwidth=bandwidth, **kwargs)
+            kde_skl.fit(xy_train)
+
+            # score_samples() returns the log-likelihood of the samples
+            z = np.exp(kde_skl.score_samples(xy_sample))
+            z_i = np.argmin(z)
+            z_x = xy_sample[z_i, 1]
+            z_y = xy_sample[z_i, 0]
+            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z_i=%g, value=%g" % (z_i, z[z_i]))
+            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z= %g, %g" % (z_x, z_y))
+
+            return [z_x, z_y]
+
+        return kde2D(np.asarray(lst_points), xbins=self.n_bins*1j, ybins=self.n_bins*1j)
+        #
+        # from sklearn.preprocessing import KBinsDiscretizer
+        # from scipy.sparse.csr import csr_matrix
+        # enc = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='uniform')  # type: KBinsDiscretizer
+        # pnts_binned = enc.fit_transform(np.asarray(lst_points)[:, :2])  # type: np.ndarray
+        # rospy.logdebug("[DistanceFieldPoseGenerator._generate()] #NNZ %g/%g)" % (len(pnts_binned), enc.n_bins))
+        # from scipy.ndimage import distance_transform_edt
+        # dst_field = distance_transform_edt(pnts_binned)
+        # print dst_field
+        # index = np.argmax(dst_field)
+        # rospy.logdebug("[DistanceFieldPoseGenerator._generate()] d= %s at (%s)" % (np.max(dst_field), index))
+
+
+class ViewPoseGenerator(object):
+
+    def __init__(self, lst_generator):
+        """
+        Default constructor for PoseGeneratorRosInterface
+        :param generator: object to view
+        :type generator: list of PoseGeneratorRosInterface
+        """
+
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(1, 1, 1)
+        self.axes = {}
+        self.lst_generator = lst_generator
+        for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
+            while len(generator.obs_points) == 0:
+                rospy.sleep(1.0)
+                generator.once()
+                self.axes[id(generator)], = plot(generator.result[0], generator.result[1], 'o',
+                                                label=generator.__class__.__name__)
+        as_array = np.asarray(lst_generator[-1].obs_points)
+        self.obs_axis, = plot(as_array[:, 0], as_array[:, 1], '.')
+        as_array = np.asarray(lst_generator[-1].hull_points)
+        self.hull_axis, = plot(as_array[:, 0], as_array[:, 1], '+')
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+    def view(self):
+        """
+        view it
+        """
+        for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
+            self.axes[id(generator)].set_xdata(generator.result[0])
+            self.axes[id(generator)].set_ydata(generator.result[1])
+        as_array = np.asarray(self.lst_generator[-1].obs_points)
+        self.obs_axis.set_xdata(as_array[:, 0])
+        self.obs_axis.set_ydata(as_array[:, 1])
+        as_array = np.asarray(self.lst_generator[-1].hull_points)
+        self.hull_axis.set_xdata(as_array[:, 0])
+        self.hull_axis.set_ydata(as_array[:, 1])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        rospy.logdebug("[ViewPoseGenerator.view()] Finished")
 
 
 if __name__ == '__main__':
@@ -407,6 +501,7 @@ if __name__ == '__main__':
     pub_topic = rospy.get_param("~pub_topic", "target_pose")
     pca = PcaPoseGenerator(pub_topic+"_pca")
     dln = DelaunayPoseGenerator(pub_topic+"_delaunay")
+    kde = MinimalDensityEstimatePoseGenerator(pub_topic+"_kde")
 
     # import threading
     # pca_thread = threading.Thread(target=pca.perform)
@@ -415,8 +510,12 @@ if __name__ == '__main__':
     # dln_thread.daemon = True
     # pca_thread.start()
     # dln_thread.start()
-
-    view_PoseGenerator(pca)
-    view_PoseGenerator(dln)
-
-    rospy.spin()
+    plt.ion()
+    lst = [kde, pca, dln]
+    view = ViewPoseGenerator(lst)
+    r = rospy.Rate(1)
+    while not rospy.is_shutdown():
+        for g in lst:
+            g.once()
+        view.view()
+        r.sleep()
