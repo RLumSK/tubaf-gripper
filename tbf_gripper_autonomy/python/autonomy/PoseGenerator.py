@@ -33,7 +33,6 @@
 import rospy
 import numpy as np
 import signal
-import sys
 import abc
 import six
 
@@ -45,7 +44,6 @@ from geometry_msgs.msg import PoseStamped, Point
 
 from pylab import *
 import matplotlib.pyplot as plt
-
 
 
 class InterruptError(Exception):
@@ -68,7 +66,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class PoseGeneratorRosInterface(object):
+class PoseGeneratorRosInterface:
     """
     Abstract class to determine a valid pose on a floor plane for an object to set on.
     It manages the communication towards ROS.
@@ -83,19 +81,19 @@ class PoseGeneratorRosInterface(object):
         """
         _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
         _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
-        self.subsample = rospy.get_param("~sub_sample", 25)
+        self.subsample = rospy.get_param("~sub_sample", 0.2)
 
         self._obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
         self._floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
 
         self.pub = rospy.Publisher(pub_topic, PoseStamped, queue_size=1)
 
-        self._dbg_pub_projection = rospy.Publisher(_obstacle_topic+"_projected", MarkerArray, queue_size=1)
+        self._dbg_pub_projection = rospy.Publisher(_obstacle_topic + "_projected", MarkerArray, queue_size=1)
 
         self.result = [0, 0]
         self.obs_points = []
         self.hull_points = []
-
+        self.lines = []
 
     def perform(self):
         """
@@ -107,18 +105,30 @@ class PoseGeneratorRosInterface(object):
             rospy.sleep(1.0)
             self.once()
 
-    def once(self):
+    def once(self, time=None):
         """
         Generate pose and publish it
+        :param time: timestamp of the messages
+        :type time: rospy.Time
         :return: -
         :rtype: -
         """
-        obstacles_msg = self._obstacle_cache.getLast()  # type: MarkerArray
-        floor_msg = self._floor_cache.getLast()  # type: TableArray
+        t = time
+        if t is None:
+            t = self._obstacle_cache.getLatestTime()
+        obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
+        floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
         if obstacles_msg is None or floor_msg is None:
             return
         self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
-
+        if self.obs_points is None or len(self.obs_points) == 0:
+            self.obs_points = [[], []]
+            self.hull_points = [[], []]
+            if self.obs_points is None:
+                rospy.loginfo("[PoseGeneratorRosInterface.once()] self.obs_points is None")
+            elif len(self.obs_points) == 0:
+                rospy.loginfo("[PoseGeneratorRosInterface.once()] len(self.obs_points) == 0")
+            return
         self.result = self._generate(self.obs_points + self.hull_points)  # type: list
         ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
         self.pub.publish(ps)
@@ -142,6 +152,7 @@ class PoseGeneratorRosInterface(object):
                                     flr_msg.pose.orientation.w])
             result = np.matmul(r.as_dcm(), [x, y, z])  # type: np.ndarray
             return result.tolist()
+
         # see: http://kitchingroup.cheme.cmu.edu/blog/2015/01/18/Equation-of-a-plane-through-three-points/
         # Get plane equation: ax + by + cz + d = 0
         p0 = np.array(global_coords(floor_msg, 0))
@@ -212,9 +223,13 @@ class PoseGeneratorRosInterface(object):
         plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
         for obstacle in obs_msg.markers:  # type: Marker
             i = 0
+            if self.subsample > 1.0:
+                ss = self.subsample
+            else:
+                ss = int(len(obstacle.points)*self.subsample)
             for point in obstacle.points:  # type: Point
                 i += 1
-                if i % self.subsample != 0:
+                if i % ss != 0:
                     continue
                 prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
                 obs_points.append(prjt_pnt)
@@ -316,7 +331,12 @@ class PcaPoseGenerator(PoseGeneratorRosInterface):
         # rospy.logdebug("[PcaPoseGenerator._generate()] g: %s" % g)
         p = pca.inverse_transform(g)
         # rospy.logdebug("[PcaPoseGenerator._generate()] p: %s" % p)
-
+        # Save PCA axis as lines
+        x0 = pca.inverse_transform([min(pca_x), 0])
+        x1 = pca.inverse_transform([max(pca_x), 0])
+        y0 = pca.inverse_transform([0, min(pca_y)])
+        y1 = pca.inverse_transform([0, max(pca_y)])
+        self.lines = [[x0, x1], [y0, y1]]
         return p
 
 
@@ -347,7 +367,7 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
 
         def distance(p1, p2):
             d = p2 - p1
-            return (d[0]**2+d[1]**2)**0.5
+            return (d[0] ** 2 + d[1] ** 2) ** 0.5
 
         def area(pnts):
             assert len(pnts) == 3
@@ -358,7 +378,7 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
             a = max(i_a, i_b, i_c)
             b = np.median([i_a, i_b, i_c])
             c = min(i_a, i_b, i_c)
-            return 0.25 * ((a+(b+c))*(c-(a-b))*(c+(a-b))*(a+(b-c)))**0.5
+            return 0.25 * ((a + (b + c)) * (c - (a - b)) * (c + (a - b)) * (a + (b - c))) ** 0.5
 
         max_distance = 0
         max_idx = [0, 0, 0]
@@ -366,11 +386,11 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
             p0 = dln.points[triangle[0]]
             p1 = dln.points[triangle[1]]
             p2 = dln.points[triangle[2]]
-
             v = area([p0, p1, p2])
             if max_distance < v:
                 max_distance = v
                 max_idx = [triangle[0], triangle[1], triangle[2]]
+                self.lines = [[p0, p1], [p1, p2], [p2, p0]]
                 rospy.logdebug("[DelaunayPoseGenerator._generate()] max_area: %g" % max_distance)
 
         def get_center_point(pnts):
@@ -387,9 +407,7 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
                  ) / p
             return [x, y]
 
-        g = get_center_point([dln.points[max_idx[0]],  dln.points[max_idx[1]],  dln.points[max_idx[2]]])
-
-        return g
+        return get_center_point([dln.points[max_idx[0]], dln.points[max_idx[1]], dln.points[max_idx[2]]])
 
 
 class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
@@ -417,7 +435,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
         # see: https://stackoverflow.com/questions/41577705/how-does-2d-kernel-density-estimation-in-python-sklearn-work
         from sklearn.neighbors import KernelDensity
 
-        def kde2D(X,  bandwidth=0.25, xbins=100j, ybins=100j, **kwargs):
+        def kde2D(X, bandwidth=0.25, xbins=100j, ybins=100j, **kwargs):
             """Build 2D kernel density estimate (KDE)."""
             x = X[:, 0]
             y = X[:, 1]
@@ -434,12 +452,12 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
             z_i = np.argmin(z)
             z_x = xy_sample[z_i, 1]
             z_y = xy_sample[z_i, 0]
-            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z_i=%g, value=%g" % (z_i, z[z_i]))
+            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z_i=%s, value=%g" % (z_i, z[z_i]))
             rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z= %g, %g" % (z_x, z_y))
 
             return [z_x, z_y]
 
-        return kde2D(np.asarray(lst_points), xbins=self.n_bins*1j, ybins=self.n_bins*1j)
+        return kde2D(np.asarray(self.obs_points), xbins=self.n_bins * 1j, ybins=self.n_bins * 1j)
         #
         # from sklearn.preprocessing import KBinsDiscretizer
         # from scipy.sparse.csr import csr_matrix
@@ -458,50 +476,99 @@ class ViewPoseGenerator(object):
     def __init__(self, lst_generator):
         """
         Default constructor for PoseGeneratorRosInterface
-        :param generator: object to view
-        :type generator: list of PoseGeneratorRosInterface
+        :param lst_generator: list with objects to view
+        :type lst_generator: list of PoseGeneratorRosInterface
         """
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(1, 1, 1)
-        self.axes = {}
+        self.ax.set_xlim(-1, 1)
+        self.ax.set_ylim(-1, 1)
+        self.pnt_axes = {}
+        self.lne_axis = {}
         self.lst_generator = lst_generator
         for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
             while len(generator.obs_points) == 0:
                 rospy.sleep(1.0)
                 generator.once()
-                self.axes[id(generator)], = plot(generator.result[0], generator.result[1], 'o',
-                                                label=generator.__class__.__name__)
+                self.pnt_axes[id(generator)], = self.ax.plot(generator.result[0], generator.result[1], 'o',
+                                                             ms=12,
+                                                             label=generator.__class__.__name__)
+                color = self.pnt_axes[id(generator)].get_color()
+                for lne in generator.lines:
+                    if not id(generator) in self.lne_axis:
+                        self.lne_axis[id(generator)] = []
+                    self.lne_axis[id(generator)].append(
+                        self.ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=color, alpha=0.25))
         as_array = np.asarray(lst_generator[-1].obs_points)
-        self.obs_axis, = plot(as_array[:, 0], as_array[:, 1], '.')
+        self.obs_axis, = self.ax.plot(as_array[:, 0], as_array[:, 1], '.', label="Obstacles")
         as_array = np.asarray(lst_generator[-1].hull_points)
-        self.hull_axis, = plot(as_array[:, 0], as_array[:, 1], '+')
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        self.hull_axis, = self.ax.plot(as_array[:, 0], as_array[:, 1], '+', label="Groundarea")
+
+        # Text
+        if lst_generator[-1].subsample > 1.0:
+            self.fig.text(0.15, 0.01, "Subsample every " + str(lst_generator[-1].subsample) + "th")
+        else:
+            self.fig.text(0.15, 0.01, "Subsample " + str(lst_generator[-1].subsample*100.0) + "%")
+
+        # Place a legend above this subplot, expanding itself to
+        # fully use the given bounding box.
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+                   ncol=2, mode="expand", borderaxespad=0.)
 
     def view(self):
         """
         view it
         """
-        for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
-            self.axes[id(generator)].set_xdata(generator.result[0])
-            self.axes[id(generator)].set_ydata(generator.result[1])
-        as_array = np.asarray(self.lst_generator[-1].obs_points)
-        self.obs_axis.set_xdata(as_array[:, 0])
-        self.obs_axis.set_ydata(as_array[:, 1])
-        as_array = np.asarray(self.lst_generator[-1].hull_points)
-        self.hull_axis.set_xdata(as_array[:, 0])
-        self.hull_axis.set_ydata(as_array[:, 1])
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        try:
+            # Update Obstacles
+            as_array = np.asarray(self.lst_generator[-1].obs_points)
+            if len(as_array) != 0 and len(as_array[0]) > 0:
+                self.obs_axis.set_xdata(as_array[:, 0])
+                self.obs_axis.set_ydata(as_array[:, 1])
+            else:
+                return
+            # Update Hull
+            as_array = np.asarray(self.lst_generator[-1].hull_points)
+            if len(as_array) != 0 and len(as_array[0]) > 0:
+                self.hull_axis.set_xdata(as_array[:, 0])
+                self.hull_axis.set_ydata(as_array[:, 1])
+            else:
+                return
+            # Update generated positions
+            for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
+                self.pnt_axes[id(generator)].set_xdata(generator.result[0])
+                self.pnt_axes[id(generator)].set_ydata(generator.result[1])
+
+                if not id(generator) in self.lne_axis:
+                    continue
+
+                for lne2d, lne in zip(self.lne_axis[id(generator)], generator.lines):  # type: (plt.Line2D, list)
+                    lne2d[0].set_data([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]])
+                # # Remove previous lines:
+                # for lne2d in self.lne_axis[id(generator)]:  # type: plt.Line2D
+                #     self.ax.lines.remove(lne2d[0])
+                # self.lne_axis[id(generator)] = []
+                # # Add new lines
+                # for lne in generator.lines:
+                #     self.lne_axis[id(generator)].append(
+                #         self.ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], 'g-'))
+
+            # Redraw
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()
+        except Exception as ex:
+            rospy.logwarn("[ViewPoseGenerator.view()] Exception occurred\n%s" % ex)
         rospy.logdebug("[ViewPoseGenerator.view()] Finished")
 
 
 if __name__ == '__main__':
-    rospy.init_node("test_SetPoseGenerator", log_level=rospy.DEBUG)
+    rospy.init_node("test_SetPoseGenerator", log_level=rospy.INFO)
+    rospy.logdebug("{test_SetPoseGenerator.main()} starting")
     pub_topic = rospy.get_param("~pub_topic", "target_pose")
-    pca = PcaPoseGenerator(pub_topic+"_pca")
-    dln = DelaunayPoseGenerator(pub_topic+"_delaunay")
-    kde = MinimalDensityEstimatePoseGenerator(pub_topic+"_kde")
+    pca = PcaPoseGenerator(pub_topic + "_pca")
+    dln = DelaunayPoseGenerator(pub_topic + "_delaunay")
+    kde = MinimalDensityEstimatePoseGenerator(pub_topic + "_kde")
 
     # import threading
     # pca_thread = threading.Thread(target=pca.perform)
@@ -513,9 +580,11 @@ if __name__ == '__main__':
     plt.ion()
     lst = [kde, pca, dln]
     view = ViewPoseGenerator(lst)
-    r = rospy.Rate(1)
+    r = rospy.Rate(0.2)
     while not rospy.is_shutdown():
+        now = rospy.Time.now()
         for g in lst:
             g.once()
         view.view()
-        r.sleep()
+        # rospy.logdebug("{test_SetPoseGenerator.main()} sleeping")
+        # r.sleep()
