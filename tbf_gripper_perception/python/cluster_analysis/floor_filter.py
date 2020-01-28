@@ -129,7 +129,7 @@ class FloorFilter(object):
         :return: floor plane
         :rtype: object_recognition_msgs.msgs.Table
         """
-        ret_plane = None
+        ret_plane = None  # type: object_recognition_msgs.msgs.Table
         lst_ret_planes = []
         # Determine planes with a parallel normal vector
         for plane in tables.tables:
@@ -153,6 +153,7 @@ class FloorFilter(object):
             if min_z > abs(plane.pose.position.z + self.floor_frame_offset):
                 ret_plane = plane
                 min_z = plane.pose.position.z
+        ret_plane.header = tables.header
         return ret_plane
 
 
