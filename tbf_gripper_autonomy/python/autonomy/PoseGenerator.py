@@ -34,6 +34,8 @@ import rospy
 import numpy as np
 import signal
 import abc
+import sys
+import os
 
 from six import add_metaclass
 from scipy.spatial import Delaunay
@@ -44,6 +46,8 @@ from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import PoseStamped, Point
 from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
 
+import matplotlib
+matplotlib.use('Qt5Agg')
 from pylab import *
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -52,12 +56,6 @@ import pandas as pd
 class InterruptError(Exception):
     def __init__(self, *args, **kwargs):
         super(InterruptError, self).__init__(*args, **kwargs)
-
-
-def pos2str(pos):
-    rad = np.deg2rad(pos)
-    rad = map(str, rad)
-    return "[" + ", ".join(rad) + "]"
 
 
 def signal_handler(_signal, _frame):
@@ -93,7 +91,7 @@ class PoseGeneratorRosInterface:
 
         self.pub = rospy.Publisher(pub_topic, PoseStamped, queue_size=1)
 
-        self._service = rospy.Service(type(self).__name__+'_service', GenerateSetPose,
+        self._service = rospy.Service(type(self).__name__ + '_service', GenerateSetPose,
                                       self.handle_service_request)
 
         self._dbg_pub_projection = rospy.Publisher(_obstacle_topic + "_projected", MarkerArray, queue_size=1)
@@ -118,7 +116,7 @@ class PoseGeneratorRosInterface:
 
         self.result = np.asarray([[ps.pose.position.x, ps.pose.position.y]])
         hull = self.hull_points[:, :2]  # type: np.ndarray
-        obstacles = self.obs_points[:, :2]  #type: np.ndarray
+        obstacles = self.obs_points[:, :2]  # type: np.ndarray
 
         response = GenerateSetPoseResponse()
         response.set_pose = ps
@@ -679,15 +677,60 @@ class ViewPoseGenerators(object):
             return 'C5'
 
     @staticmethod
-    def print_tex(generator):
+    def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"):
         """
         Save the current state in a LaTeX conform plot
-        :param generator: pose generator after at least one computation
-        :type generator: PoseGeneratorRosInterface
+        :param generator: pose generator after at least one computation, or alist of them
+        :type generator: PoseGeneratorRosInterface or list
+        :param save_dir: directory where the plots are stored
+        :type save_dir: str
         :return: -
         :rtype: -
         """
-        rospy.logwarn("[ViewPoseGenerators.print_tex()] export %s - Not implemented yest!" % generator)
+        plt.cla()
+        plt.clf()
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        if type(generator) is list:
+            for g in generator:
+                ViewPoseGenerators._plot(g, ax)
+            name = "all"
+        else:
+            ViewPoseGenerators._plot(generator, ax)
+            g = generator
+            name = g.__class__.__name__
+
+        # Text
+        if g.subsample > 1.0:
+            fig.text(0.15, 0.01, "Subsample every " + str(g.subsample) + "th")
+        else:
+            fig.text(0.15, 0.01, "Subsample " + str(g.subsample * 100.0) + "%")
+
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+                   ncol=2, mode="expand", borderaxespad=0.)
+
+        p = os.path.join(save_dir, str(rospy.Time.now().to_nsec())+name)
+        plt.savefig(p+".pdf")
+        plt.savefig(p+".pgf")
+
+    @staticmethod
+    def _plot(generator, ax):
+        n = generator.__class__.__name__
+        c = ViewPoseGenerators.get_color(n)
+        ax.plot(generator.result[0, 0], generator.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
+        for lne in generator.lines:
+            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5.0)
+
+        as_array = np.asarray(generator.obs_points)
+        n = "Obstacles"
+        ax.plot(as_array[:, 0], as_array[:, 1], '.', label=n, zorder=3.5, color=ViewPoseGenerators.get_color(n))
+        hull = generator.hull_points.tolist()
+        hull.append(hull[0])
+        as_array = np.asarray(hull)
+        n = "Groundarea"
+        ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=n, zorder=4.5, color=ViewPoseGenerators.get_color(n))
 
     def __init__(self, lst_generator):
         """
@@ -959,37 +1002,73 @@ if __name__ == '__main__':
     dln = DelaunayPoseGenerator(pub_topic + "_dln")
     kde = MinimalDensityEstimatePoseGenerator(pub_topic + "_kde")
 
-    # Test Service
-    rospy.wait_for_service(pca.__class__.__name__+'_service')
-    pca_service = rospy.ServiceProxy(pca.__class__.__name__+'_service', GenerateSetPose)
-    rospy.wait_for_service(dln.__class__.__name__+'_service')
-    dln_service = rospy.ServiceProxy(dln.__class__.__name__+'_service', GenerateSetPose)
-    rospy.wait_for_service(kde.__class__.__name__+'_service')
-    kde_service = rospy.ServiceProxy(kde.__class__.__name__+'_service', GenerateSetPose)
-    request = GenerateSetPoseRequest()
-    request.print_evaluation = True
+    def combined_service_request(request):
+        if request.algorithm not in 'AllSetPoseGenerator_service':
+            return GenerateSetPoseResponse()
+        max_nn = 0
+        max_hl = 0
+        ps_nn = PoseStamped()
+        ps_hl = PoseStamped()
+        for g in [pca, dln, kde]:  # type:
+            ps = g.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
 
-    _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
-    _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
+            g.result = np.asarray([[ps.pose.position.x, ps.pose.position.y]])
+            hull = g.hull_points[:, :2]  # type: np.ndarray
+            obstacles = g.obs_points[:, :2]  # type: np.ndarray
 
-    _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
-    _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+            d_nn = EvaluatePoseGenerators.calc_min_distance(g.result, obstacles.tolist())
+            if max_nn < d_nn:
+                max_nn = d_nn
+                ps_nn = ps
+            d_hl = EvaluatePoseGenerators.calc_min_distance(g.result, hull.tolist())
+            if max_hl < d_hl:
+                max_hl = d_hl
+                ps_hl = ps
 
-    while True:
-        try:
-            request.floor = _floor_cache.getLast()
-            request.obstacles = _obstacle_cache.getLast()
-            if request.floor is None or request.obstacles is None:
-                rospy.sleep(1.0)
-                continue
-            for service, name in zip([pca_service, dln_service, kde_service], [pca.__class__.__name__,
-                                                                               dln.__class__.__name__,
-                                                                               kde.__class__.__name__]):
-                request.algorithm = name
-                rospy.loginfo("[main] %s says %s" % (name, service(request)))
-        except rospy.ServiceException as e:
-            rospy.logerr("[main] Service %s call failed\n%s" % (name, e.message))
+        if request.print_evaluation:
+            ViewPoseGenerators.print_tex([pca, dln, kde])
 
+        response = GenerateSetPoseResponse()
+        response.set_pose = ps_nn
+        response.nn_distance = max_nn
+        response.hull_distance = max_hl
+
+        return response
+
+    combined_service = rospy.Service('AllSetPoseGenerator_service', GenerateSetPose,  combined_service_request)
+
+    rospy.spin()
+
+    # # Test Service
+    # rospy.wait_for_service(pca.__class__.__name__+'_service')
+    # pca_service = rospy.ServiceProxy(pca.__class__.__name__+'_service', GenerateSetPose)
+    # rospy.wait_for_service(dln.__class__.__name__+'_service')
+    # dln_service = rospy.ServiceProxy(dln.__class__.__name__+'_service', GenerateSetPose)
+    # rospy.wait_for_service(kde.__class__.__name__+'_service')
+    # kde_service = rospy.ServiceProxy(kde.__class__.__name__+'_service', GenerateSetPose)
+    # request = GenerateSetPoseRequest()
+    # request.print_evaluation = True
+    #
+    # _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
+    # _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
+    #
+    # _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
+    # _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+    #
+    # while True:
+    #     try:
+    #         request.floor = _floor_cache.getLast()
+    #         request.obstacles = _obstacle_cache.getLast()
+    #         if request.floor is None or request.obstacles is None:
+    #             rospy.sleep(1.0)
+    #             continue
+    #         for service, name in zip([pca_service, dln_service, kde_service], [pca.__class__.__name__,
+    #                                                                            dln.__class__.__name__,
+    #                                                                            kde.__class__.__name__]):
+    #             request.algorithm = name
+    #             rospy.loginfo("[main] %s says %s" % (name, service(request)))
+    #     except rospy.ServiceException as e:
+    #         rospy.logerr("[main] Service %s call failed\n%s" % (name, e.message))
 
     # Evaluation
     # evaluation = EvaluatePoseGenerators([pca, dln, kde])
@@ -1006,8 +1085,6 @@ if __name__ == '__main__':
     # pca_thread.start()
     # dln_thread.start()
     # kde_thread.start()
-
-    # rospy.spin()
 
     # while not rospy.is_shutdown():
     #     a_lst = pca.evaluate()
