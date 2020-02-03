@@ -48,6 +48,7 @@
   <depend>interactive_markers</depend>
   <depend>cmake_modules</depend>
   <depend>geometric_shapes</depend>
+  <depend>message_generation</depend>
 
   <!-- exec_depend>haf_grasping</exec_depend-->
   <exec_depend>ur_kinematics</exec_depend>
