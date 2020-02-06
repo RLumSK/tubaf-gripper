@@ -34,6 +34,7 @@ import sys
 import rospy
 
 from message_filters import Subscriber, Cache
+from std_msgs.msg import Header
 from object_recognition_msgs.msg import TableArray
 from visualization_msgs.msg import MarkerArray
 from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
@@ -60,8 +61,10 @@ if __name__ == '__main__':
     service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
 
     request = GenerateSetPoseRequest()
+    request.header = Header()
+    request.header.stamp = rospy.Time.now()
     request.print_evaluation = True
-    request.algorithm = service_name
+    request.policy = "hl"
 
     _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
     _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
@@ -76,6 +79,7 @@ if __name__ == '__main__':
             if request.floor is None or request.obstacles is None:
                 rospy.sleep(1.0)
                 continue
+            rospy.logdebug("[main] Request:\n%s" % request)
             rospy.loginfo("[main] %s says %s" % (service_name, service(request)))
         except rospy.ServiceException as e:
             rospy.logerr("[main] Service %s call failed\n%s" % (service_name, e.message))

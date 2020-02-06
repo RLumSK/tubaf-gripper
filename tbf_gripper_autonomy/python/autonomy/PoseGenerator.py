@@ -97,9 +97,9 @@ class PoseGeneratorRosInterface:
         self._dbg_pub_projection = rospy.Publisher(_obstacle_topic + "_projected", MarkerArray, queue_size=1)
 
         self.result = np.asarray([0, 0, 0])  # type: np.ndarray
-        self.obs_points = np.asarray([])
-        self.hull_points = np.asarray([])
-        self.lines = []
+        self.obs_points = np.asarray([])  # type np.ndarray
+        self.hull_points = np.asarray([])  # type: np.ndarray
+        self.lines = []  #  type: list
 
     def handle_service_request(self, request):
         """
@@ -110,8 +110,6 @@ class PoseGeneratorRosInterface:
         :rtype: GenerateSetPoseResponse
         """
 
-        if request.algorithm not in type(self).__name__:
-            return GenerateSetPoseResponse()
         ps = self.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
 
         self.result = np.asarray([[ps.pose.position.x, ps.pose.position.y]])
@@ -120,13 +118,21 @@ class PoseGeneratorRosInterface:
 
         response = GenerateSetPoseResponse()
         response.set_pose = ps
-        response.nn_distance = EvaluatePoseGenerators.calc_min_distance(self.result, obstacles.tolist())
-        response.hull_distance = EvaluatePoseGenerators.calc_min_distance(self.result, hull.tolist())
+        response.nn_distance = EvaluatePoseGenerators.calc_min_distance(self.result, obstacles.tolist(), mode="PP")
+        response.hull_distance = EvaluatePoseGenerators.calc_min_distance(self.result, hull.tolist(), mode="PP")
 
         if request.print_evaluation:
             ViewPoseGenerators.print_tex(self)
 
         return response
+
+    def get_name(self):
+        """
+        Returns the name
+        :return: name
+        :rtype: str
+        """
+        return str(self.__class__.__name__)[:-13]
 
     def perform(self):
         """
@@ -135,6 +141,7 @@ class PoseGeneratorRosInterface:
         :rtype: -
         """
         while True:
+            rospy.logdebug("[PoseGeneratorRosInterface.perform] %s is alive" % self.get_name())
             rospy.sleep(0.2)
             self.pub.publish(self.once())
 
@@ -166,15 +173,16 @@ class PoseGeneratorRosInterface:
         :rtype: PoseStamped
         """
         t = current_time
-        if t is None:
+        while t is None:
             t = self._obstacle_cache.getLatestTime()
-        if obstacles_msg is None:
+        while obstacles_msg is None:
             obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
-        if floor_msg is None:
+        while floor_msg is None:
             floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
 
         ps = PoseStamped()
         ps.header = floor_msg.header
+        ps.header.stamp = rospy.Time.now()
         ps.header.stamp = t
 
         if not self.check_messages(obstacles_msg, floor_msg):
@@ -188,13 +196,12 @@ class PoseGeneratorRosInterface:
                                                          self.obs_points[:, :2])  # type: np.ndarray
         if len(valid_points) == 0:
             rospy.logwarn("[PoseGeneratorRosInterface.once()] No obstacle points inside the hull")
-            ps = self.publish_default(floor_msg)
             rospy.sleep(1.0)  # next iteration most likely also without obstacles
-            return ps
+            self.result = np.asarray([floor_msg.tables[0].pose.position.x, floor_msg.tables[0].pose.position.y])
+        else:
+            self.result = self._generate(valid_points, hull=self.hull_points[:, :2])  # type: np.ndarray
 
-        self.result = self._generate(valid_points, hull=self.hull_points[:, :2])  # type: np.ndarray
-        ps = PoseGeneratorRosInterface._as_pose_stamped(self.result.tolist(), floor_msg.tables[0])
-
+        ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
         if len(self.result) == 0:
             self.result = np.hstack([self.result, ps.pose.position.x])
         if len(self.result) == 1:
@@ -213,6 +220,7 @@ class PoseGeneratorRosInterface:
         """
         ps = PoseStamped()
         ps.header = floor_message.header
+        ps.header.stamp = rospy.Time.now()
         ps.pose = floor_message.tables[0].pose
         self.pub.publish(ps)
         return ps
@@ -244,6 +252,19 @@ class PoseGeneratorRosInterface:
         rospy.logwarn("[PoseGeneratorRosInterface.check_messages()] No Obstacles given")
         self.publish_default(flr_msg)
         return False
+
+    def unregister(self):
+        """
+        Skips the subscriptions and publish pipeline - useful if just used as a service
+        :return: -
+        :rtype: -
+        """
+        del self._obstacle_cache
+        del self._floor_cache
+        self._dbg_pub_projection.unregister()
+        self.pub.unregister()
+        del self._dbg_pub_projection
+        del self.pub
 
     @staticmethod
     def calculate_plane_equation(floor_msg):
@@ -371,11 +392,11 @@ class PoseGeneratorRosInterface:
 
     @staticmethod
     def _as_pose_stamped(lst_pos, floor_msg):
-        # type: (list, Table) -> PoseStamped
+        # type: (np.ndarray, Table) -> PoseStamped
         """
         Generate the target pose for the given position by using the orientation of the plane
         :param lst_pos: position [x, y, z]
-        :type lst_pos: list
+        :type lst_pos: np.ndarray
         :param floor_msg: floor plane
         :type floor_msg: Table
         :return: target pose
@@ -700,36 +721,44 @@ class ViewPoseGenerators(object):
         else:
             ViewPoseGenerators._plot(generator, ax)
             g = generator
-            name = g.__class__.__name__
+            name = g.get_name()
 
         # Text
         if g.subsample > 1.0:
-            fig.text(0.15, 0.01, "Subsample every " + str(g.subsample) + "th")
+            txt = fig.text(0.15, 0.01, "Teilstichprobe mit jeden " + str(g.subsample) + "ten Hindernis")
         else:
-            fig.text(0.15, 0.01, "Subsample " + str(g.subsample * 100.0) + "%")
+            txt = fig.text(0.15, 0.01, "Teilstichprobe mit " + str(g.subsample * 100.0) + "% der Hindernisse")
 
-        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
-                   ncol=2, mode="expand", borderaxespad=0.)
+        def legend_without_duplicate_labels(axis):
+            handles, labels = axis.get_legend_handles_labels()
+            unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
+            return axis.legend(*zip(*unique), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=2, mode="expand",
+                               borderaxespad=0.)
 
+        lgd = legend_without_duplicate_labels(ax)
+
+        if not os.path.exists(save_dir):
+            rospy.logwarn("[ViewPoseGenerators.print_tex] Creating '%s' to store plots" % save_dir)
+            os.makedirs(save_dir)
         p = os.path.join(save_dir, str(rospy.Time.now().to_nsec())+name)
-        plt.savefig(p+".pdf")
-        plt.savefig(p+".pgf")
+        plt.savefig(p+".pdf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
+        plt.savefig(p+".pgf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
 
     @staticmethod
     def _plot(generator, ax):
-        n = generator.__class__.__name__
+        n = generator.get_name()
         c = ViewPoseGenerators.get_color(n)
         ax.plot(generator.result[0, 0], generator.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
         for lne in generator.lines:
-            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5.0)
+            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5.0, label=n+" Hilfslinien")
 
         as_array = np.asarray(generator.obs_points)
-        n = "Obstacles"
+        n = "Hindernisse"
         ax.plot(as_array[:, 0], as_array[:, 1], '.', label=n, zorder=3.5, color=ViewPoseGenerators.get_color(n))
         hull = generator.hull_points.tolist()
         hull.append(hull[0])
         as_array = np.asarray(hull)
-        n = "Groundarea"
+        n = "Boden"
         ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=n, zorder=4.5, color=ViewPoseGenerators.get_color(n))
 
     def __init__(self, lst_generator):
@@ -750,7 +779,7 @@ class ViewPoseGenerators(object):
             while len(generator.obs_points) == 0:
                 rospy.sleep(1.0)
                 generator.once()
-                name = generator.__class__.__name__
+                name = generator.get_name()
                 self.pnt_axes[id(generator)], = self.ax.plot(generator.result[0], generator.result[1], 'o', ms=12,
                                                              zorder=4.0, color=ViewPoseGenerators.get_color(name),
                                                              label=name)
@@ -843,24 +872,40 @@ class EvaluatePoseGenerators(object):
     """
 
     @staticmethod
-    def calc_min_distance(point, lst_points):
+    def calc_min_distance(point, lst_points, mode="PP"):
         """
         Given a point, calculate the minimal distance to a list of points
         :param point: point of interest
         :type point: np.ndarray
         :param lst_points: list of points to test against
         :type lst_points: list
+        :param type: PP - point to point distance, PL - point to line distance
+        :type mode: str
         :return: minimal distance
         :rtype: float
         """
-        # See: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise_distances_argmin_min.html
-        from sklearn.metrics import pairwise_distances_argmin_min
         rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] point = %s" % point)
         rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] len(lst_points) = %s" % len(lst_points))
-        min_i, distances = pairwise_distances_argmin_min(point, lst_points)
-        # rospy.loginfo("[EvaluatePoseGenerators.calc_min_distance()] min_i = %g" % min_i)
-        # rospy.loginfo("[EvaluatePoseGenerators.calc_min_distance()] distances = %s" % distances)
-        return distances[0]
+        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] mode = %s" % mode)
+        if "PP" in mode:
+            # See: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise_distances_argmin_min.html
+            from sklearn.metrics import pairwise_distances_argmin_min
+            min_i, distances = pairwise_distances_argmin_min(point, lst_points)
+            return distances[0]
+        elif "PL" in mode:
+            min_d = float('inf')
+            p1 = point
+            p3 = np.asarray(lst_points[0])
+            for i in range(1, len(lst_points)):
+                p2 = p3
+                p3 = np.asarray(lst_points[i])
+                d = np.linalg.norm(np.cross(p2-p1, p1-p3))/np.linalg.norm(p2-p1)
+                if d < min_d:
+                    min_d = d
+            return min_d
+        else:
+            rospy.logwarn("[EvaluatePoseGenerators.calc_min_distance()] unknown mode %s" % mode)
+            return float('NaN')
 
     def __init__(self, generators):
         """
@@ -934,8 +979,8 @@ class EvaluatePoseGenerators(object):
             if len(hull) == 0 or len(obstacles) == 0:
                 return
             try:
-                hull_distance = EvaluatePoseGenerators.calc_min_distance(result, hull)
-                obstacle_distance = EvaluatePoseGenerators.calc_min_distance(result, obstacles)
+                hull_distance = EvaluatePoseGenerators.calc_min_distance(result, hull, mode="PL")
+                obstacle_distance = EvaluatePoseGenerators.calc_min_distance(result, obstacles, mode="PP")
                 self.dct_lst_min_hull_distance[ident].append(hull_distance)
                 self.dct_lst_min_obstacle_distance[ident].append(obstacle_distance)
                 rospy.logdebug("[EvaluatePoseGenerators.run() - %s] Min(Distance2Hull) = %g" %
@@ -991,133 +1036,3 @@ class EvaluatePoseGenerators(object):
 
         plt.draw()
         plt.pause(0.01)
-
-
-if __name__ == '__main__':
-    rospy.init_node("test_SetPoseGenerator", log_level=rospy.INFO)
-    rospy.logdebug("{test_SetPoseGenerator.main()} starting")
-    pub_topic = rospy.get_param("~pub_topic", "target_pose")
-
-    pca = PcaPoseGenerator(pub_topic + "_pca")
-    dln = DelaunayPoseGenerator(pub_topic + "_dln")
-    kde = MinimalDensityEstimatePoseGenerator(pub_topic + "_kde")
-
-    def combined_service_request(request):
-        if request.algorithm not in 'AllSetPoseGenerator_service':
-            return GenerateSetPoseResponse()
-        max_nn = 0
-        max_hl = 0
-        ps_nn = PoseStamped()
-        ps_hl = PoseStamped()
-        for g in [pca, dln, kde]:  # type:
-            ps = g.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
-
-            g.result = np.asarray([[ps.pose.position.x, ps.pose.position.y]])
-            hull = g.hull_points[:, :2]  # type: np.ndarray
-            obstacles = g.obs_points[:, :2]  # type: np.ndarray
-
-            d_nn = EvaluatePoseGenerators.calc_min_distance(g.result, obstacles.tolist())
-            if max_nn < d_nn:
-                max_nn = d_nn
-                ps_nn = ps
-            d_hl = EvaluatePoseGenerators.calc_min_distance(g.result, hull.tolist())
-            if max_hl < d_hl:
-                max_hl = d_hl
-                ps_hl = ps
-
-        if request.print_evaluation:
-            ViewPoseGenerators.print_tex([pca, dln, kde])
-
-        response = GenerateSetPoseResponse()
-        response.set_pose = ps_nn
-        response.nn_distance = max_nn
-        response.hull_distance = max_hl
-
-        return response
-
-    combined_service = rospy.Service('AllSetPoseGenerator_service', GenerateSetPose,  combined_service_request)
-
-    rospy.spin()
-
-    # # Test Service
-    # rospy.wait_for_service(pca.__class__.__name__+'_service')
-    # pca_service = rospy.ServiceProxy(pca.__class__.__name__+'_service', GenerateSetPose)
-    # rospy.wait_for_service(dln.__class__.__name__+'_service')
-    # dln_service = rospy.ServiceProxy(dln.__class__.__name__+'_service', GenerateSetPose)
-    # rospy.wait_for_service(kde.__class__.__name__+'_service')
-    # kde_service = rospy.ServiceProxy(kde.__class__.__name__+'_service', GenerateSetPose)
-    # request = GenerateSetPoseRequest()
-    # request.print_evaluation = True
-    #
-    # _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
-    # _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
-    #
-    # _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
-    # _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
-    #
-    # while True:
-    #     try:
-    #         request.floor = _floor_cache.getLast()
-    #         request.obstacles = _obstacle_cache.getLast()
-    #         if request.floor is None or request.obstacles is None:
-    #             rospy.sleep(1.0)
-    #             continue
-    #         for service, name in zip([pca_service, dln_service, kde_service], [pca.__class__.__name__,
-    #                                                                            dln.__class__.__name__,
-    #                                                                            kde.__class__.__name__]):
-    #             request.algorithm = name
-    #             rospy.loginfo("[main] %s says %s" % (name, service(request)))
-    #     except rospy.ServiceException as e:
-    #         rospy.logerr("[main] Service %s call failed\n%s" % (name, e.message))
-
-    # Evaluation
-    # evaluation = EvaluatePoseGenerators([pca, dln, kde])
-    # evaluation.perform(samples=rospy.get_param("~n_samples", 1000))
-
-    # Test all
-    # import threading
-    # pca_thread = threading.Thread(target=pca.perform)
-    # dln_thread = threading.Thread(target=dln.perform)
-    # kde_thread = threading.Thread(target=kde.perform)
-    # pca_thread.daemon = True
-    # dln_thread.daemon = True
-    # kde_thread.daemon = True
-    # pca_thread.start()
-    # dln_thread.start()
-    # kde_thread.start()
-
-    # while not rospy.is_shutdown():
-    #     a_lst = pca.evaluate()
-    #     if a_lst is None:
-    #         continue
-    #     pca_h_min, pca_o_min = a_lst
-    #     dln_h_min, dln_o_min = dln.evaluate()
-    #     kde_h_min, kde_o_min = kde.evaluate()
-    #
-    #     i = np.argmin(pca_h_min, dln_h_min, kde_h_min)
-    #     if i == 0:
-    #         print("Minimal Hull distance - %s" % pca.get_name())
-    #     elif i == 1:
-    #         print("Minimal Hull distance - %s" % dln.get_name())
-    #     else:
-    #         print("Minimal Hull distance - %s" % kde.get_name())
-    #
-    #     i = np.argmin(pca_o_min, dln_o_min, kde_o_min)
-    #     if i == 0:
-    #         print("Minimal Obstacle distance - %s" % pca.get_name())
-    #     elif i == 1:
-    #         print("Minimal Obstacle distance - %s" % dln.get_name())
-    #     else:
-    #         print("Minimal Obstacle distance - %s" % kde.get_name())
-
-    # plt.ion()
-    # lst = [kde, dln, pca]
-    # view = ViewPoseGenerators(lst)
-    # r = rospy.Rate(1.0)
-    # while not rospy.is_shutdown():
-    #     now = rospy.Time.now()
-    #     for g in lst:
-    #         g.once()
-    #     view.view()
-    #     rospy.logdebug("{test_SetPoseGenerator.main()} sleeping")
-    #     r.sleep()

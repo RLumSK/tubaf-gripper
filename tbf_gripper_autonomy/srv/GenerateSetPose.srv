@@ -2,7 +2,7 @@
 Header header
 object_recognition_msgs/TableArray floor
 visualization_msgs/MarkerArray obstacles
-string  algorithm
+string  policy
 bool    print_evaluation
 ---
 # Response
