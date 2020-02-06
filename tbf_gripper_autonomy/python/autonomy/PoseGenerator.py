@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Software License Agreement (BSD License)
 #
 # Copyright (c) 2020, TU Bergakademie Freiberg
@@ -47,7 +48,8 @@ from geometry_msgs.msg import PoseStamped, Point
 from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
 
 import matplotlib
-matplotlib.use('Qt5Agg')
+
+matplotlib.use('Qt5Cairo')
 from pylab import *
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -99,7 +101,7 @@ class PoseGeneratorRosInterface:
         self.result = np.asarray([0, 0, 0])  # type: np.ndarray
         self.obs_points = np.asarray([])  # type np.ndarray
         self.hull_points = np.asarray([])  # type: np.ndarray
-        self.lines = []  #  type: list
+        self.lines = []  # type: list
 
     def handle_service_request(self, request):
         """
@@ -122,7 +124,7 @@ class PoseGeneratorRosInterface:
         response.hull_distance = EvaluatePoseGenerators.calc_min_distance(self.result, hull.tolist(), mode="PP")
 
         if request.print_evaluation:
-            ViewPoseGenerators.print_tex(self)
+            print_tex(self)
 
         return response
 
@@ -142,7 +144,6 @@ class PoseGeneratorRosInterface:
         """
         while True:
             rospy.logdebug("[PoseGeneratorRosInterface.perform] %s is alive" % self.get_name())
-            rospy.sleep(0.2)
             self.pub.publish(self.once())
 
     def get_messages(self, current_time=None):
@@ -359,6 +360,18 @@ class PoseGeneratorRosInterface:
                 ss = self.subsample
             else:
                 ss = int(len(obstacle.points) * self.subsample)
+            if ss == 0:
+                rospy.logwarn("[PoseGeneratorRosInterface.extract_points] Given %g points and a subsampling rate of %g "
+                              "we use %g points - impossible, hence useing at least one" %
+                              (len(obstacle.points), self.subsample, len(obstacle.points) * self.subsample))
+                point = obstacle.points[len(obstacle.points) % 42]
+                prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
+                obs_points.append(prjt_pnt)
+                point.x = prjt_pnt[0]
+                point.y = prjt_pnt[1]
+                point.z = prjt_pnt[2]
+                dbg_pnts.append(point)
+                continue
             for point in obstacle.points:  # type: Point
                 i += 1
                 if i % ss != 0 and len(obs_points) != 0:
@@ -443,7 +456,82 @@ class PoseGeneratorRosInterface:
         return np.asarray(valid_sample)
 
 
-class PcaPoseGenerator(PoseGeneratorRosInterface):
+@add_metaclass(abc.ABCMeta)
+class PoseGeneratorRosView(PoseGeneratorRosInterface):
+    """
+    Implement a matplotlib interface for the generic PoseGeneratorRosInterface class - still abstract tho
+    """
+
+    @staticmethod
+    def get_color(name):
+        """
+        Return a color identifier for the given name
+        See: https://matplotlib.org/2.0.2/api/colors_api.html
+        :param name: custom name, eg DelaunayPoseGenerator
+        :type name: str
+        :return: color_id
+        :rtype: char
+        """
+        if "stacle" in name or "indernis" in name:
+            return 'C0'
+        elif "roundarea" in name or "oden" in name:
+            return 'C1'
+        elif "elaunay" in name:
+            return 'C2'
+        elif "inimalDensityEstimate" in name:
+            return 'C3'
+        elif "ca" in name:
+            return 'C4'
+        else:
+            return 'C5'
+
+    def __init__(self, topic):
+        """
+        Default constructor
+        :param topic: Topic where the calculated pose gets published
+        :type topic: str
+        """
+        super(PoseGeneratorRosView, self).__init__(topic)
+
+    def plot(self, ax, hull=True, obstacles=True):
+        """
+        Plot the information of this PoseGenerator into an outside existing matplotlib figure
+        :param hull: plot the hull
+        :type hull: bool
+        :param obstacles: plot the obstacles
+        :type obstacles: bool
+        :param ax: axis handle
+        :type ax: plt.axes.Axis
+        :return: data point axis
+        :rtype: plt.axes.Axis
+        """
+        n = self.get_name()
+        c = PoseGeneratorRosView.get_color(n)
+        if len(self.result.shape) == 1 and self.result.shape[0] == 3:
+            self.result = np.asarray([self.result])
+        ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
+        for lne in self.lines:
+            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5.0,
+                    label=n + " Hilfslinien")
+
+        as_array = np.asarray(self.obs_points)
+        if obstacles:
+            n = "Hindernisse"
+            ax.plot(as_array[:, 0], as_array[:, 1], '.', label=n, zorder=3.5, color=PoseGeneratorRosView.get_color(n))
+        if hull:
+            hull = self.hull_points.tolist()
+            hull.append(hull[0])
+            as_array = np.asarray(hull)
+            n = "Boden"
+            ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=n, zorder=4.5, color=PoseGeneratorRosView.get_color(n))
+        return ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
+
+    # @abc.abstractmethod
+    # def _generate(self, lst_obs_points, hull=None):
+    #     pass
+
+
+class PcaPoseGenerator(PoseGeneratorRosView):
 
     def __init__(self, topic):
         """
@@ -523,7 +611,7 @@ class PcaPoseGenerator(PoseGeneratorRosInterface):
         return np.asarray(p)
 
 
-class DelaunayPoseGenerator(PoseGeneratorRosInterface):
+class DelaunayPoseGenerator(PoseGeneratorRosView):
 
     def __init__(self, topic):
         """
@@ -601,7 +689,7 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
                                             _delaunay.points[max_idx[2]]]))
 
 
-class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
+class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
     """
     Determine the Pose using KDE and discretization
     """
@@ -614,6 +702,9 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
         """
         super(MinimalDensityEstimatePoseGenerator, self).__init__(topic)
         self.n_bins = rospy.get_param("~n_bins", 10)
+        # self.hlp_xx, self.hlp_yy = np.mgrid[-1:1: self.n_bins * 1j, -1:1: self.n_bins * 1j]
+        self.hlp_positions = np.zeros((self.n_bins **2, 2))
+        self.hlp_f = np.zeros(self.n_bins **2)
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -630,240 +721,168 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
             hull = []
         hull = np.asarray(hull)
 
-        from sklearn.neighbors import KernelDensity
+        # see: https://stackoverflow.com/questions/30145957/plotting-2d-kernel-density-estimation-with-python
+        import scipy.stats as st
+        x = np.concatenate((lst_obs_points[:, 0], hull[:, 0]))
+        y = np.concatenate((lst_obs_points[:, 1], hull[:, 1]))
+        xmin, xmax = min(hull[:, 0]), max(hull[:, 0])
+        ymin, ymax = min(hull[:, 1]), max(hull[:, 1])
 
-        def kde2D(X, area=np.asarray([]), bandwidth=0.25, xbins=100j, ybins=100j, **kwargs):
-            """Build 2D kernel density estimate (KDE)."""
-            x_pnts = X[:, 0]
-            y_pnts = X[:, 1]
-            # create grid of valid_sample locations (default: 100x100)
-            if len(area) == 0:
-                x = x_pnts
-                y = y_pnts
-            else:
-                x = area[:, 0]
-                y = area[:, 1]
-            xx, yy = np.mgrid[x.min():x.max():xbins, y.min():y.max():ybins]
-            xy_sample = np.vstack([xx.ravel(), yy.ravel()]).T
+        # Peform the kernel density estimate
+        xx, yy = np.mgrid[xmin:xmax: self.n_bins * 1j, ymin:ymax: self.n_bins * 1j]
+        all_positions = np.vstack([xx.ravel(), yy.ravel()]).T
+        positions = PoseGeneratorRosInterface.in_hull(Delaunay(hull[:, :2], qhull_options="Pp"),  all_positions)
+        values = np.vstack([x, y])
+        kernel = st.gaussian_kde(values)
+        # print all_positions.shape  # n_bins **2 x 2
+        # print positions.shape  # i x 2, i < n_bins**2
+        # print xx.shape # n_bins x n_bins
+        self.hlp_f = kernel(all_positions.T)
+        self.hlp_positions = all_positions
+        z_i = np.argmin(kernel(positions.T))
+        z_x = positions[z_i, 0]
+        z_y = positions[z_i, 1]
 
-            if len(area) > 0:
-                valid_sample = PoseGeneratorRosInterface.in_hull(Delaunay(area[:, :2], qhull_options="Pp"), xy_sample)
-            else:
-                valid_sample = xy_sample
-            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] len(area) = %g, len(valid_sample) = %g/%g" %
-                           (len(area), len(valid_sample), (xbins * ybins).real * -1))
+        # from sklearn.neighbors import KernelDensity
+        #
+        # # def kde2D(X, area=np.asarray([]), bandwidth=0.25, xbins=100j, ybins=100j, **kwargs):
+        # X = lst_obs_points
+        # area = hull
+        # xbins = self.n_bins * 1j
+        # ybins = self.n_bins * 1j
+        # """Build 2D kernel density estimate (KDE)."""
+        # x_pnts = X[:, 0]
+        # y_pnts = X[:, 1]
+        # # create grid of valid_sample locations (default: 100x100)
+        # if len(area) == 0:
+        #     x = x_pnts
+        #     y = y_pnts
+        # else:
+        #     x = area[:, 0]
+        #     y = area[:, 1]
+        # xx, yy = np.mgrid[x.min():x.max():xbins, y.min():y.max():ybins]
+        # xy_sample = np.vstack([xx.ravel(), yy.ravel()]).T
+        #
+        # if len(area) > 0:
+        #     valid_sample = PoseGeneratorRosInterface.in_hull(Delaunay(area[:, :2], qhull_options="Pp"), xy_sample)
+        # else:
+        #     valid_sample = xy_sample
+        # rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] len(area) = %g, len(valid_sample) = %g/%g" %
+        #                (len(area), len(valid_sample), (xbins * ybins).real * -1))
+        #
+        # xy_train = np.vstack([x_pnts, y_pnts]).T
+        #
+        # kde_skl = KernelDensity(kernel='gaussian', bandwidth=0.25)
+        # kde_skl.fit(xy_train)
+        #
+        # # score_samples() returns the log-likelihood of the samples
+        # z = np.exp(kde_skl.score_samples(valid_sample))
+        # z_i = np.argmin(z)
+        # z_x = valid_sample[z_i, 0]
+        # z_y = valid_sample[z_i, 1]
+        # rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z_i=%s, value=%g" % (z_i, z[z_i]))
+        # rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z= %g, %g" % (z_x, z_y))
+        return np.asarray([z_x, z_y])
 
-            xy_train = np.vstack([x_pnts, y_pnts]).T
+        # [x, y] = kde2D(lst_obs_points, area=hull, xbins=self.n_bins * 1j, ybins=self.n_bins * 1j)
+        # return np.asarray([x, y])
 
-            kde_skl = KernelDensity(kernel='gaussian', bandwidth=bandwidth, **kwargs)
-            kde_skl.fit(xy_train)
-
-            # score_samples() returns the log-likelihood of the samples
-            z = np.exp(kde_skl.score_samples(valid_sample))
-            z_i = np.argmin(z)
-            z_x = valid_sample[z_i, 0]
-            z_y = valid_sample[z_i, 1]
-            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z_i=%s, value=%g" % (z_i, z[z_i]))
-            rospy.logdebug("[DistanceFieldPoseGenerator._generate().kde2D] z= %g, %g" % (z_x, z_y))
-
-            return np.asarray([z_x, z_y])
-
-        [x, y] = kde2D(lst_obs_points, area=hull, xbins=self.n_bins * 1j, ybins=self.n_bins * 1j)
-        return np.asarray([x, y])
-
-
-class ViewPoseGenerators(object):
-
-    @staticmethod
-    def get_color(name):
+    def plot(self, ax, hull=True, obstacles=True):
         """
-        Return a color identifier for the given name
-        See: https://matplotlib.org/2.0.2/api/colors_api.html
-        :param name: custom name, eg DelaunayPoseGenerator
-        :type name: str
-        :return: color_id
-        :rtype: char
+        Plot the information of this PoseGenerator into an outside existing matplotlib figure
+        :param hull: plot the hull
+        :type hull: bool
+        :param obstacles: plot the obstacles
+        :type obstacles: bool
+        :param ax: axis handle
+        :type ax: plt.axes.Axis
+        :return: data point axis
+        :rtype: plt.axes.Axis
         """
-        if "stacle" in name:
-            return 'C0'
-        elif "roundarea" in name:
-            return 'C1'
-        elif "elaunay" in name:
-            return 'C2'
-        elif "inimalDensityEstimate" in name:
-            return 'C3'
-        elif "ca" in name:
-            return 'C4'
-        else:
-            return 'C5'
+        ret_ax = super(MinimalDensityEstimatePoseGenerator, self).plot(ax, hull, obstacles)
+        l = int(np.sqrt(len(self.hlp_f)))
+        xmin, xmax = min(self.hlp_positions[:, 0]), max(self.hlp_positions[:, 0])
+        ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
+        xx, yy = np.mgrid[xmin:xmax:l*1j, ymin:ymax:l*1j]
+        f = np.reshape(self.hlp_f[:l**2].T, xx.shape)
+        cfset = ax.contourf(xx, yy, f, cmap='Blues')
+        cset = ax.contour(xx, yy, f, colors='k')
+        ax.clabel(cset, inline=1, fontsize=10)
 
-    @staticmethod
-    def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"):
-        """
-        Save the current state in a LaTeX conform plot
-        :param generator: pose generator after at least one computation, or alist of them
-        :type generator: PoseGeneratorRosInterface or list
-        :param save_dir: directory where the plots are stored
-        :type save_dir: str
-        :return: -
-        :rtype: -
-        """
-        plt.cla()
-        plt.clf()
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlim(-1, 1)
-        ax.set_ylim(-1, 1)
-        if type(generator) is list:
-            for g in generator:
-                ViewPoseGenerators._plot(g, ax)
-            name = "all"
-        else:
-            ViewPoseGenerators._plot(generator, ax)
-            g = generator
-            name = g.get_name()
+        return ret_ax
 
-        # Text
-        if g.subsample > 1.0:
-            txt = fig.text(0.15, 0.01, "Teilstichprobe mit jeden " + str(g.subsample) + "ten Hindernis")
-        else:
-            txt = fig.text(0.15, 0.01, "Teilstichprobe mit " + str(g.subsample * 100.0) + "% der Hindernisse")
 
-        def legend_without_duplicate_labels(axis):
-            handles, labels = axis.get_legend_handles_labels()
-            unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-            return axis.legend(*zip(*unique), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=2, mode="expand",
-                               borderaxespad=0.)
+def view_all(lst_generator, show=True):
+    """
+    Plot all given generators into one figure
+    :param show: [optional] show the plot
+    :type show: bool
+    :param lst_generator: list of pose generators of type PoseGeneratorRosView
+    :type lst_generator: list()
+    :return: figure handle, legend_handle, text handle
+    :rtype: plt.Figure, plt.legend.Legend, plt.text.Text
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(*ax.get_xlim())
+    for generator in lst_generator:  # type: PoseGeneratorRosView
+        if len(generator.obs_points) == 0:
+            continue
+        generator.plot(ax, hull=False, obstacles=False)
+    as_array = np.asarray(lst_generator[-1].obs_points)
+    name = "Hindernisse"
+    ax.plot(as_array[:, 0], as_array[:, 1], '.', label=name, zorder=3.5, color=PoseGeneratorRosView.get_color(name))
+    hull = lst_generator[-1].hull_points.tolist()
+    hull.append(hull[0])
+    as_array = np.asarray(hull)
+    name = "Boden"
+    ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=name, zorder=4.5, color=PoseGeneratorRosView.get_color(name))
 
-        lgd = legend_without_duplicate_labels(ax)
+    # Text
+    if lst_generator[-1].subsample > 1.0:
+        txt = fig.text(0.15, 0.01, "Teilstichprobe alle " + str(lst_generator[-1].subsample) + " Hindernisse")
+    else:
+        txt = fig.text(0.15, 0.01, "Teilstichprobe mit " + str(lst_generator[-1].subsample * 100.0) + "% der Hindernisse")
 
-        if not os.path.exists(save_dir):
-            rospy.logwarn("[ViewPoseGenerators.print_tex] Creating '%s' to store plots" % save_dir)
-            os.makedirs(save_dir)
-        p = os.path.join(save_dir, str(rospy.Time.now().to_nsec())+name)
-        plt.savefig(p+".pdf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
-        plt.savefig(p+".pgf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
-
-    @staticmethod
-    def _plot(generator, ax):
-        n = generator.get_name()
-        c = ViewPoseGenerators.get_color(n)
-        ax.plot(generator.result[0, 0], generator.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
-        for lne in generator.lines:
-            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5.0, label=n+" Hilfslinien")
-
-        as_array = np.asarray(generator.obs_points)
-        n = "Hindernisse"
-        ax.plot(as_array[:, 0], as_array[:, 1], '.', label=n, zorder=3.5, color=ViewPoseGenerators.get_color(n))
-        hull = generator.hull_points.tolist()
-        hull.append(hull[0])
-        as_array = np.asarray(hull)
-        n = "Boden"
-        ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=n, zorder=4.5, color=ViewPoseGenerators.get_color(n))
-
-    def __init__(self, lst_generator):
-        """
-        Default constructor for PoseGeneratorRosInterface
-        :param lst_generator: list with objects to view
-        :type lst_generator: list of PoseGeneratorRosInterface
-        """
-
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(1, 1, 1)
-        self.ax.set_xlim(-1, 1)
-        self.ax.set_ylim(-1, 1)
-        self.pnt_axes = {}
-        self.lne_axis = {}
-        self.lst_generator = lst_generator
-        for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
-            while len(generator.obs_points) == 0:
-                rospy.sleep(1.0)
-                generator.once()
-                name = generator.get_name()
-                self.pnt_axes[id(generator)], = self.ax.plot(generator.result[0], generator.result[1], 'o', ms=12,
-                                                             zorder=4.0, color=ViewPoseGenerators.get_color(name),
-                                                             label=name)
-                color = self.pnt_axes[id(generator)].get_color()
-                for lne in generator.lines:
-                    if not id(generator) in self.lne_axis:
-                        self.lne_axis[id(generator)] = []
-                    self.lne_axis[id(generator)].append(
-                        self.ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=color, alpha=0.75,
-                                     zorder=5.0))
-        as_array = np.asarray(lst_generator[-1].obs_points)
-        name = "Obstacles"
-        self.obs_axis, = self.ax.plot(as_array[:, 0], as_array[:, 1], '.', label=name, zorder=3.5,
-                                      color=ViewPoseGenerators.get_color(name))
-        hull = lst_generator[-1].hull_points.tolist()
-        hull.append(hull[0])
-        as_array = np.asarray(hull)
-        name = "Groundarea"
-        self.hull_axis, = self.ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=name, zorder=4.5,
-                                       color=ViewPoseGenerators.get_color(name))
-
-        # Text
-        if lst_generator[-1].subsample > 1.0:
-            self.fig.text(0.15, 0.01, "Subsample every " + str(lst_generator[-1].subsample) + "th")
-        else:
-            self.fig.text(0.15, 0.01, "Subsample " + str(lst_generator[-1].subsample * 100.0) + "%")
-
+    def legend_without_duplicate_labels(axis):
+        handles, labels = axis.get_legend_handles_labels()
+        unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
         # Place a legend above this subplot, expanding itself to
         # fully use the given bounding box.
-        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
-                   ncol=2, mode="expand", borderaxespad=0.)
-        plt.ion()
+        return axis.legend(*zip(*unique), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=2,
+                           mode="expand", borderaxespad=0.)
+
+    lgd = legend_without_duplicate_labels(ax)
+
+    if show:
         plt.show()
+    return fig, lgd, txt
 
-    def view(self):
-        """
-        view it
-        """
-        try:
-            # Update Obstacles
-            as_array = np.asarray(self.lst_generator[-1].obs_points)
-            if len(as_array) != 0 and len(as_array[0]) > 0:
-                self.obs_axis.set_xdata(as_array[:, 0])
-                self.obs_axis.set_ydata(as_array[:, 1])
-            else:
-                return
-            # Update Hull
-            hull = self.lst_generator[-1].hull_points.tolist()
-            hull.append(hull[0])
-            as_array = np.asarray(hull)
-            if len(as_array) != 0 and len(as_array[0]) > 0:
-                self.hull_axis.set_xdata(as_array[:, 0])
-                self.hull_axis.set_ydata(as_array[:, 1])
-            else:
-                self.hull_axis.set_xdata(np.asarray([]))
-                self.hull_axis.set_ydata(np.asarray([]))
-            # Update generated positions
-            for generator in self.lst_generator:  # type: PoseGeneratorRosInterface
-                self.pnt_axes[id(generator)].set_xdata(generator.result[0])
-                self.pnt_axes[id(generator)].set_ydata(generator.result[1])
 
-                if not id(generator) in self.lne_axis:
-                    continue
-
-                for lne2d, lne in zip(self.lne_axis[id(generator)], generator.lines):  # type: (plt.Line2D, list)
-                    lne2d[0].set_data([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]])
-                # # Remove previous lines:
-                # for lne2d in self.lne_axis[id(generator)]:  # type: plt.Line2D
-                #     self.ax.lines.remove(lne2d[0])
-                # self.lne_axis[id(generator)] = []
-                # # Add new lines
-                # for lne in generator.lines:
-                #     self.lne_axis[id(generator)].append(
-                #         self.ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], 'g-'))
-
-            # Redraw
-            self.fig.canvas.draw()
-            self.fig.canvas.flush_events()
-
-            # See: https://stackoverflow.com/questions/28269157/plotting-in-a-non-blocking-way-with-matplotlib
-            plt.pause(0.1)
-        except Exception as ex:
-            rospy.logwarn("[ViewPoseGenerators.view()] Exception occurred\n%s" % ex)
-        rospy.logdebug("[ViewPoseGenerators.view()] Finished")
+def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"):
+    """
+    Save the current state in a LaTeX conform plot
+    :param generator: pose generator after at least one computation, or alist of them
+    :type generator: PoseGeneratorRosView or list
+    :param save_dir: directory where the plots are stored
+    :type save_dir: str
+    :return: -
+    :rtype: -
+    """
+    # plt.cla()
+    # plt.clf()
+    fig, lgd, txt = view_all(generator, show=False)
+    if not os.path.exists(save_dir):
+        rospy.logwarn("[print_tex] Creating '%s' to store plots" % save_dir)
+        os.makedirs(save_dir)
+    if type(generator) is list:
+        name = "all"
+    else:
+        name = generator.get_name()
+    p = os.path.join(save_dir, str(rospy.Time.now().to_nsec()) + name)
+    plt.savefig(p + ".pdf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
+    plt.savefig(p + ".pgf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
 
 
 class EvaluatePoseGenerators(object):
@@ -899,7 +918,7 @@ class EvaluatePoseGenerators(object):
             for i in range(1, len(lst_points)):
                 p2 = p3
                 p3 = np.asarray(lst_points[i])
-                d = np.linalg.norm(np.cross(p2-p1, p1-p3))/np.linalg.norm(p2-p1)
+                d = np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(p2 - p1)
                 if d < min_d:
                     min_d = d
             return min_d
@@ -927,8 +946,6 @@ class EvaluatePoseGenerators(object):
             self.dct_count_largest_hull_distance[ident] = 0
             self.dct_count_largest_obstacle_distance[ident] = 0
 
-        self.view = ViewPoseGenerators(self._generators)
-
     def perform(self, timeout=1.0, samples=1000):
         """
         Evaluate the generator for samples
@@ -944,7 +961,6 @@ class EvaluatePoseGenerators(object):
         while not rospy.is_shutdown() and i <= n_samples:
             self.run()
             rospy.loginfo("[EvaluatePoseGenerators.perform()] %g/%g" % (i, n_samples))
-            self.view.view()
             rospy.sleep(timeout)
             i += 1
         self.evaluate()
@@ -1029,10 +1045,10 @@ class EvaluatePoseGenerators(object):
 
         my_colors = []
         for k in self.dct_lst_min_hull_distance.keys():
-            my_colors.append(ViewPoseGenerators.get_color(k))
+            my_colors.append(PoseGeneratorRosView.get_color(k))
         n_bin = 20
-        df_hull.plot.hist(bins=n_bin, rot=0, title='Distance to hull', color=my_colors)
-        df_obst.plot.hist(bins=n_bin, rot=0, title='Distance to nearest obstacle', color=my_colors)
+        df_hull.plot.hist(bins=n_bin, rot=0, title='Abstand zur konvexen Hü\"ulle', color=my_colors)
+        df_obst.plot.hist(bins=n_bin, rot=0, title='Abstand zum nächsten Hindernis', color=my_colors)
 
         plt.draw()
         plt.pause(0.01)

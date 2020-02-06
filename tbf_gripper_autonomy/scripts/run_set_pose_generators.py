@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Software License Agreement (BSD License)
 #
 # Copyright (c) 2020, TU Bergakademie Freiberg
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     lst_generators = [pca, dln, kde]
 
     if rospy.get_param("~as_service", True):
-        from autonomy.PoseGenerator import ViewPoseGenerators
+        from autonomy.PoseGenerator import print_tex
         from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
         # for g in lst_generators:  # type: PoseGeneratorRosInterface
         #     g.unregister()
@@ -75,7 +76,7 @@ if __name__ == '__main__':
                     max_hl = d_hl
                     i_hl = i
             if request.print_evaluation:
-                ViewPoseGenerators.print_tex([pca, dln, kde])
+                print_tex(lst_generators)
 
             response = GenerateSetPoseResponse()
             if "nn" in request.policy or "nearest" in request.policy:
@@ -105,27 +106,25 @@ if __name__ == '__main__':
         rospy.spin()
     else:
         # Run in a loop
-        from threading import Thread
-        lst_thread = []
-        for g in lst_generators:  # type: PoseGeneratorRosInterface
-            lst_thread.append(Thread(target=g.perform))
-            lst_thread[-1].daemon = True
-            lst_thread[-1].start()
-        while not rospy.is_shutdown():
-            rospy.spin()
-        for thread in lst_thread:  # type: Thread
-            thread.join()
+        _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
+        _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
 
-    # # Test Service
-    # rospy.wait_for_service(pca.__class__.__name__+'_service')
-    # pca_service = rospy.ServiceProxy(pca.__class__.__name__+'_service', GenerateSetPose)
-    # rospy.wait_for_service(dln.__class__.__name__+'_service')
-    # dln_service = rospy.ServiceProxy(dln.__class__.__name__+'_service', GenerateSetPose)
-    # rospy.wait_for_service(kde.__class__.__name__+'_service')
-    # kde_service = rospy.ServiceProxy(kde.__class__.__name__+'_service', GenerateSetPose)
-    # request = GenerateSetPoseRequest()
-    # request.print_evaluation = True
-    #
+        _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
+        _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+
+        while not rospy.is_shutdown():
+            floor = None
+            obstacles = None
+            while not rospy.is_shutdown() and (floor is None or obstacles is None):
+                floor = _floor_cache.getLast()
+                obstacles = _obstacle_cache.getLast()
+                rospy.sleep(1.0)
+            for gen in lst_generators:  # type: PoseGeneratorRosView
+                gen.once(obstacles_msg=obstacles, floor_msg=floor)
+            view_all(lst_generators)
+        rospy.spin()
+
+
     # _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
     # _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
     #
