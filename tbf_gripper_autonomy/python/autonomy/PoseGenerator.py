@@ -196,8 +196,8 @@ class PoseGeneratorRosInterface:
         valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(self.hull_points[:, :2], qhull_options="Pp"),
                                                          self.obs_points[:, :2])  # type: np.ndarray
         if len(valid_points) == 0:
-            rospy.logwarn("[PoseGeneratorRosInterface.once()] No obstacle points inside the hull")
-            rospy.sleep(1.0)  # next iteration most likely also without obstacles
+            # rospy.logwarn("[PoseGeneratorRosInterface.once()] No obstacle points inside the hull")
+            # rospy.sleep(0.1)  # next iteration most likely also without obstacles
             self.result = np.asarray([floor_msg.tables[0].pose.position.x, floor_msg.tables[0].pose.position.y])
         else:
             self.result = self._generate(valid_points, hull=self.hull_points[:, :2])  # type: np.ndarray
@@ -590,14 +590,22 @@ class PcaPoseGenerator(PoseGeneratorRosView):
             # rospy.logdebug("[PcaPoseGenerator._generate().get_largest_gap()] max_dist: %g\t gap: %s" % (max_dist, gap))
             return gap
 
-        limits = [get_largest_gap(pca_x, hull_values), get_largest_gap(pca_y, hull_values)]
-        g_sample = [get_sample_in_gap(limits[0]), get_sample_in_gap(limits[0])]
+        limits = [get_largest_gap(pca_x), get_largest_gap(pca_y)]
+        g_sample = [get_sample_in_gap(limits[0]), get_sample_in_gap(limits[1])]
         h = Delaunay(np.asarray(hull_values), qhull_options="Pp")
         while len(PoseGeneratorRosInterface.in_hull(h, [g_sample])) == 0:
+            new_sample = [get_sample_in_gap(get_largest_gap(pca_x, blacklst=limits[0])), g_sample[1]]
+            if len(PoseGeneratorRosInterface.in_hull(h, [new_sample])) != 0:
+                g_sample = new_sample
+                break
+            new_sample = [g_sample[0], get_sample_in_gap(get_largest_gap(pca_y, blacklst=limits[1]))]
+            if len(PoseGeneratorRosInterface.in_hull(h, [new_sample])) != 0:
+                g_sample = new_sample
+                break
             new_limits = [get_largest_gap(pca_x, blacklst=limits[0]), get_largest_gap(pca_y, blacklst=limits[1])]
             limits[0].extend(new_limits[0])
             limits[1].extend(new_limits[1])
-            g_sample = [get_sample_in_gap(new_limits[0]), get_sample_in_gap(new_limits[0])]
+            g_sample = [get_sample_in_gap(new_limits[0]), get_sample_in_gap(new_limits[1])]
 
         p = obs2d_pca.inverse_transform(g_sample)
         rospy.logdebug("[PcaPoseGenerator._generate()] p: %s  in hull? %s" %
@@ -860,6 +868,28 @@ def view_all(lst_generator, show=True):
     return fig, lgd, txt
 
 
+def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages", suffix=''):
+    """
+    Print the current figure to a file
+    :param file_formats:  [optional] list of file formats, eg pgf, pdf
+    :type file_formats: list
+    :param extras: [optional] passed to matplotlib.savefig(bbox_extra_artists)
+    :type extras: list
+    :param save_dir: [optional] target directory
+    :type save_dir: str
+    :param suffix: [optional] file name suffix
+    :type suffix: str
+    :return: -
+    :rtype: -
+    """
+    if not os.path.exists(save_dir):
+        rospy.logwarn("[print_tex] Creating '%s' to store plots" % save_dir)
+        os.makedirs(save_dir)
+    p = os.path.join(save_dir, str(rospy.Time.now().to_nsec()) + suffix)
+    for c in file_formats:
+        plt.savefig(p + c, bbox_extra_artists=extras, bbox_inches='tight')
+
+
 def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"):
     """
     Save the current state in a LaTeX conform plot
@@ -926,6 +956,10 @@ class EvaluatePoseGenerators(object):
             rospy.logwarn("[EvaluatePoseGenerators.calc_min_distance()] unknown mode %s" % mode)
             return float('NaN')
 
+    @staticmethod
+    def get_ident(obj):
+        return str(type(obj)).split(".")[-1][:-2]
+
     def __init__(self, generators):
         """
         Default constructor
@@ -934,15 +968,15 @@ class EvaluatePoseGenerators(object):
         """
         self._generators = generators
 
-        self.dct_lst_min_hull_distance = {}
-        self.dct_lst_min_obstacle_distance = {}
+        self.dct_lst_hull_distance = {}
+        self.dct_lst_obstacle_distance = {}
         self.dct_count_largest_hull_distance = {}
         self.dct_count_largest_obstacle_distance = {}
 
         for g in self._generators:  # type: PoseGeneratorRosInterface
-            ident = EvaluatePoseGenerators.get_ident(g)
-            self.dct_lst_min_hull_distance[ident] = []
-            self.dct_lst_min_obstacle_distance[ident] = []
+            ident = g.get_name()
+            self.dct_lst_hull_distance[ident] = []
+            self.dct_lst_obstacle_distance[ident] = []
             self.dct_count_largest_hull_distance[ident] = 0
             self.dct_count_largest_obstacle_distance[ident] = 0
 
@@ -965,20 +999,19 @@ class EvaluatePoseGenerators(object):
             i += 1
         self.evaluate()
 
-    @staticmethod
-    def get_ident(obj):
-        return str(type(obj)).split(".")[-1][:-2]
-
-    def run(self):
+    def run(self, obs=None, flr=None):
         """
         Trigger given generators and save evaluation parameters
+        :param obs: [optional] use the given obstacles
+        :type obs: MarkerArray
+        :param flr: [optional] use the given floor plane
+        :type flr: TableArray
         :return: -
         :rtype: -
         """
-        while True:
+        while not self._generators[0].check_messages(obs, flr):
+            rospy.logdebug("[EvaluatePoseGenerators.run()] Getting new messages")
             obs, flr = self._generators[0].get_messages()
-            if self._generators[0].check_messages(obs, flr):
-                break
             rospy.sleep(1.0)
 
         d_hull = 0
@@ -987,8 +1020,8 @@ class EvaluatePoseGenerators(object):
         obst_ident = hull_ident
 
         for g in self._generators:  # type: PoseGeneratorRosInterface
-            ident = EvaluatePoseGenerators.get_ident(g)
-            g.once(obstacles_msg=obs, floor_msg=flr)
+            ident = g.get_name()
+            g.once(obstacles_msg=obs, floor_msg=flr, current_time=flr.header.stamp)
             result = np.asarray([g.result])
             obstacles = g.obs_points
             hull = g.hull_points
@@ -997,8 +1030,8 @@ class EvaluatePoseGenerators(object):
             try:
                 hull_distance = EvaluatePoseGenerators.calc_min_distance(result, hull, mode="PL")
                 obstacle_distance = EvaluatePoseGenerators.calc_min_distance(result, obstacles, mode="PP")
-                self.dct_lst_min_hull_distance[ident].append(hull_distance)
-                self.dct_lst_min_obstacle_distance[ident].append(obstacle_distance)
+                self.dct_lst_hull_distance[ident].append(hull_distance)
+                self.dct_lst_obstacle_distance[ident].append(obstacle_distance)
                 rospy.logdebug("[EvaluatePoseGenerators.run() - %s] Min(Distance2Hull) = %g" %
                                (ident, hull_distance))
                 rospy.logdebug("[EvaluatePoseGenerators.run() - %s] Min(Distance2Obstacles) = %g" %
@@ -1021,20 +1054,15 @@ class EvaluatePoseGenerators(object):
         self.dct_count_largest_hull_distance[hull_ident] += 1
         self.dct_count_largest_obstacle_distance[obst_ident] += 1
 
-    def evaluate(self):
+    def evaluate(self, tex=False):
         """
         Plot the gathered data
         :return: -
         :rtype:-
         """
-        for k in self.dct_lst_min_hull_distance.keys():
-            if len(self.dct_lst_min_hull_distance[k]) == 0:
+        for k in self.dct_lst_hull_distance.keys():
+            if len(self.dct_lst_hull_distance[k]) == 0:
                 return
-        df_hull = pd.DataFrame(data=self.dct_lst_min_hull_distance)
-        df_obst = pd.DataFrame(data=self.dct_lst_min_obstacle_distance)
-
-        if df_hull.empty or df_obst.empty:
-            return
 
         rospy.loginfo("[EvaluatePoseGenerators.evaluate()] Number of largest distances to the hull:")
         for k in self.dct_count_largest_hull_distance:
@@ -1043,12 +1071,26 @@ class EvaluatePoseGenerators(object):
         for k in self.dct_count_largest_obstacle_distance:
             rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_obstacle_distance[k]))
 
-        my_colors = []
-        for k in self.dct_lst_min_hull_distance.keys():
-            my_colors.append(PoseGeneratorRosView.get_color(k))
-        n_bin = 20
-        df_hull.plot.hist(bins=n_bin, rot=0, title='Abstand zur konvexen Hü\"ulle', color=my_colors)
-        df_obst.plot.hist(bins=n_bin, rot=0, title='Abstand zum nächsten Hindernis', color=my_colors)
+        n_bin = 50
+        alpha = 0.75
+        self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
+        if tex:
+            print_plt(suffix="hull_histogram")
+        self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
+        if tex:
+            print_plt(suffix="obstacle_histogram")
 
-        plt.draw()
-        plt.pause(0.01)
+    @staticmethod
+    def plot_hist(dct, **kwargs):
+        """
+        plot the given dictionary in a histogram
+        :param dct: data
+        :type dct: dict
+        :return: -
+        :rtype:-
+        """
+        my_colors = []
+        for k in dct.keys():
+            my_colors.append(PoseGeneratorRosView.get_color(k))
+        plt.hist(dct.values(), color=my_colors, label=dct.keys())
+        pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)

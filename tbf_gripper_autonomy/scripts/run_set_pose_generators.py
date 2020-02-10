@@ -105,24 +105,29 @@ if __name__ == '__main__':
         combined_service = rospy.Service('AllSetPoseGenerator_service', GenerateSetPose,  combined_service_request)
         rospy.spin()
     else:
-        # Run in a loop
-        _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
-        _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
+        # # Run in a loop
+        # _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
+        # _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
+        #
+        # _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
+        # _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+        #
+        # while not rospy.is_shutdown():
+        #     floor = None
+        #     obstacles = None
+        #     while not rospy.is_shutdown() and (floor is None or obstacles is None):
+        #         floor = _floor_cache.getLast()
+        #         obstacles = _obstacle_cache.getLast()
+        #         rospy.sleep(1.0)
+        #     for gen in lst_generators:  # type: PoseGeneratorRosView
+        #         gen.once(obstacles_msg=obstacles, floor_msg=floor)
+        #     view_all(lst_generators)
+        # rospy.spin()
 
-        _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
-        _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
-
-        while not rospy.is_shutdown():
-            floor = None
-            obstacles = None
-            while not rospy.is_shutdown() and (floor is None or obstacles is None):
-                floor = _floor_cache.getLast()
-                obstacles = _obstacle_cache.getLast()
-                rospy.sleep(1.0)
-            for gen in lst_generators:  # type: PoseGeneratorRosView
-                gen.once(obstacles_msg=obstacles, floor_msg=floor)
-            view_all(lst_generators)
-        rospy.spin()
+        # Evaluation
+        evaluation = EvaluatePoseGenerators(lst_generators)
+        evaluation.perform(samples=rospy.get_param("~n_sample", 1000))
+        plt.show()
 
 
     # _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
