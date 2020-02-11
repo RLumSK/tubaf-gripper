@@ -1163,6 +1163,8 @@ class EvaluatePoseGenerators(object):
         :return: -
         :rtype:-
         """
+        s_dir =rospy.get_param("~", "/home/grehl/Schreibtisch/PoseGeneratorImages")
+        
         for k in self.dct_lst_hull_distance.keys():
             if len(self.dct_lst_hull_distance[k]) == 0:
                 return
@@ -1184,7 +1186,7 @@ class EvaluatePoseGenerators(object):
             print_plt(suffix="obstacle_histogram")
         self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
         if tex:
-            print_plt(suffix="timing")
+            print_plt(suffix="timing", save_dir=s_dir)
 
     def distance_to(self, lst_results, n_bin=25, alpha=0.75):
         """

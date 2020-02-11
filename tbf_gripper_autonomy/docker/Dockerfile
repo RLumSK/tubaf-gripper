@@ -14,8 +14,18 @@ FROM julius
 LABEL maintainer="grehl" mail="Steve.Grehl@informatik.tu-freiberg.de" company="TU Bergakademie Freiberg"
 
 ARG WS=/julius_ws/src
-# COPY --from=intermediate $WS/set_pose_test $WS/set_pose_test
+COPY --from=intermediate $WS/tubaf_gripper $WS/tubaf_gripper
 
 WORKDIR $WS/..
 
-CMD roscore | rosrun tbf_gripper_autonomy evaluate_bag.py 
+RUN mkdir /plots
+RUN mkdir /bag
+COPY buero.bag /bag/
+
+COPY ./entrypoint.sh /
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["bash"]
+# roscore | rosrun tbf_gripper_autonomy evaluate_bag.py _plot_dir:="/plots" _bag:="/bag/buero.bag"
