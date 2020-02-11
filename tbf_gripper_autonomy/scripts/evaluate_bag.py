@@ -88,10 +88,11 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        # if i_msg % 25 == 0:
-        #     figure, legend, text = view_all(lst_gen, show=False)
-        #     print_plt(extras=(legend, text))
+        # if i_msg % 200 == 0:
+        #     break
         progress(i_msg, n_msg, suffix="of messages processed")
 
+    evaluation.distance_to(evaluation.dct_result[mcr.get_name()])
+    print_plt()
     evaluation.evaluate(tex=False)
     plt.show()

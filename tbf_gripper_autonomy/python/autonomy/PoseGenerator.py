@@ -1060,6 +1060,7 @@ class EvaluatePoseGenerators(object):
         """
         self._generators = generators
 
+        self.dct_result = {}
         self.dct_lst_hull_distance = {}
         self.dct_lst_obstacle_distance = {}
         self.dct_count_largest_hull_distance = {}
@@ -1075,6 +1076,7 @@ class EvaluatePoseGenerators(object):
             self.dct_count_largest_hull_distance[ident] = 0
             self.dct_count_largest_obstacle_distance[ident] = 0
             self.dct_timing[ident] = []
+            self.dct_result[ident] = []
 
     def perform(self, timeout=1.0, samples=1000):
         """
@@ -1123,6 +1125,7 @@ class EvaluatePoseGenerators(object):
             if self.timeit:
                 self.dct_timing[ident].append(time.time() - t)
             result = np.asarray(g.result)
+            self.dct_result[ident].append(result)
             obstacles = g.obs_points
             hull = g.hull_points
             if len(hull) == 0 or len(obstacles) == 0:
@@ -1182,6 +1185,23 @@ class EvaluatePoseGenerators(object):
         self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
         if tex:
             print_plt(suffix="timing")
+
+    def distance_to(self, lst_results, n_bin=25, alpha=0.75):
+        """
+        Determine the distance to a list of results
+        :param lst_results: list of results
+        :type lst_results: list
+        :return: -
+        :rtype: -
+        """
+        dct_distances = {}
+        for key in self.dct_result.keys():
+            dct_distances[key] = []
+        for key in dct_distances.keys():
+            for i in range(0, len(lst_results)):
+                d = np.linalg.norm(lst_results[i] - self.dct_result[key][i])
+                dct_distances[key].append(d)
+        self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Ground Truth', alpha=alpha)
 
     @staticmethod
     def plot_hist(dct, **kwargs):
