@@ -65,8 +65,10 @@ if __name__ == '__main__':
     pca = PcaPoseGenerator("not_needed")
     dln = DelaunayPoseGenerator("not_needed")
     kde = MinimalDensityEstimatePoseGenerator("not_needed")
+    mcr = MonteCarloPoseGenerator("not needed")
+    lst_gen = [pca, dln, kde, mcr]
 
-    evaluation = EvaluatePoseGenerators([pca, dln, kde])
+    evaluation = EvaluatePoseGenerators(lst_gen)
 
     rospy.loginfo("Starting: bag has %g messages" % n_msg)
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
@@ -84,8 +86,12 @@ if __name__ == '__main__':
         if not pca.check_messages(obstacle_msg, floor_msg):
             rospy.logdebug("message don´t suit")
             continue
+
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
+        # if i_msg % 25 == 0:
+        #     figure, legend, text = view_all(lst_gen, show=False)
+        #     print_plt(extras=(legend, text))
         progress(i_msg, n_msg, suffix="of messages processed")
 
-    evaluation.evaluate(tex=True)
+    evaluation.evaluate(tex=False)
     plt.show()
