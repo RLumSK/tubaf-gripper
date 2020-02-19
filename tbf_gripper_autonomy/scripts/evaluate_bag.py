@@ -44,8 +44,9 @@ def progress(count, total, suffix=''):
 
     percents = round(100.0 * count / float(total), 1)
     balken = '=' * filled_len + '-' * (bar_len - filled_len)
+    absolut = str(count)+"/"+str(total)
 
-    sys.stdout.write('[%s] %s%s ...%s\r' % (balken, percents, '%', suffix))
+    sys.stdout.write('[%s] %s%s [%s] ...%s\r' % (balken, percents, '%', absolut, suffix))
     sys.stdout.flush()  # As suggested by Rom Ruben
 
 
@@ -69,10 +70,12 @@ if __name__ == '__main__':
     lst_gen = [pca, dln, kde, mcr]
 
     evaluation = EvaluatePoseGenerators(lst_gen)
+    formats = ['.tex', '.pdf']
 
     rospy.loginfo("Starting: bag has %g messages" % n_msg)
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
+        progress(i_msg-1, n_msg, suffix="of messages processed")
         if topic in obstacles_topic:
             rospy.logdebug("new obstacle_msg")
             obstacle_msg = msg
@@ -88,11 +91,11 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        # if i_msg % 200 == 0:
-        #     break
+        # if i_msg % 333 == 0:
+        #     view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats)
         progress(i_msg, n_msg, suffix="of messages processed")
 
+    evaluation.plot_heatmap(print_it=True, ff=formats)
     evaluation.distance_to(evaluation.dct_result[mcr.get_name()])
-    print_plt()
-    evaluation.evaluate(tex=False)
-    plt.show()
+    print_plt(file_formats=formats)
+    evaluation.evaluate(print_it=True, ff=formats)

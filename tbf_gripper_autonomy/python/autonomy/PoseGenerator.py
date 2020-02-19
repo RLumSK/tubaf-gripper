@@ -42,6 +42,7 @@ import time
 from six import add_metaclass
 from scipy.spatial import Delaunay
 from sklearn.neighbors import NearestNeighbors
+from scipy.ndimage import gaussian_filter
 
 from message_filters import Subscriber, Cache
 from object_recognition_msgs.msg import TableArray, Table
@@ -51,11 +52,13 @@ from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, Ge
 
 import matplotlib
 
-
 matplotlib.use('Qt5Cairo')
 from pylab import *
 import matplotlib.pyplot as plt
 import pandas as pd
+
+# see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
+import matplotlib2tikz
 
 
 class InterruptError(Exception):
@@ -472,9 +475,10 @@ class PoseGeneratorRosInterface:
         :return: combined distance
         :rtype: float
         """
-        ret_val = float(d_obstacles)*float(d_hull)
+        ret_val = float(d_obstacles) * float(d_hull)
         rospy.logdebug("[PoseGeneratorRosInterface.metric()] %g *%g = %g" % (d_obstacles, d_hull, ret_val))
         return ret_val
+
 
 @add_metaclass(abc.ABCMeta)
 class PoseGeneratorRosView(PoseGeneratorRosInterface):
@@ -515,7 +519,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         """
         super(PoseGeneratorRosView, self).__init__(topic)
 
-    def plot(self, ax, hull=True, obstacles=True):
+    def plot(self, ax=None, hull=True, obstacles=True):
         """
         Plot the information of this PoseGenerator into an outside existing matplotlib figure
         :param hull: plot the hull
@@ -527,6 +531,9 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         :return: data point axis
         :rtype: plt.axes.Axis
         """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.gca()
         n = self.get_name()
         c = PoseGeneratorRosView.get_color(n)
         if len(self.result.shape) == 1 and self.result.shape[0] == 3:
@@ -547,10 +554,6 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
             n = "Boden"
             ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=n, zorder=4.5, color=PoseGeneratorRosView.get_color(n))
         return ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
-
-    # @abc.abstractmethod
-    # def _generate(self, lst_obs_points, hull=None):
-    #     pass
 
 
 class PcaPoseGenerator(PoseGeneratorRosView):
@@ -812,7 +815,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         :type topic: str
         """
         super(MonteCarloPoseGenerator, self).__init__(topic)
-        self.n_xlines = rospy.get_param("~n_xlines", 32)
+        self.n_xlines = rospy.get_param("~n_xlines", 8)
         self.n_ylines = rospy.get_param("~n_ylines", self.n_xlines)
 
     def _generate(self, lst_obs_points, hull=None):
@@ -861,7 +864,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         i_max = np.argmax(extended_positions[:, -1])
         ret_pos = extended_positions[i_max, 0:-1]
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] position %s at index %g with distance %g" %
-                      (ret_pos, i_max, extended_positions[i_max, -1]))
+                       (ret_pos, i_max, extended_positions[i_max, -1]))
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] distances: \n%s" % extended_positions[:, -1])
         # Calculate help lines
         obs_d, obs_i = obs_nn.kneighbors([ret_pos])
@@ -874,15 +877,15 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         return ret_pos
 
 
-def view_all(lst_generator, show=True):
+def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
     """
     Plot all given generators into one figure
-    :param show: [optional] show the plot
-    :type show: bool
+    :param show_it: [optional] show the plot
+    :type show_it: bool
     :param lst_generator: list of pose generators of type PoseGeneratorRosView
     :type lst_generator: list()
-    :return: figure handle, legend_handle, text handle
-    :rtype: plt.Figure, plt.legend.Legend, plt.text.Text
+    :return: -
+    :rtype:-
     """
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -918,9 +921,10 @@ def view_all(lst_generator, show=True):
 
     lgd = legend_without_duplicate_labels(ax)
 
-    if show:
+    if show_it:
         plt.show()
-    return fig, lgd, txt
+    if print_it:
+        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte")
 
 
 def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages",
@@ -939,11 +943,15 @@ def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Sc
     :rtype: -
     """
     if not os.path.exists(save_dir):
-        rospy.logwarn("[print_tex] Creating '%s' to store plots" % save_dir)
+        rospy.logwarn("[print_plt] Creating '%s' to store plots" % save_dir)
         os.makedirs(save_dir)
     p = os.path.join(save_dir, str(rospy.Time.now().to_nsec()) + suffix)
     for c in file_formats:
-        plt.savefig(p + c, bbox_extra_artists=extras, bbox_inches='tight')
+        if 'tex' in c or 'tikz' in c:
+            matplotlib2tikz.save(p + c)
+        else:
+            plt.savefig(p + c, bbox_extra_artists=extras, bbox_inches='tight')
+    plt.close()
 
 
 def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"):
@@ -956,19 +964,8 @@ def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"
     :return: -
     :rtype: -
     """
-    # plt.cla()
-    # plt.clf()
-    fig, lgd, txt = view_all(generator, show=False)
-    if not os.path.exists(save_dir):
-        rospy.logwarn("[print_tex] Creating '%s' to store plots" % save_dir)
-        os.makedirs(save_dir)
-    if type(generator) is list:
-        name = "all"
-    else:
-        name = generator.get_name()
-    p = os.path.join(save_dir, str(rospy.Time.now().to_nsec()) + name)
-    plt.savefig(p + ".pdf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
-    plt.savefig(p + ".pgf", bbox_extra_artists=(lgd, txt), bbox_inches='tight')
+    view_all(generator, show_it=False)
+    print_plt(file_formats=[".pdf", ".tex"], save_dir=save_dir)
 
 
 class EvaluatePoseGenerators(object):
@@ -993,7 +990,8 @@ class EvaluatePoseGenerators(object):
         rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] len(lst_points) = %s" % len(lst_points))
         rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] lst_points = %s" % lst_points)
         rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] mode = %s" % mode)
-        nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(lst_points)  # type: NearestNeighbors
+        nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
+            lst_points)  # type: NearestNeighbors
         tmp = nn.kneighbors([point])
         distance, i_min = tmp[0][0][0], tmp[1][0][0]
         rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] distance: %s" % distance)
@@ -1014,7 +1012,7 @@ class EvaluatePoseGenerators(object):
                 # rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] distance: %s" % d)
                 # rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] f: %s" % f)
                 # rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] |pf|: %s" % np.linalg.norm(f-p1))
-                d = np.linalg.norm(f-p1)
+                d = np.linalg.norm(f - p1)
 
                 if d < min_d:
                     min_d = d
@@ -1038,13 +1036,11 @@ class EvaluatePoseGenerators(object):
         """
         # https://www.mathematik-oberstufe.de/vektoren/a/abstand-punkt-gerade-lot.html
         ax, ay = line[0, 0], line[0, 1]
-        bx, by = line[1, 0] - line[0, 0], line[1, 1]-line[0, 1]
+        bx, by = line[1, 0] - line[0, 0], line[1, 1] - line[0, 1]
         rx, ry = p0[0], p0[1]
-        s = (bx*(rx-ax)+by*(ry-ay)) / (bx**2+by**2)
-        f = np.asarray([ax, ay])+s*np.asarray([bx, by])  # s in g
+        s = (bx * (rx - ax) + by * (ry - ay)) / (bx ** 2 + by ** 2)
+        f = np.asarray([ax, ay]) + s * np.asarray([bx, by])  # s in g
         return f
-
-
 
     @staticmethod
     def get_ident(obj):
@@ -1157,14 +1153,14 @@ class EvaluatePoseGenerators(object):
         self.dct_count_largest_hull_distance[hull_ident] += 1
         self.dct_count_largest_obstacle_distance[obst_ident] += 1
 
-    def evaluate(self, tex=False):
+    def evaluate(self, print_it=False, ff=['.tex', '.pdf', '.pgf']):
         """
         Plot the gathered data
         :return: -
         :rtype:-
         """
-        s_dir =rospy.get_param("~", "/home/grehl/Schreibtisch/PoseGeneratorImages")
-        
+        s_dir = rospy.get_param("~", "/home/grehl/Schreibtisch/PoseGeneratorImages")
+
         for k in self.dct_lst_hull_distance.keys():
             if len(self.dct_lst_hull_distance[k]) == 0:
                 return
@@ -1179,14 +1175,14 @@ class EvaluatePoseGenerators(object):
         n_bin = 25
         alpha = 0.75
         self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
-        if tex:
-            print_plt(suffix="hull_histogram")
+        if print_it:
+            print_plt(file_formats=ff, suffix="hull_histogram")
         self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
-        if tex:
-            print_plt(suffix="obstacle_histogram")
+        if print_it:
+            print_plt(file_formats=ff, suffix="obstacle_histogram")
         self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
-        if tex:
-            print_plt(suffix="timing", save_dir=s_dir)
+        if print_it:
+            print_plt(file_formats=ff, suffix="timing", save_dir=s_dir)
 
     def distance_to(self, lst_results, n_bin=25, alpha=0.75):
         """
@@ -1202,8 +1198,54 @@ class EvaluatePoseGenerators(object):
         for key in dct_distances.keys():
             for i in range(0, len(lst_results)):
                 d = np.linalg.norm(lst_results[i] - self.dct_result[key][i])
-                dct_distances[key].append(d)
+                if d != 0:
+                    dct_distances[key].append(d)
+        for key in self.dct_result.keys():
+            if len(dct_distances[key]) == 0:
+                del dct_distances[key]
         self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Ground Truth', alpha=alpha)
+
+    def plot_heatmap(self, name='all', n_bin=50, sigma=10, print_it=False, show_it=False, ff=['.tex', '.pdf', '.pgf']):
+        """
+        Plot a heatmap of all results
+        :param name:
+        :type name: str
+        :param n_bin: number of bins for the 2d histogram
+        :type n_bin: int
+        :param sigma: Sigma for the gaussian kernel
+        :type sigma: float
+        :param print_it: wheter or not to print the plots
+        :type print_it: bool
+        :param show_it: wheter or not to show_it the plots
+        :type show_it: bool
+        :param ff: file formats of the print
+        :type ff: list
+        :return: -
+        :rtype: -
+        """
+        from scipy.stats import gaussian_kde
+
+        lst_names = []
+        if 'all' in name:
+            for g in self._generators:
+                lst_names.append(g.get_name())
+        else:
+            lst_names.append(name)
+
+        for n in lst_names:
+            values = np.asarray(self.dct_result[n])
+            # hist2d(x=values[:, 0].T, y=values[:, 1].T, bins=n_bin, range=[[-1, 1], [-1, 1]], cmap='gray_r')  # , range=[[-1, 1], [-1, 1]], cm='gray'
+            # hexbin(x=values[:, 0].T, y=values[:, 1].T, gridsize=n_bin, range=[[-1, 1], [-1, 1]], cmap='gray_r')
+            g = np.linspace(-1, 1, n_bin)
+            data = np.histogram2d(values[:, 0].T, values[:, 1].T, bins=n_bin)[0]
+            data = gaussian_filter(data, sigma=sigma)
+            plt.pcolormesh(g, g, data.T, cmap='gray_r')
+            a_title = "Heatmap "+n
+            title(a_title)
+            if print_it:
+                print_plt(file_formats=ff, suffix=a_title)
+            if show_it:
+                plt.show()
 
     @staticmethod
     def plot_hist(dct, **kwargs):
