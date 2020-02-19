@@ -52,7 +52,7 @@ from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, Ge
 
 import matplotlib
 
-matplotlib.use('Qt5Cairo')
+matplotlib.use('Qt5Agg')
 from pylab import *
 import matplotlib.pyplot as plt
 import pandas as pd
