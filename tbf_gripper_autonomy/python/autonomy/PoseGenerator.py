@@ -406,7 +406,7 @@ class PoseGeneratorRosInterface:
         dbg_markers = []
         plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
 
-        i = long(0)
+        i = 0
         for obstacle in obs_msg.markers[start:]:  # type: Marker
             if self.subsample >= 1.0:
                 ss = self.subsample

@@ -40,8 +40,12 @@ VOLUME /in/bag
 
 RUN mkdir /pkg
 COPY ./tbf_gripper_autonomy /pkg
+ENV PATH=${PATH}:/pkg/scripts
+ENV PYTHONPATH=${PYTHONPATH}:/pkg/python/
 
 # CMD ["bash"]
+WORKDIR /pkg
 ENTRYPOINT ["/entrypoint.sh"]
 #					   FROM : TO									MATCH USER
 # docker run --volume $(pwd)/:/in/bag --volume $(pwd)/plots:/out/plots -u $(id -u):$(id -g) set_pose_evaluation buero.bag
+# docker run --volume $(pwd)/docker:/in/bag --volume $(pwd)/plots:/out/plots -u $(id -u):$(id -g) set_pose_evaluation evaluate_bag.py -p /in/bag/buero.bag
