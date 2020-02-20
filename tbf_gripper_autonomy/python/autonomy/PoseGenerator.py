@@ -29,13 +29,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 # author: grehl
-from __builtin__ import staticmethod
+import sys
+
+if sys.version_info.major < 3:
+    from __builtin__ import staticmethod
 
 import rospy
 import numpy as np
 import signal
 import abc
-import sys
 import os
 import time
 
@@ -44,11 +46,9 @@ from scipy.spatial import Delaunay
 from sklearn.neighbors import NearestNeighbors
 from scipy.ndimage import gaussian_filter
 
-from message_filters import Subscriber, Cache
 from object_recognition_msgs.msg import TableArray, Table
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import PoseStamped, Point
-from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
 
 import matplotlib
 
@@ -59,8 +59,12 @@ import pandas as pd
 from matplotlib.image import NonUniformImage
 from matplotlib import ticker
 
-# see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
-import matplotlib2tikz
+
+if sys.version_info.major < 3:
+    # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
+    import matplotlib2tikz as mpl2tkz
+else:
+    import tikzplotlib as mpl2tkz
 
 
 class InterruptError(Exception):
@@ -111,6 +115,8 @@ class PoseGeneratorRosInterface:
         self.subsample = sub_sample
         self.ros = enable_ros
         if self.ros:
+            from message_filters import Subscriber, Cache
+            from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
             self._obstacle_cache = Cache(Subscriber(obs_topic, MarkerArray), 1, allow_headerless=True)
             self._floor_cache = Cache(Subscriber(flr_topic, TableArray), 1)
 
@@ -205,7 +211,6 @@ class PoseGeneratorRosInterface:
                 obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
             while floor_msg is None:
                 floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
-            print self.ros
             ps.header = floor_msg.header
             ps.header.stamp = rospy.Time.now()
             ps.header.stamp = t
@@ -1044,7 +1049,7 @@ def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Sc
     p = os.path.join(save_dir, str(rospy.Time.now().to_nsec()) + suffix)
     for c in file_formats:
         if 'tex' in c or 'tikz' in c:
-            matplotlib2tikz.save(p + c)
+            mpl2tkz.save(p + c)
         else:
             plt.savefig(p + c, bbox_extra_artists=extras, bbox_inches='tight')
     plt.close()

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Software License Agreement (BSD License)
 #
@@ -29,13 +29,18 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 # author: grehl
+from __future__ import print_function
 
 import rosbag
 import argparse
-
-import autonomy.PoseGenerator as pg
-
 import sys
+
+try:
+    import autonomy.PoseGenerator as pg
+except ImportError as ie:
+    sys.path.append("/pkg/python/autonomy")
+    import PoseGenerator as pg
+
 
 DF_BAG_PATH = '/home/grehl/bags/obj_cloud_2020-01-22/2020-01-22-13-16-05.bag'
 
@@ -70,7 +75,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.use_ros:
-        print "Using ROS"
+        print("Using ROS")
         import rospy
         rospy.init_node("evaluate_bag_set_pose", log_level=rospy.INFO)
         bag_path = rospy.get_param("~bag", DF_BAG_PATH)
@@ -81,8 +86,8 @@ if __name__ == '__main__':
         n_bins = rospy.get_param("~sub_sample", pg.DF_N_BINS)
         mc_raster = rospy.get_param("~sub_sample", pg.DF_MC_RASTER)
     else:
-        print "Using args"
-        print args
+        print("Using args")
+        print(args)
         bag_path = args.path
         pub_topic = args.pub_topic
         floor_topic = args.floor_topic
@@ -116,7 +121,7 @@ if __name__ == '__main__':
     evaluation = pg.EvaluatePoseGenerators(lst_gen)
     formats = ['.tex', '.pdf']
 
-    print "Starting: bag has "+str(n_msg)+" messages"
+    print("Starting: bag has "+str(n_msg)+" messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
         progress(i_msg-1, n_msg, suffix="of messages processed")
@@ -125,7 +130,7 @@ if __name__ == '__main__':
         elif topic in floor_topic:
             floor_msg = msg
         else:
-            print "unknown topic"
+            print("unknown topic")
             continue
 
         if not pca.check_messages(obstacle_msg, floor_msg):
