@@ -57,6 +57,7 @@ from pylab import *
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.image import NonUniformImage
+from matplotlib import ticker
 
 # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
 import matplotlib2tikz
@@ -75,6 +76,14 @@ def signal_handler(_signal, _frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
+DF_OBS_TOPIC = "/ork/tabletop/clusters"
+DF_FLR_TOPIC = "/ork/floor_plane"
+DF_PUB_TOPIC = "/pub_set_pose"
+DF_SUB_SAMPLE = 100
+DF_ENABLE_ROS = True
+DF_N_BINS = 10
+DF_MC_RASTER = 100
+
 @add_metaclass(abc.ABCMeta)
 class PoseGeneratorRosInterface:
     """
@@ -85,25 +94,32 @@ class PoseGeneratorRosInterface:
 
     HULL_THRESHOLD = 6
 
-    def __init__(self, pub_topic):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE, enable_ros=DF_ENABLE_ROS):
         """
         Default constructor
         :param pub_topic: Topic where the calculated pose gets published
         :type pub_topic: str
+        :param obs_topic: subscribing to obstacles messages from here
+        :type obs_topic: str
+        :param flr_topic: subscribing to floor messages from here
+        :type flr_topic: str
+        :param sub_sample: subsample ratio
+        :type sub_sample: float
+        :param enable_ros: whether or not to use ROS
+        :type enable_ros: bool
         """
-        _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
-        _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
-        self.subsample = rospy.get_param("~sub_sample", 100)
+        self.subsample = sub_sample
+        self.ros = enable_ros
+        if self.ros:
+            self._obstacle_cache = Cache(Subscriber(obs_topic, MarkerArray), 1, allow_headerless=True)
+            self._floor_cache = Cache(Subscriber(flr_topic, TableArray), 1)
 
-        self._obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
-        self._floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+            self.pub = rospy.Publisher(pub_topic, PoseStamped, queue_size=1)
 
-        self.pub = rospy.Publisher(pub_topic, PoseStamped, queue_size=1)
+            self._service = rospy.Service(type(self).__name__ + '_service', GenerateSetPose,
+                                          self.handle_service_request)
 
-        self._service = rospy.Service(type(self).__name__ + '_service', GenerateSetPose,
-                                      self.handle_service_request)
-
-        self._dbg_pub_projection = rospy.Publisher(_obstacle_topic + "_projected", MarkerArray, queue_size=1)
+            self._dbg_pub_projection = rospy.Publisher(obs_topic + "_projected", MarkerArray, queue_size=1)
 
         self.result = np.asarray([0, 0, 0])  # type: np.ndarray
         self.obs_points = np.asarray([])  # type np.ndarray
@@ -181,17 +197,18 @@ class PoseGeneratorRosInterface:
         :rtype: PoseStamped
         """
         t = current_time
-        while t is None:
-            t = self._obstacle_cache.getLatestTime()
-        while obstacles_msg is None:
-            obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
-        while floor_msg is None:
-            floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
-
         ps = PoseStamped()
-        ps.header = floor_msg.header
-        ps.header.stamp = rospy.Time.now()
-        ps.header.stamp = t
+        if self.ros:
+            while t is None:
+                t = self._obstacle_cache.getLatestTime()
+            while obstacles_msg is None:
+                obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
+            while floor_msg is None:
+                floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
+            print self.ros
+            ps.header = floor_msg.header
+            ps.header.stamp = rospy.Time.now()
+            ps.header.stamp = t
 
         if not self.check_messages(obstacles_msg, floor_msg):
             rospy.loginfo("[PoseGeneratorRosInterface.once()] messages not suitable\n%s\n---\n%s" %
@@ -199,7 +216,12 @@ class PoseGeneratorRosInterface:
             return ps
 
         self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
-        rospy.logdebug("[PoseGeneratorRosInterface.once(%s)] #Obstacles: %g" % (self.get_name(), len(self.obs_points)))
+        if len(self.obs_points) == 0:
+            # TODO: There are messages with obstacles but sometihng is strange with obstacles_msg.markers[0] when there are more then one
+            return ps
+        # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] #Obstacles: %g" % (self.get_name(), len(self.obs_points)))
+        # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] Obstacles: %s" % (self.get_name(), str(self.obs_points)))
+        # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] Obstacles: %s" % (self.get_name(), str(obstacles_msg)))
         valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(self.hull_points[:, :2], qhull_options="Pp"),
                                                          self.obs_points[:, :2])  # type: np.ndarray
         if len(valid_points) == 0:
@@ -230,10 +252,11 @@ class PoseGeneratorRosInterface:
         :rtype: PoseStamped
         """
         ps = PoseStamped()
-        ps.header = floor_message.header
-        ps.header.stamp = rospy.Time.now()
         ps.pose = floor_message.tables[0].pose
-        self.pub.publish(ps)
+        if self.ros:
+            ps.header = floor_message.header
+            ps.header.stamp = rospy.Time.now()
+            self.pub.publish(ps)
         return ps
 
     def check_messages(self, obs_msg, flr_msg):
@@ -258,7 +281,7 @@ class PoseGeneratorRosInterface:
             return False
         if len(obs_msg.markers) != 0:
             for marker in obs_msg.markers:  # type: Marker
-                if len(marker.points) != 0:
+                if len(marker.points) > 0:
                     return True
         rospy.logwarn("[PoseGeneratorRosInterface.check_messages()] No Obstacles given")
         self.publish_default(flr_msg)
@@ -360,12 +383,14 @@ class PoseGeneratorRosInterface:
         :return: list with all points projected on the floor plane - [obstacles, hull]
         :rtype: [np.ndarray, np.ndarray]
         """
-
+        start = 0
+        if len(obs_msg.markers) > 1:
+            start = 1
         # show the numbers in the obstacle message
         n_obstacles = 0
         rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] len(obs_msg.markers): %g" %
                       (self.get_name(), len(obs_msg.markers)))
-        for obstacle in obs_msg.markers[1:]:  # type: Marker
+        for obstacle in obs_msg.markers[start:]:  # type: Marker
             rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] len(obstacle.points): %g" %
                           (self.get_name(), len(obstacle.points)))
             n_obstacles += len(obstacle.points)
@@ -377,7 +402,7 @@ class PoseGeneratorRosInterface:
         plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
 
         i = long(0)
-        for obstacle in obs_msg.markers[1:]:  # type: Marker
+        for obstacle in obs_msg.markers[start:]:  # type: Marker
             if self.subsample >= 1.0:
                 ss = self.subsample
             else:
@@ -419,7 +444,8 @@ class PoseGeneratorRosInterface:
         if len(obs_msg.markers) > 0:
             dbg_markers.append(obs_msg.markers[0])
             obs_msg.markers[0].points = dbg_pnts
-            self._dbg_pub_projection.publish(obs_msg)
+            if self.ros:
+                self._dbg_pub_projection.publish(obs_msg)
 
         hull_pnts = np.asarray(hull_pnts)
         obstacles = np.asarray(obstacles)
@@ -524,13 +550,22 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         else:
             return 'C6'
 
-    def __init__(self, topic):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
+                 enable_ros=DF_ENABLE_ROS):
         """
         Default constructor
-        :param topic: Topic where the calculated pose gets published
-        :type topic: str
+        :param pub_topic: Topic where the calculated pose gets published
+        :type pub_topic: str
+        :param obs_topic: subscribing to obstacles messages from here
+        :type obs_topic: str
+        :param flr_topic: subscribing to floor messages from here
+        :type flr_topic: str
+        :param sub_sample: subsample ratio
+        :type sub_sample: float
+        :param enable_ros: whethere or not to use ROS
+        :type enable_ros: bool
         """
-        super(PoseGeneratorRosView, self).__init__(topic)
+        super(PoseGeneratorRosView, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
 
     def plot(self, ax=None, hull=True, obstacles=True):
         """
@@ -571,13 +606,22 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
 
 class PcaPoseGenerator(PoseGeneratorRosView):
 
-    def __init__(self, topic):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
+                 enable_ros=DF_ENABLE_ROS):
         """
         Default constructor
-        :param topic: Topic where the calculated pose gets published
-        :type topic: str
+        :param pub_topic: Topic where the calculated pose gets published
+        :type pub_topic: str
+        :param obs_topic: subscribing to obstacles messages from here
+        :type obs_topic: str
+        :param flr_topic: subscribing to floor messages from here
+        :type flr_topic: str
+        :param sub_sample: subsample ratio
+        :type sub_sample: float
+        :param enable_ros: whethere or not to use ROS
+        :type enable_ros: bool
         """
-        super(PcaPoseGenerator, self).__init__(topic)
+        super(PcaPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -659,13 +703,22 @@ class PcaPoseGenerator(PoseGeneratorRosView):
 
 class DelaunayPoseGenerator(PoseGeneratorRosView):
 
-    def __init__(self, topic):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
+                 enable_ros=DF_ENABLE_ROS):
         """
         Default constructor
-        :param topic: Topic where the calculated pose gets published
-        :type topic: str
+        :param pub_topic: Topic where the calculated pose gets published
+        :type pub_topic: str
+        :param obs_topic: subscribing to obstacles messages from here
+        :type obs_topic: str
+        :param flr_topic: subscribing to floor messages from here
+        :type flr_topic: str
+        :param sub_sample: subsample ratio
+        :type sub_sample: float
+        :param enable_ros: whethere or not to use ROS
+        :type enable_ros: bool
         """
-        super(DelaunayPoseGenerator, self).__init__(topic)
+        super(DelaunayPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -740,14 +793,25 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
     Determine the Pose using KDE and discretization
     """
 
-    def __init__(self, topic):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
+                 enable_ros=DF_ENABLE_ROS, n_bins=DF_N_BINS):
         """
         Default constructor
-        :param topic: Topic where the calculated pose gets published
-        :type topic: str
+        :param pub_topic: Topic where the calculated pose gets published
+        :type pub_topic: str
+        :param obs_topic: subscribing to obstacles messages from here
+        :type obs_topic: str
+        :param flr_topic: subscribing to floor messages from here
+        :type flr_topic: str
+        :param sub_sample: subsample ratio
+        :type sub_sample: float
+        :param enable_ros: whethere or not to use ROS
+        :type enable_ros: bool
+        :param n_bins: number of points of the grid per dimension
+        :typen_bins: int
         """
-        super(MinimalDensityEstimatePoseGenerator, self).__init__(topic)
-        self.n_bins = rospy.get_param("~n_bins", 10)
+        super(MinimalDensityEstimatePoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
+        self.n_bins = n_bins
         # self.hlp_xx, self.hlp_yy = np.mgrid[-1:1: self.n_bins * 1j, -1:1: self.n_bins * 1j]
         self.hlp_positions = np.zeros((self.n_bins ** 2, 2))
         self.hlp_f = np.zeros(self.n_bins ** 2)
@@ -809,7 +873,8 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
         xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
         f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
-        ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1)
+        cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1, locator=ticker.LogLocator())
+        cbar = plt.gcf().colorbar(cs)
         cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2, zorder=2)
         ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f', zorder=3)
 
@@ -821,15 +886,26 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
     Discretion of the search area and run nn approach for hull and obstacles
     """
 
-    def __init__(self, topic):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
+                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER):
         """
         Default constructor
-        :param topic: Topic where the calculated pose gets published
-        :type topic: str
+        :param pub_topic: Topic where the calculated pose gets published
+        :type pub_topic: str
+        :param obs_topic: subscribing to obstacles messages from here
+        :type obs_topic: str
+        :param flr_topic: subscribing to floor messages from here
+        :type flr_topic: str
+        :param sub_sample: subsample ratio
+        :type sub_sample: float
+        :param enable_ros: whethere or not to use ROS
+        :type enable_ros: bool
+        :param mc_raster: Number of x and y line
+        :type mc_raster: int
         """
-        super(MonteCarloPoseGenerator, self).__init__(topic)
-        self.n_xlines = rospy.get_param("~n_xlines", 8)
-        self.n_ylines = rospy.get_param("~n_ylines", self.n_xlines)
+        super(MonteCarloPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
+        self.n_xlines = mc_raster
+        self.n_ylines = self.n_xlines
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -910,12 +986,12 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
     ax.set_ylim(*ax.get_xlim())
     for generator in lst_generator:  # type: PoseGeneratorRosView
         if len(generator.obs_points) == 0:
-            continue
+            return
         generator.plot(ax, hull=False, obstacles=False)
         rospy.loginfo("[view_all(%s)] #obstacles: %g" % (generator.get_name(), len(generator.obs_points)))
 
     as_array = np.asarray(lst_generator[-1].obs_points)
-    rospy.loginfo("[view_all()] #obstacles: %g" % len(lst_generator[-1].obs_points))
+    rospy.logdebug("[view_all()] #obstacles: %g" % len(lst_generator[-1].obs_points))
     name = "Hindernisse"
     ax.plot(as_array[:, 0], as_array[:, 1], '.', label=name, zorder=10, color=PoseGeneratorRosView.get_color(name))
     hull = lst_generator[-1].hull_points.tolist()
