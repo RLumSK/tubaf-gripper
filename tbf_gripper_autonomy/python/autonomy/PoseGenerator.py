@@ -56,6 +56,7 @@ matplotlib.use('Qt5Agg')
 from pylab import *
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.image import NonUniformImage
 
 # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
 import matplotlib2tikz
@@ -92,7 +93,7 @@ class PoseGeneratorRosInterface:
         """
         _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
         _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
-        self.subsample = rospy.get_param("~sub_sample", 0.5)
+        self.subsample = rospy.get_param("~sub_sample", 100)
 
         self._obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
         self._floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
@@ -198,7 +199,7 @@ class PoseGeneratorRosInterface:
             return ps
 
         self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
-
+        rospy.logdebug("[PoseGeneratorRosInterface.once(%s)] #Obstacles: %g" % (self.get_name(), len(self.obs_points)))
         valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(self.hull_points[:, :2], qhull_options="Pp"),
                                                          self.obs_points[:, :2])  # type: np.ndarray
         if len(valid_points) == 0:
@@ -359,23 +360,35 @@ class PoseGeneratorRosInterface:
         :return: list with all points projected on the floor plane - [obstacles, hull]
         :rtype: [np.ndarray, np.ndarray]
         """
-        obs_points = []
+
+        # show the numbers in the obstacle message
+        n_obstacles = 0
+        rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] len(obs_msg.markers): %g" %
+                      (self.get_name(), len(obs_msg.markers)))
+        for obstacle in obs_msg.markers[1:]:  # type: Marker
+            rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] len(obstacle.points): %g" %
+                          (self.get_name(), len(obstacle.points)))
+            n_obstacles += len(obstacle.points)
+        rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] in total: %g" % (self.get_name(), n_obstacles))
+
+        obstacles = []
         dbg_pnts = []
         dbg_markers = []
         plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
-        for obstacle in obs_msg.markers:  # type: Marker
-            i = 0
-            if self.subsample > 1.0:
+
+        i = long(0)
+        for obstacle in obs_msg.markers[1:]:  # type: Marker
+            if self.subsample >= 1.0:
                 ss = self.subsample
             else:
-                ss = int(len(obstacle.points) * self.subsample)
+                ss = int(n_obstacles * self.subsample)
             if ss == 0:
                 rospy.logwarn("[PoseGeneratorRosInterface.extract_points] Given %g points and a subsampling rate of %g "
                               "we use %g points - impossible, hence useing at least one" %
                               (len(obstacle.points), self.subsample, len(obstacle.points) * self.subsample))
                 point = obstacle.points[len(obstacle.points) % 42]
                 prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
-                obs_points.append(prjt_pnt)
+                obstacles.append(prjt_pnt)
                 point.x = prjt_pnt[0]
                 point.y = prjt_pnt[1]
                 point.z = prjt_pnt[2]
@@ -383,15 +396,15 @@ class PoseGeneratorRosInterface:
                 continue
             for point in obstacle.points:  # type: Point
                 i += 1
-                if i % ss != 0 and len(obs_points) != 0:
-                    continue
-                prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
-                obs_points.append(prjt_pnt)
-                point.x = prjt_pnt[0]
-                point.y = prjt_pnt[1]
-                point.z = prjt_pnt[2]
-                dbg_pnts.append(point)
+                if i % ss == 0:
+                    prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
+                    obstacles.append(prjt_pnt)
+                    point.x = prjt_pnt[0]
+                    point.y = prjt_pnt[1]
+                    point.z = prjt_pnt[2]
+                    dbg_pnts.append(point)
 
+        rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] #Markers: %s" % (self.get_name(), len(obstacles)))
         # Add convex hull to dataset
         hull_pnts = []
         for i in range(0, len(flr_msg.convex_hull)):
@@ -409,8 +422,8 @@ class PoseGeneratorRosInterface:
             self._dbg_pub_projection.publish(obs_msg)
 
         hull_pnts = np.asarray(hull_pnts)
-        obs_points = np.asarray(obs_points)
-        return [obs_points, hull_pnts]
+        obstacles = np.asarray(obstacles)
+        return [obstacles, hull_pnts]
 
     @staticmethod
     def _as_pose_stamped(lst_pos, floor_msg):
@@ -538,14 +551,14 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         c = PoseGeneratorRosView.get_color(n)
         if len(self.result.shape) == 1 and self.result.shape[0] == 3:
             self.result = np.asarray([self.result])
-        ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
         for lne in self.lines:
-            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5.0,
+            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
                     label=n + " Hilfslinien")
 
-        as_array = np.asarray(self.obs_points)
         if obstacles:
+            as_array = np.asarray(self.obs_points)
             n = "Hindernisse"
+            rospy.loginfo("[PoseGeneratorRosView.plot(%s)] obstacles: %s" % (n, as_array))
             ax.plot(as_array[:, 0], as_array[:, 1], '.', label=n, zorder=3.5, color=PoseGeneratorRosView.get_color(n))
         if hull:
             hull = self.hull_points.tolist()
@@ -553,7 +566,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
             as_array = np.asarray(hull)
             n = "Boden"
             ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=n, zorder=4.5, color=PoseGeneratorRosView.get_color(n))
-        return ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=4.0, color=c, label=n)
+        return ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=100, color=c, label=n)
 
 
 class PcaPoseGenerator(PoseGeneratorRosView):
@@ -584,7 +597,7 @@ class PcaPoseGenerator(PoseGeneratorRosView):
         rospy.logdebug("[PcaPoseGenerator._generate()] Starting")
 
         if len(lst_obs_points) < 3:
-            rospy.logwarn("[PcaPoseGenerator._generate()] Not enough obstacle points: %g" % len(lst_obs_points))
+            rospy.logdebug("[PcaPoseGenerator._generate()] Not enough obstacle points: %g" % len(lst_obs_points))
             rospy.logdebug("[PcaPoseGenerator._generate()] %s" % lst_obs_points)
             return None
 
@@ -796,9 +809,9 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
         xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
         f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
-        cfset = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5)
-        cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2)
-        ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f')
+        ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1)
+        cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2, zorder=2)
+        ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f', zorder=3)
 
         return ret_ax
 
@@ -880,6 +893,10 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
 def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
     """
     Plot all given generators into one figure
+    :param ff:  [optional] list of file formats, eg pgf, pdf
+    :type ff: list
+    :param print_it: [optional] print the plot
+    :type print_it: bool
     :param show_it: [optional] show the plot
     :type show_it: bool
     :param lst_generator: list of pose generators of type PoseGeneratorRosView
@@ -895,14 +912,17 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
         if len(generator.obs_points) == 0:
             continue
         generator.plot(ax, hull=False, obstacles=False)
+        rospy.loginfo("[view_all(%s)] #obstacles: %g" % (generator.get_name(), len(generator.obs_points)))
+
     as_array = np.asarray(lst_generator[-1].obs_points)
+    rospy.loginfo("[view_all()] #obstacles: %g" % len(lst_generator[-1].obs_points))
     name = "Hindernisse"
-    ax.plot(as_array[:, 0], as_array[:, 1], '.', label=name, zorder=3.5, color=PoseGeneratorRosView.get_color(name))
+    ax.plot(as_array[:, 0], as_array[:, 1], '.', label=name, zorder=10, color=PoseGeneratorRosView.get_color(name))
     hull = lst_generator[-1].hull_points.tolist()
     hull.append(hull[0])
     as_array = np.asarray(hull)
     name = "Boden"
-    ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=name, zorder=4.5, color=PoseGeneratorRosView.get_color(name))
+    ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=name, zorder=9, color=PoseGeneratorRosView.get_color(name))
 
     # Text
     if lst_generator[-1].subsample > 1.0:
@@ -972,6 +992,8 @@ class EvaluatePoseGenerators(object):
     """
     Evaluation for a PoseGeneratorRosInterface instance
     """
+
+    C_MAP = u'tab20c_r'
 
     @staticmethod
     def calc_min_distance(point, lst_points, mode="PP"):
@@ -1150,10 +1172,26 @@ class EvaluatePoseGenerators(object):
                 d_obst = obstacle_distance
                 obst_ident = ident
 
+        # Sometimes no obstacles are present, resulting in the same position for all generators,
+        # we want to filter such cases
+        obs_points, hull_points = self._generators[-1].extract_points(obs, flr.tables[0])
+        valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(hull_points[:, :2], qhull_options="Pp"),
+                                                         obs_points[:, :2])
+        purge_last_evaluation = len(valid_points) == 0
+        if purge_last_evaluation:
+            rospy.logdebug("[EvaluatePoseGenerators.run()] No obstacles in hull, we wont evaluate this sample")
+            for g in self._generators:
+                ident = g.get_name()
+                self.dct_timing[ident].pop()
+                self.dct_result[ident].pop()
+                self.dct_lst_hull_distance[ident].pop()
+                self.dct_lst_obstacle_distance[ident].pop()
+            return
+
         self.dct_count_largest_hull_distance[hull_ident] += 1
         self.dct_count_largest_obstacle_distance[obst_ident] += 1
 
-    def evaluate(self, print_it=False, ff=['.tex', '.pdf', '.pgf']):
+    def evaluate(self, print_it=False, ff=['.tex', '.pdf']):
         """
         Plot the gathered data
         :return: -
@@ -1184,11 +1222,21 @@ class EvaluatePoseGenerators(object):
         if print_it:
             print_plt(file_formats=ff, suffix="timing", save_dir=s_dir)
 
-    def distance_to(self, lst_results, n_bin=25, alpha=0.75):
+    def distance_to(self, lst_results, n_bin=25, alpha=0.75, print_it=False, show_it=False, ff=['.tex', '.pdf']):
         """
         Determine the distance to a list of results
+        :param print_it: whether or not to print the plots
+        :type print_it: bool
+        :param show_it: whether or not to show_it the plots
+        :type show_it: bool
+        :param ff: file formats of the print
+        :type ff: list
+        :param alpha: Alpha channel of the bar plot
+        :type alpha: float
         :param lst_results: list of results
         :type lst_results: list
+        :param n_bin: number of bins used in bar plot histogram
+        :type n_bin: int
         :return: -
         :rtype: -
         """
@@ -1204,27 +1252,27 @@ class EvaluatePoseGenerators(object):
             if len(dct_distances[key]) == 0:
                 del dct_distances[key]
         self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Ground Truth', alpha=alpha)
+        if print_it:
+            print_plt(file_formats=ff)
+        if show_it:
+            plt.show()
 
-    def plot_heatmap(self, name='all', n_bin=50, sigma=10, print_it=False, show_it=False, ff=['.tex', '.pdf', '.pgf']):
+    def plot_heatmap(self, name='all', n_bin=20, print_it=False, show_it=False, ff=['.tex', '.pdf']):
         """
         Plot a heatmap of all results
         :param name:
         :type name: str
         :param n_bin: number of bins for the 2d histogram
         :type n_bin: int
-        :param sigma: Sigma for the gaussian kernel
-        :type sigma: float
-        :param print_it: wheter or not to print the plots
+        :param print_it: whether or not to print the plots
         :type print_it: bool
-        :param show_it: wheter or not to show_it the plots
+        :param show_it: whether or not to show_it the plots
         :type show_it: bool
         :param ff: file formats of the print
         :type ff: list
         :return: -
         :rtype: -
         """
-        from scipy.stats import gaussian_kde
-
         lst_names = []
         if 'all' in name:
             for g in self._generators:
@@ -1232,16 +1280,26 @@ class EvaluatePoseGenerators(object):
         else:
             lst_names.append(name)
 
+        rospy.logdebug("[EvaluatePoseGenerators.plot_heatmap()] %s" % lst_names)
         for n in lst_names:
             values = np.asarray(self.dct_result[n])
-            # hist2d(x=values[:, 0].T, y=values[:, 1].T, bins=n_bin, range=[[-1, 1], [-1, 1]], cmap='gray_r')  # , range=[[-1, 1], [-1, 1]], cm='gray'
-            # hexbin(x=values[:, 0].T, y=values[:, 1].T, gridsize=n_bin, range=[[-1, 1], [-1, 1]], cmap='gray_r')
-            g = np.linspace(-1, 1, n_bin)
-            data = np.histogram2d(values[:, 0].T, values[:, 1].T, bins=n_bin)[0]
-            data = gaussian_filter(data, sigma=sigma)
-            plt.pcolormesh(g, g, data.T, cmap='gray_r')
-            a_title = "Heatmap "+n
-            title(a_title)
+            if len(values) == 0:
+                break
+            # See: https://docs.scipy.org/doc/numpy/reference/generated/numpy.histogram2d.html
+            data, xedges, yedges = np.histogram2d(values[:, 0].T, values[:, 1].T, bins=n_bin, range=[[-1, 1], [-1, 1]])
+            data = data.T
+            a_title = "Heatmap " + n
+            fig = plt.figure()
+            ax = fig.add_subplot(111, title=a_title, aspect='equal', xlim=[-1, 1], ylim=[-1, 1])
+            im = NonUniformImage(ax, interpolation='nearest')
+            im.set_cmap(EvaluatePoseGenerators.C_MAP)
+            im.set_clim(vmin=0, vmax=0.2*len(values))
+            xcenters = (xedges[:-1] + xedges[1:]) / 2
+            ycenters = (yedges[:-1] + yedges[1:]) / 2
+            rospy.logdebug("[EvaluatePoseGenerators.plot_heatmap(%s)] data:\n %s" % (n, data))
+            im.set_data(xcenters, ycenters, data)
+            ax.images.append(im)
+            plt.colorbar(im)
             if print_it:
                 print_plt(file_formats=ff, suffix=a_title)
             if show_it:

@@ -75,6 +75,8 @@ if __name__ == '__main__':
     rospy.loginfo("Starting: bag has %g messages" % n_msg)
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
+        if i_msg < 250:
+            continue
         progress(i_msg-1, n_msg, suffix="of messages processed")
         if topic in obstacles_topic:
             rospy.logdebug("new obstacle_msg")
@@ -91,11 +93,10 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        # if i_msg % 333 == 0:
-        #     view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats)
+        # if i_msg % 50 == 0:
+        view_all(lst_generator=lst_gen, show_it=True, print_it=False, ff=formats)
         progress(i_msg, n_msg, suffix="of messages processed")
 
-    evaluation.plot_heatmap(print_it=True, ff=formats)
-    evaluation.distance_to(evaluation.dct_result[mcr.get_name()])
-    print_plt(file_formats=formats)
-    evaluation.evaluate(print_it=True, ff=formats)
+    # evaluation.plot_heatmap(print_it=True, ff=['.pgf', '.pdf'])
+    # evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
+    # evaluation.evaluate(print_it=True, ff=formats)
