@@ -86,6 +86,7 @@ DF_SUB_SAMPLE = 100
 DF_ENABLE_ROS = True
 DF_N_BINS = 10
 DF_MC_RASTER = 20
+DF_PLT_SAVE_DIR = "/home/grehl/Schreibtisch/PoseGeneratorImages"
 
 @add_metaclass(abc.ABCMeta)
 class PoseGeneratorRosInterface:
@@ -977,9 +978,11 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         return ret_pos
 
 
-def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
+def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot"):
     """
     Plot all given generators into one figure
+    :param save_to: [optional] directory where the plots are stored
+    :type save_to: str
     :param ff:  [optional] list of file formats, eg pgf, pdf
     :type ff: list
     :param print_it: [optional] print the plot
@@ -1032,7 +1035,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
     if show_it:
         plt.show()
     if print_it:
-        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte")
+        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte", save_dir=save_to)
 
 
 def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages",
@@ -1158,13 +1161,15 @@ class EvaluatePoseGenerators(object):
     def get_ident(obj):
         return str(type(obj)).split(".")[-1][:-2]
 
-    def __init__(self, generators, timeit=True):
+    def __init__(self, generators, timeit=True, save_dir="/out/plot"):
         """
         Default constructor
         :param generators: pose generators
         :type generators: list of PoseGeneratorRosInterface
         :param timeit: measure time during run
         :type timeit: bool
+        :param save_dir: directory with plots
+        :type save_dir: str
         """
         self._generators = generators
 
@@ -1176,6 +1181,7 @@ class EvaluatePoseGenerators(object):
         self.dct_timing = {}
 
         self.timeit = timeit
+        self.plot_dir = save_dir
 
         for g in self._generators:  # type: PoseGeneratorRosInterface
             ident = g.get_name()
@@ -1287,8 +1293,6 @@ class EvaluatePoseGenerators(object):
         :return: -
         :rtype:-
         """
-        s_dir = rospy.get_param("~", "/home/grehl/Schreibtisch/PoseGeneratorImages")
-
         for k in self.dct_lst_hull_distance.keys():
             if len(self.dct_lst_hull_distance[k]) == 0:
                 return
@@ -1304,13 +1308,13 @@ class EvaluatePoseGenerators(object):
         alpha = 0.75
         self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
         if print_it:
-            print_plt(file_formats=ff, suffix="hull_histogram")
+            print_plt(file_formats=ff, suffix="hull_histogram", save_dir=self.plot_dir)
         self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
         if print_it:
-            print_plt(file_formats=ff, suffix="obstacle_histogram")
+            print_plt(file_formats=ff, suffix="obstacle_histogram", save_dir=self.plot_dir)
         self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
         if print_it:
-            print_plt(file_formats=ff, suffix="timing", save_dir=s_dir)
+            print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
 
     def distance_to(self, lst_results, n_bin=25, alpha=0.75, print_it=False, show_it=False, ff=['.tex', '.pdf']):
         """
@@ -1343,7 +1347,7 @@ class EvaluatePoseGenerators(object):
                 del dct_distances[key]
         self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Ground Truth', alpha=alpha)
         if print_it:
-            print_plt(file_formats=ff)
+            print_plt(file_formats=ff, save_dir=self.plot_dir)
         if show_it:
             plt.show()
 
@@ -1391,7 +1395,7 @@ class EvaluatePoseGenerators(object):
             ax.images.append(im)
             plt.colorbar(im)
             if print_it:
-                print_plt(file_formats=ff, suffix=a_title)
+                print_plt(file_formats=ff, suffix=a_title, save_dir=self.plot_dir)
             if show_it:
                 plt.show()
 
