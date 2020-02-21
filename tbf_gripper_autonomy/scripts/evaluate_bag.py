@@ -122,7 +122,7 @@ if __name__ == '__main__':
     lst_gen = [pca, dln, kde, mcr]
 
     evaluation = pg.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
-    formats = ['.tex', '.pdf']
+    formats = ['.png', '.tex', '.pdf']
 
     print("Starting: bag has "+str(n_msg)+" messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
@@ -143,6 +143,6 @@ if __name__ == '__main__':
         pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
         progress(i_msg, n_msg, suffix="of messages processed")
 
-    evaluation.plot_heatmap(print_it=True, ff=['.pgf', '.pdf'])
+    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
     evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
     evaluation.evaluate(print_it=True, ff=formats)
