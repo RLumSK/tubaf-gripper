@@ -140,7 +140,10 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+        try:
+            pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+        except IndexError as ie:
+            print("IndexError during view_all")
         progress(i_msg, n_msg, suffix="of messages processed")
 
     evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
