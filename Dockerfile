@@ -1,17 +1,3 @@
-# syntax=docker/dockerfile:experimental
-# FROM julius as intermediate
-# # Build: DOCKER_BUILDKIT=1 docker build --ssh default -t set_pose_evaluation .  
-
-# ARG WS=/julius_ws/src
-# ARG GIT_REPO=git.informatik.tu-freiberg.de
-
-# # RUN rm -rf $WS/tubaf_gripper
-# # RUN --mount=type=ssh git clone --recurse-submodules --branch=pose_generator --depth=1 git@$GIT_REPO:ros/tubaf_gripper.git $WS/tubaf_gripper
-# WORKDIR $WS/tubaf_gripper
-# RUN git checkout pose_generator
-
-
-# ########################################
 FROM ros:kinetic-robot
 LABEL maintainer="grehl" mail="Steve.Grehl@informatik.tu-freiberg.de" company="TU Bergakademie Freiberg"
 
@@ -49,3 +35,12 @@ ENTRYPOINT ["/entrypoint.sh"]
 #					   FROM : TO									MATCH USER
 # docker run --volume $(pwd)/:/in/bag --volume $(pwd)/plots:/out/plots -u $(id -u):$(id -g) set_pose_evaluation buero.bag
 # docker run --volume $(pwd)/docker:/in/bag --volume $(pwd)/plots:/out/plots -u $(id -u):$(id -g) set_pose_evaluation evaluate_bag.py -p /in/bag/buero.bag
+# nvidia-docker run --volume /raid/localshare/grehl/bag:/in/bag --volume /raid/localshare/grehl/plot:/out/plots -u $(id -u):$(id -g) grehl/set_pose_evaluation evaluate_bag.py -p /in/bag/buero.bag
+
+
+
+
+
+
+
+
