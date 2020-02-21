@@ -86,7 +86,7 @@ if __name__ == '__main__':
         sub_sample = rospy.get_param("~sub_sample", pg.DF_SUB_SAMPLE)
         n_bins = rospy.get_param("~sub_sample", pg.DF_N_BINS)
         mc_raster = rospy.get_param("~sub_sample", pg.DF_MC_RASTER)
-        plot_dir = rospy.get_param(("~plot_dir", pg.DF_PLT_SAVE_DIR)
+        plot_dir = rospy.get_param("~plot_dir", pg.DF_PLT_SAVE_DIR)
     else:
         print("Using args")
         print(args)
