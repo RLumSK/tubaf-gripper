@@ -34,17 +34,16 @@ import sys
 if sys.version_info.major < 3:
     from __builtin__ import staticmethod
 
+import os
 import rospy
 import numpy as np
 import signal
 import abc
-import os
-import time
+import datetime
 
 from six import add_metaclass
 from scipy.spatial import Delaunay
 from sklearn.neighbors import NearestNeighbors
-from scipy.ndimage import gaussian_filter
 
 from object_recognition_msgs.msg import TableArray, Table
 from visualization_msgs.msg import MarkerArray, Marker
@@ -86,7 +85,7 @@ DF_PUB_TOPIC = "/pub_set_pose"
 DF_SUB_SAMPLE = 100
 DF_ENABLE_ROS = True
 DF_N_BINS = 10
-DF_MC_RASTER = 100
+DF_MC_RASTER = 20
 
 @add_metaclass(abc.ABCMeta)
 class PoseGeneratorRosInterface:
@@ -147,6 +146,7 @@ class PoseGeneratorRosInterface:
         hull = self.hull_points[:, :2]  # type: np.ndarray
         obstacles = self.obs_points[:, :2]  # type: np.ndarray
 
+        from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
         response = GenerateSetPoseResponse()
         response.set_pose = ps
         response.nn_distance, _ = EvaluatePoseGenerators.calc_min_distance(self.result, obstacles.tolist(), mode="PP")
@@ -876,12 +876,18 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         l = int(np.sqrt(len(self.hlp_f)))
         xmin, xmax = min(self.hlp_positions[:, 0]), max(self.hlp_positions[:, 0])
         ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
+        if xmin == xmax or ymin == ymax:
+            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] xmin: %s" % xmin)
+            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] xmax: %s" % xmax)
+            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] ymin: %s" % ymin)
+            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] ymax: %s" % ymax)
+            return
         xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
         f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
-        cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1, locator=ticker.LogLocator())
+        cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1)  # , locator=ticker.LogLocator()
         cbar = plt.gcf().colorbar(cs)
         cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2, zorder=2)
-        ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f', zorder=3)
+        ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f')  # , zorder=3
 
         return ret_ax
 
@@ -991,6 +997,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
     ax.set_ylim(*ax.get_xlim())
     for generator in lst_generator:  # type: PoseGeneratorRosView
         if len(generator.obs_points) == 0:
+            plt.close()
             return
         generator.plot(ax, hull=False, obstacles=False)
         rospy.loginfo("[view_all(%s)] #obstacles: %g" % (generator.get_name(), len(generator.obs_points)))
@@ -1046,10 +1053,12 @@ def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Sc
     if not os.path.exists(save_dir):
         rospy.logwarn("[print_plt] Creating '%s' to store plots" % save_dir)
         os.makedirs(save_dir)
-    p = os.path.join(save_dir, str(rospy.Time.now().to_nsec()) + suffix)
+
+    ts = datetime.datetime.now().strftime("[%Y-%m-%d_%H:%M:%S:%f]")
+    p = os.path.join(save_dir, ts + suffix)
     for c in file_formats:
         if 'tex' in c or 'tikz' in c:
-            mpl2tkz.save(p + c)
+            mpl2tkz.save(p + c, encoding='utf-8')
         else:
             plt.savefig(p + c, bbox_extra_artists=extras, bbox_inches='tight')
     plt.close()

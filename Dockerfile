@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:experimental
 # FROM julius as intermediate
-# # Build: DOCKER_BUILDKIT=1 docker build --ssh default -t set_pose_evaluation .  
+# # Build: DOCKER_BUILDKIT=1 docker build --ssh default -t set_pose_evaluation .
 
 # ARG WS=/julius_ws/src
 # ARG GIT_REPO=git.informatik.tu-freiberg.de

@@ -77,7 +77,7 @@ if __name__ == '__main__':
     if args.use_ros:
         print("Using ROS")
         import rospy
-        rospy.init_node("evaluate_bag_set_pose", log_level=rospy.INFO)
+        rospy.init_node("evaluate_bag_set_pose", log_level=rospy.ERROR)
         bag_path = rospy.get_param("~bag", DF_BAG_PATH)
         pub_topic = rospy.get_param("~pub_topic", pg.DF_PUB_TOPIC)
         floor_topic = rospy.get_param("~floor_topic", pg.DF_FLR_TOPIC)
@@ -137,8 +137,7 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        if i_msg % 100 == 0:
-            pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats)
+        pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats)
         progress(i_msg, n_msg, suffix="of messages processed")
 
     evaluation.plot_heatmap(print_it=True, ff=['.pgf', '.pdf'])
