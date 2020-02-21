@@ -127,8 +127,6 @@ if __name__ == '__main__':
     print("Starting: bag has "+str(n_msg)+" messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
-        if i_msg < 220:
-            continue
         progress(i_msg-1, n_msg, suffix="of messages processed")
         if topic in obstacles_topic:
             obstacle_msg = msg
