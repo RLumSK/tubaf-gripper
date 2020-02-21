@@ -77,7 +77,7 @@ if __name__ == '__main__':
     if args.use_ros:
         print("Using ROS")
         import rospy
-        rospy.init_node("evaluate_bag_set_pose", log_level=rospy.ERROR)
+        rospy.init_node("evaluate_bag_set_pose", log_level=rospy.INFO)
         bag_path = rospy.get_param("~bag", DF_BAG_PATH)
         pub_topic = rospy.get_param("~pub_topic", pg.DF_PUB_TOPIC)
         floor_topic = rospy.get_param("~floor_topic", pg.DF_FLR_TOPIC)
@@ -124,6 +124,8 @@ if __name__ == '__main__':
     print("Starting: bag has "+str(n_msg)+" messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
+        if i_msg < 220:
+            continue
         progress(i_msg-1, n_msg, suffix="of messages processed")
         if topic in obstacles_topic:
             obstacle_msg = msg

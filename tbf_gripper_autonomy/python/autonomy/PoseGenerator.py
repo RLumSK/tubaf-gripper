@@ -884,8 +884,8 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
             return
         xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
         f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
-        cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1)  # , locator=ticker.LogLocator()
-        cbar = plt.gcf().colorbar(cs)
+        cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1, locator=ticker.LogLocator())
+        plt.gcf().colorbar(cs)
         cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2, zorder=2)
         ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f')  # , zorder=3
 
@@ -1027,7 +1027,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf']):
         return axis.legend(*zip(*unique), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=2,
                            mode="expand", borderaxespad=0.)
 
-    lgd = legend_without_duplicate_labels(ax)
+    # lgd = legend_without_duplicate_labels(ax)
 
     if show_it:
         plt.show()
