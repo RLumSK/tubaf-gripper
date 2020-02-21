@@ -71,7 +71,8 @@ if __name__ == '__main__':
 
     parser.add_argument("-nb", "--n_bins", default=pg.DF_SUB_SAMPLE, help='[KDE] Number of Bins used ')
     parser.add_argument("-mcr", "--mc_raster", default=pg.DF_SUB_SAMPLE, help='[MC] Number of x and y line')
-    # parser.add_argument("-mc_r", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate')
+    parser.add_argument("-pd", "--plot_dir", default=pg.DF_PLT_SAVE_DIR,
+                        help='Directory where the plots should be saved (will be created if not existent)')
     args = parser.parse_args()
 
     if args.use_ros:
@@ -85,6 +86,7 @@ if __name__ == '__main__':
         sub_sample = rospy.get_param("~sub_sample", pg.DF_SUB_SAMPLE)
         n_bins = rospy.get_param("~sub_sample", pg.DF_N_BINS)
         mc_raster = rospy.get_param("~sub_sample", pg.DF_MC_RASTER)
+        plot_dir = rospy.get_param(("~plot_dir", pg.DF_PLT_SAVE_DIR)
     else:
         print("Using args")
         print(args)
@@ -95,6 +97,7 @@ if __name__ == '__main__':
         sub_sample = args.sub_sample
         n_bins = args.n_bins
         mc_raster = args.mc_raster
+        plot_dir = args.plot_dir
 
         import logging
         log = logging.getLogger("not_ros")
@@ -118,12 +121,14 @@ if __name__ == '__main__':
     mcr = pg.MonteCarloPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster)
     lst_gen = [pca, dln, kde, mcr]
 
-    evaluation = pg.EvaluatePoseGenerators(lst_gen)
+    evaluation = pg.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
     formats = ['.tex', '.pdf']
 
     print("Starting: bag has "+str(n_msg)+" messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
+        if i_msg < 220:
+            continue
         progress(i_msg-1, n_msg, suffix="of messages processed")
         if topic in obstacles_topic:
             obstacle_msg = msg
@@ -137,8 +142,7 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        if i_msg % 100 == 0:
-            pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats)
+        pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
         progress(i_msg, n_msg, suffix="of messages processed")
 
     evaluation.plot_heatmap(print_it=True, ff=['.pgf', '.pdf'])
