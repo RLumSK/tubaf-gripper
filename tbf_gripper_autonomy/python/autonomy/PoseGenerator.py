@@ -58,7 +58,6 @@ import pandas as pd
 from matplotlib.image import NonUniformImage
 from matplotlib import ticker
 
-
 if sys.version_info.major < 3:
     # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
     import matplotlib2tikz as mpl2tkz
@@ -78,7 +77,6 @@ def signal_handler(_signal, _frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-
 DF_OBS_TOPIC = "/ork/tabletop/clusters"
 DF_FLR_TOPIC = "/ork/floor_plane"
 DF_PUB_TOPIC = "/pub_set_pose"
@@ -86,7 +84,10 @@ DF_SUB_SAMPLE = 100
 DF_ENABLE_ROS = True
 DF_N_BINS = 10
 DF_MC_RASTER = 20
+DF_MC_WO = 1.0
+DF_MC_WH = 1.0
 DF_PLT_SAVE_DIR = "/home/grehl/Schreibtisch/PoseGeneratorImages"
+
 
 @add_metaclass(abc.ABCMeta)
 class PoseGeneratorRosInterface:
@@ -98,7 +99,8 @@ class PoseGeneratorRosInterface:
 
     HULL_THRESHOLD = 6
 
-    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE, enable_ros=DF_ENABLE_ROS):
+    def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
+                 enable_ros=DF_ENABLE_ROS):
         """
         Default constructor
         :param pub_topic: Topic where the calculated pose gets published
@@ -212,8 +214,7 @@ class PoseGeneratorRosInterface:
                 obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
             while floor_msg is None:
                 floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
-            ps.header = floor_msg.header
-            ps.header.stamp = rospy.Time.now()
+            ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg.tables[0])
             ps.header.stamp = t
 
         if not self.check_messages(obstacles_msg, floor_msg):
@@ -238,7 +239,7 @@ class PoseGeneratorRosInterface:
             self.result = self._generate(valid_points, hull=self.hull_points[:, :2])  # type: np.ndarray
 
         if self.result is None:
-            self.result = np.asarray([floor_msg.tables[0].pose.position.x, floor_msg.tables[0].pose.position.y])
+            self.result = []  # np.asarray([floor_msg.tables[0].pose.position.x, floor_msg.tables[0].pose.position.y])
 
         ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
         if len(self.result) == 0:
@@ -395,10 +396,10 @@ class PoseGeneratorRosInterface:
         # show the numbers in the obstacle message
         n_obstacles = 0
         rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] len(obs_msg.markers): %g" %
-                      (self.get_name(), len(obs_msg.markers)))
+                       (self.get_name(), len(obs_msg.markers)))
         for obstacle in obs_msg.markers[start:]:  # type: Marker
             rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] len(obstacle.points): %g" %
-                          (self.get_name(), len(obstacle.points)))
+                           (self.get_name(), len(obstacle.points)))
             n_obstacles += len(obstacle.points)
         rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] in total: %g" % (self.get_name(), n_obstacles))
 
@@ -435,7 +436,8 @@ class PoseGeneratorRosInterface:
                     point.z = prjt_pnt[2]
                     dbg_pnts.append(point)
 
-        rospy.logdebug("[PoseGeneratorRosInterface.extract_points(%s)] #Markers: %s" % (self.get_name(), len(obstacles)))
+        rospy.logdebug(
+            "[PoseGeneratorRosInterface.extract_points(%s)] #Markers: %s" % (self.get_name(), len(obstacles)))
         # Add convex hull to dataset
         hull_pnts = []
         for i in range(0, len(flr_msg.convex_hull)):
@@ -510,9 +512,13 @@ class PoseGeneratorRosInterface:
         return np.asarray(valid_sample)
 
     @staticmethod
-    def metric(d_obstacles, d_hull):
+    def metric(d_obstacles, d_hull, wo=1.0, wh=1.0):
         """
         Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
+        :param wo: [optional] weight fot the obstacle distance, default: 1.0
+        :type wo: float
+        :param wh: [optional] weight fot the hull distance, default 1.0
+        :type wh: float
         :param d_obstacles: distance to the nearest obstacle
         :type d_obstacles: float
         :param d_hull: distance to the convex hull, perpendicular to the nearest line
@@ -520,8 +526,9 @@ class PoseGeneratorRosInterface:
         :return: combined distance
         :rtype: float
         """
-        ret_val = float(d_obstacles) * float(d_hull)
-        rospy.logdebug("[PoseGeneratorRosInterface.metric()] %g *%g = %g" % (d_obstacles, d_hull, ret_val))
+        ret_val = np.power(float(d_obstacles), wo) * np.power(float(d_hull), wh)
+        rospy.logdebug(
+            "[PoseGeneratorRosInterface.metric()] %g^%g *%g^%g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
         return ret_val
 
 
@@ -590,7 +597,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
             ax = fig.gca()
         n = self.get_name()
         c = PoseGeneratorRosView.get_color(n)
-        if len(self.result.shape) == 1 and self.result.shape[0] == 3:
+        if type(self.result) is list or (len(self.result.shape) == 1 and self.result.shape[0] == 3):
             self.result = np.asarray([self.result])
         for lne in self.lines:
             ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
@@ -816,7 +823,8 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         :param n_bins: number of points of the grid per dimension
         :typen_bins: int
         """
-        super(MinimalDensityEstimatePoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
+        super(MinimalDensityEstimatePoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample,
+                                                                  enable_ros)
         self.n_bins = n_bins
         # self.hlp_xx, self.hlp_yy = np.mgrid[-1:1: self.n_bins * 1j, -1:1: self.n_bins * 1j]
         self.hlp_positions = np.zeros((self.n_bins ** 2, 2))
@@ -850,9 +858,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         positions = PoseGeneratorRosInterface.in_hull(Delaunay(hull[:, :2], qhull_options="Pp"), all_positions)
         values = np.vstack([x, y])
         kernel = st.gaussian_kde(values)
-        # print all_positions.shape  # n_bins **2 x 2
-        # print positions.shape  # i x 2, i < n_bins**2
-        # print xx.shape # n_bins x n_bins
+
         self.hlp_f = kernel(all_positions.T)
         self.hlp_positions = all_positions
         z_i = np.argmin(kernel(positions.T))
@@ -899,7 +905,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
     """
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
-                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER):
+                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER, mc_wo=DF_MC_WO, mc_wh=DF_MC_WH):
         """
         Default constructor
         :param pub_topic: Topic where the calculated pose gets published
@@ -914,10 +920,16 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         :type enable_ros: bool
         :param mc_raster: Number of x and y line
         :type mc_raster: int
+        :param mc_wo: weight for distance to obstacle
+        :type mc_wo: float
+        :param mc_wh: weight for distance to hull
+        :type mc_wh: float
         """
         super(MonteCarloPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
         self.n_xlines = mc_raster
         self.n_ylines = self.n_xlines
+        self.wo = mc_wo
+        self.wh = mc_wh
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -960,7 +972,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         for i in range(0, len(positions)):
             hull_distance, _ = EvaluatePoseGenerators.calc_min_distance(positions[i], hull.tolist(), mode="PL")
             d, i_dp = obs_nn.kneighbors([positions[i, 0:2]])
-            m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance)
+            m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance, wo=self.wo, wh=self.wh)
             extended_positions[i] = np.append(positions[i], m)
         i_max = np.argmax(extended_positions[:, -1])
         ret_pos = extended_positions[i_max, 0:-1]
@@ -1058,12 +1070,16 @@ def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Sc
         os.makedirs(save_dir)
 
     ts = datetime.datetime.now().strftime("[%Y-%m-%d_%H:%M:%S:%f]")
-    p = os.path.join(save_dir, ts + suffix)
     for c in file_formats:
+        p = os.path.join(save_dir, c[1:])
+        if not os.path.exists(p):
+            rospy.logwarn("[print_plt] Creating '%s' to store plots" % p)
+            os.makedirs(p)
+        p = os.path.join(p, ts + suffix + c)
         if 'tex' in c or 'tikz' in c:
-            mpl2tkz.save(p + c, encoding='utf-8')
+            mpl2tkz.save(p, encoding='utf-8')
         else:
-            plt.savefig(p + c, bbox_extra_artists=extras, bbox_inches='tight')
+            plt.savefig(p, bbox_extra_artists=extras, bbox_inches='tight')
     plt.close()
 
 
@@ -1238,13 +1254,13 @@ class EvaluatePoseGenerators(object):
             g.once(obstacles_msg=obs, floor_msg=flr, current_time=flr.header.stamp)
             if self.timeit:
                 self.dct_timing[ident].append(time.time() - t)
-            result = np.asarray(g.result)
+            result = g.result
             self.dct_result[ident].append(result)
             obstacles = g.obs_points
             hull = g.hull_points
             if len(hull) == 0 or len(obstacles) == 0:
                 return
-            # try:
+
             hull_distance, _ = EvaluatePoseGenerators.calc_min_distance(result, hull, mode="PL")
             obstacle_distance, _ = EvaluatePoseGenerators.calc_min_distance(result, obstacles, mode="PP")
             self.dct_lst_hull_distance[ident].append(hull_distance)
@@ -1253,12 +1269,6 @@ class EvaluatePoseGenerators(object):
                            (ident, hull_distance))
             rospy.logdebug("[EvaluatePoseGenerators.run() - %s] Min(Distance2Obstacles) = %g" %
                            (ident, obstacle_distance))
-            # except ValueError as ex:
-            #     rospy.logwarn("[EvaluatePoseGenerators.run() - %s] %s" % (ident, ex.message))
-            #     rospy.logwarn("[EvaluatePoseGenerators.run() - %s] result: %s" % (ident, result))
-            #     rospy.logwarn("[EvaluatePoseGenerators.run() - %s] hull: %s" % (ident, hull))
-            #     rospy.logwarn("[EvaluatePoseGenerators.run() - %s] obstacles: %s" % (ident, obstacles))
-            #     return
 
             # Evaluate who is best most of the time
             if hull_distance > d_hull:
@@ -1345,9 +1355,9 @@ class EvaluatePoseGenerators(object):
         for key in self.dct_result.keys():
             if len(dct_distances[key]) == 0:
                 del dct_distances[key]
-        self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Ground Truth', alpha=alpha)
+        self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Referenz', alpha=alpha)
         if print_it:
-            print_plt(file_formats=ff, save_dir=self.plot_dir)
+            print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Referenzevaluierung")
         if show_it:
             plt.show()
 
@@ -1377,8 +1387,9 @@ class EvaluatePoseGenerators(object):
         rospy.logdebug("[EvaluatePoseGenerators.plot_heatmap()] %s" % lst_names)
         for n in lst_names:
             values = np.asarray(self.dct_result[n])
-            if len(values) == 0:
-                break
+            if len(values.shape) != 2:
+                # TODO: Why do I need this?
+                values = np.vstack([values[0], values[1]])
             # See: https://docs.scipy.org/doc/numpy/reference/generated/numpy.histogram2d.html
             data, xedges, yedges = np.histogram2d(values[:, 0].T, values[:, 1].T, bins=n_bin, range=[[-1, 1], [-1, 1]])
             data = data.T
@@ -1387,7 +1398,7 @@ class EvaluatePoseGenerators(object):
             ax = fig.add_subplot(111, title=a_title, aspect='equal', xlim=[-1, 1], ylim=[-1, 1])
             im = NonUniformImage(ax, interpolation='nearest')
             im.set_cmap(EvaluatePoseGenerators.C_MAP)
-            im.set_clim(vmin=0, vmax=0.2*len(values))
+            im.set_clim(vmin=0, vmax=0.2 * len(values))
             xcenters = (xedges[:-1] + xedges[1:]) / 2
             ycenters = (yedges[:-1] + yedges[1:]) / 2
             rospy.logdebug("[EvaluatePoseGenerators.plot_heatmap(%s)] data:\n %s" % (n, data))
@@ -1412,4 +1423,4 @@ class EvaluatePoseGenerators(object):
         for k in dct.keys():
             my_colors.append(PoseGeneratorRosView.get_color(k))
         plt.hist(dct.values(), color=my_colors, label=dct.keys())
-        pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)
+        # pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)
