@@ -63,22 +63,22 @@ def progress(count, total, suffix=''):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Analyse a BAG-file and plot results')
     parser.add_argument("-r", "--use_ros", action="store_true", default=False, help="use parameters stored on the ROS Paramter server, if false commandline arguments could be used instead")
-    parser.add_argument("-p", "--path", default=DF_BAG_PATH, help='Path of the BAG-file')
+    parser.add_argument("-p", "--path", default=DF_BAG_PATH, help='Path of the BAG-file', type=str)
     # pub_topic = DF_PUB_TOPIC, obs_topic = DF_OBS_TOPIC, flr_topic = DF_FLR_TOPIC, sub_sample = DF_SUB_SAMPLE, enable_ros = DF_ENABLE_ROS
 
-    parser.add_argument("-pt", "--pub_topic", default=pg.DF_PUB_TOPIC, help='Publisher topic')
-    parser.add_argument("-ot", "--obstacle_topic", default=pg.DF_OBS_TOPIC, help='Topic name of the obstacles')
-    parser.add_argument("-ft", "--floor_topic", default=pg.DF_FLR_TOPIC, help='Topic name of the floor')
-    parser.add_argument("-ss", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate')
+    parser.add_argument("-pt", "--pub_topic", default=pg.DF_PUB_TOPIC, help='Publisher topic', type=str)
+    parser.add_argument("-ot", "--obstacle_topic", default=pg.DF_OBS_TOPIC, help='Topic name of the obstacles', type=str)
+    parser.add_argument("-ft", "--floor_topic", default=pg.DF_FLR_TOPIC, help='Topic name of the floor', type=str)
+    parser.add_argument("-ss", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate', type=float)
 
-    parser.add_argument("-nb", "--n_bins", default=pg.DF_SUB_SAMPLE, help='[KDE] Number of Bins used ')
-    parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[MC] Number of x and y line')
-    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[MC] Weight for obstacle distance')
-    parser.add_argument("-mc_wh", "--mc_weight_hull", default=pg.DF_MC_WH, help='[MC] Weight for hull distance')
+    parser.add_argument("-nb", "--n_bins", default=pg.DF_SUB_SAMPLE, help='[KDE] Number of Bins used ', type=int)
+    parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[MC] Number of x and y line', type=int)
+    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[MC] Weight for obstacle distance', type=float)
+    parser.add_argument("-mc_wh", "--mc_weight_hull", default=pg.DF_MC_WH, help='[MC] Weight for hull distance', type=float)
     parser.add_argument("-pd", "--plot_dir", default=pg.DF_PLT_SAVE_DIR,
-                        help='Directory where the plots should be saved (will be created if not existent)')
-    parser.add_argument("-is", "--start_index", default=DF_IS, help='Message number to start the analysis')
-    parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis')
+                        help='Directory where the plots should be saved (will be created if not existent)', type=str)
+    parser.add_argument("-is", "--start_index", default=DF_IS, help='Message number to start the analysis', type=int)
+    parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis', type=int)
     args = parser.parse_args()
 
     if args.use_ros:
@@ -110,8 +110,8 @@ if __name__ == '__main__':
         plot_dir = args.plot_dir
         mc_weight_hull = args.mc_weight_hull
         mc_weight_obstacle = args.mc_weight_obstacle
-        start_index = int(args.start_index)
-        end_index = int(args.end_index)
+        start_index = args.start_index
+        end_index = args.end_index
 
         import logging
         log = logging.getLogger("not_ros")
