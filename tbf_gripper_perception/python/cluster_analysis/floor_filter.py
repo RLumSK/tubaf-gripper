@@ -132,6 +132,8 @@ class FloorFilter(object):
         ret_plane = None  # type: object_recognition_msgs.msgs.Table
         lst_ret_planes = []
         # Determine planes with a parallel normal vector
+        # Determine closest plane to the floor (z=0 @ base_link, floor is approx. 53 cm below base_link)
+        min_z = float("inf")
         for plane in tables.tables:
             pose = self.transform(plane.header.frame_id, self.floor_frame, plane.pose)
             if pose is None:
@@ -143,16 +145,10 @@ class FloorFilter(object):
                            str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
             # TODO: Check criteria
             if abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
-                lst_ret_planes.append(plane)
-        rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] found %d planes that qualify",
-                       len(lst_ret_planes))
-        # Determine closest plane to the floor (z=0 @ base_link, floor is approx. 53 cm below base_link)
-        min_z = float("inf")
-        for plane in lst_ret_planes:
-            rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] pose = " + str(plane.pose))
-            if min_z > abs(plane.pose.position.z + self.floor_frame_offset):
-                ret_plane = plane
-                min_z = plane.pose.position.z
+                if min_z > abs(pose.position.z + self.floor_frame_offset):
+                    ret_plane = plane
+                    min_z = plane.pose.position.z
+                    rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] min_z = " + str(min_z))
         ret_plane.header = tables.header
         return ret_plane
 
