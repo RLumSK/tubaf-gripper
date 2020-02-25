@@ -39,11 +39,3 @@ ENTRYPOINT ["/entrypoint.sh"]
 # docker run --volume $(pwd)/:/in/bag --volume $(pwd)/plots:/out/plots -u $(id -u):$(id -g) set_pose_evaluation buero.bag
 # docker run --volume $(pwd)/docker:/in/bag --volume $(pwd)/plots:/out/plots -u $(id -u):$(id -g) set_pose_evaluation evaluate_bag.py -p /in/bag/buero.bag
 # nvidia-docker run --volume /raid/localshare/grehl/bag:/in/bag --volume /raid/localshare/grehl/plot:/out/plots -u $(id -u):$(id -g) grehl/set_pose_evaluation evaluate_bag.py -p /in/bag/buero.bag
-
-
-
-
-xelatex
-
-
-
