@@ -11,11 +11,14 @@ RUN rm -rf /var/lib/apt/lists/* \
  	ros-kinetic-visualization-msgs \
  	ros-kinetic-geometry-msgs \
  	ros-kinetic-message-filters \
+ 	texlive-xetex \
+ 	ghostscript\
+ 	 dvipng \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --upgrade pip
-RUN pip3 install scipy sklearn pyyaml rospkg matplotlib pandas
-RUN pip3 install matplotlib2tikz tikzplotlib
+RUN pip3 install scipy sklearn pyyaml rospkg matplotlib pandas matplotlib2tikz tikzplotlib
+# We need latex for matplotlib latex export: https://matplotlib.org/3.1.1/tutorials/text/usetex.html
 
 COPY ./docker/entrypoint.sh /
 RUN chmod +x /entrypoint.sh
@@ -40,7 +43,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 
 
 
-
+xelatex
 
 
 
