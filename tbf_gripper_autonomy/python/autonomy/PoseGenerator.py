@@ -1071,15 +1071,20 @@ def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Sc
 
     ts = datetime.datetime.now().strftime("[%Y-%m-%d_%H:%M:%S:%f]")
     for c in file_formats:
-        p = os.path.join(save_dir, c[1:])
-        if not os.path.exists(p):
-            rospy.logwarn("[print_plt] Creating '%s' to store plots" % p)
-            os.makedirs(p)
-        p = os.path.join(p, ts + suffix + c)
-        if 'tex' in c or 'tikz' in c:
-            mpl2tkz.save(p, encoding='utf-8')
-        else:
-            plt.savefig(p, bbox_extra_artists=extras, bbox_inches='tight')
+        try:
+            p = os.path.join(save_dir, c[1:])
+            if not os.path.exists(p):
+                rospy.logwarn("[print_plt] Creating '%s' to store plots" % p)
+                os.makedirs(p)
+            p = os.path.join(p, ts + suffix + c)
+            if 'tex' in c or 'tikz' in c:
+                mpl2tkz.save(p, encoding='utf-8')
+            else:
+                plt.savefig(p, bbox_extra_artists=extras, bbox_inches='tight')
+        except RuntimeError as re:
+            rospy.logerr("[print_plt] RuntimeError during format %s\n%s" % (c, re))
+        except IndexError as ie:
+            rospy.logerr("[print_plt] IndexError during format %s\n%s" % (c, ie))
     plt.close()
 
 
@@ -1172,6 +1177,35 @@ class EvaluatePoseGenerators(object):
         s = (bx * (rx - ax) + by * (ry - ay)) / (bx ** 2 + by ** 2)
         f = np.asarray([ax, ay]) + s * np.asarray([bx, by])  # s in g
         return f
+
+    @staticmethod
+    def calc_metric_dict(dct_hull, dct_obs, wo=1.0, wh=1.0):
+        """
+        Calculate a dictionary with the metric based on the hull and obstacle distance
+        :param wh: [optional] weight for hull distance
+        :type wh: float
+        :param wo: [optional] weight for obstacle distance
+        :type wo: float
+        :param dct_hull: dictionary with hull distances
+        :type dct_hull: dict
+        :param dct_obs: dictionary with obstacles distances
+        :type dct_obs: dict
+        :return: dictionary with metric
+        :rtype: dict
+        """
+        dct_metric = {}
+        obs_keys = dct_obs.keys()
+        for k in dct_hull.keys():
+            if k in obs_keys:
+                dct_metric[k] = []
+
+        for k in dct_metric:
+            dh = dct_hull[k]
+            do = dct_obs[k]
+            for i in range(0, min(len(do), len(dh))):
+                dct_metric[k].append(PoseGeneratorRosInterface.metric(do[i], dh[i], wo, wh))
+        return dct_metric
+
 
     @staticmethod
     def get_ident(obj):
@@ -1297,7 +1331,7 @@ class EvaluatePoseGenerators(object):
         self.dct_count_largest_hull_distance[hull_ident] += 1
         self.dct_count_largest_obstacle_distance[obst_ident] += 1
 
-    def evaluate(self, print_it=False, ff=['.tex', '.pdf']):
+    def evaluate(self, print_it=False, ff=['.tex', '.pdf'], weight_obs=1.0, weight_hull=1.0):
         """
         Plot the gathered data
         :return: -
@@ -1322,6 +1356,12 @@ class EvaluatePoseGenerators(object):
         self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
         if print_it:
             print_plt(file_formats=ff, suffix="obstacle_histogram", save_dir=self.plot_dir)
+        dct_metric = EvaluatePoseGenerators.calc_metric_dict(self.dct_lst_hull_distance,
+                                                             self.dct_lst_obstacle_distance,
+                                                             wo=weight_obs, wh=weight_hull)
+        self.plot_hist(dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
+        if print_it:
+            print_plt(file_formats=ff, suffix="metric_histogram", save_dir=self.plot_dir)
         self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
         if print_it:
             print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)

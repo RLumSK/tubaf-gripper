@@ -174,4 +174,4 @@ if __name__ == '__main__':
 
     evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
     evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
-    evaluation.evaluate(print_it=True, ff=formats)
+    evaluation.evaluate(print_it=True, ff=formats, weight_hull=mc_weight_hull, weight_obs=mc_weight_obstacle)
