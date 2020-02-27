@@ -17,7 +17,7 @@ RUN rm -rf /var/lib/apt/lists/* \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --upgrade pip
-RUN pip3 install scipy sklearn pyyaml rospkg matplotlib pandas matplotlib2tikz tikzplotlib
+RUN pip3 install scipy sklearn pyyaml rospkg matplotlib pandas matplotlib2tikz tikzplotlib numpy-quaternion
 # We need latex for matplotlib latex export: https://matplotlib.org/3.1.1/tutorials/text/usetex.html
 
 COPY ./docker/entrypoint.sh /

@@ -307,12 +307,7 @@ class MoveitInterface(object):
         elif plan is False:
             return False
         rospy.loginfo("MoveitInterface.execute(): Executing ...")
-        execute_ret = self.group.execute(plan)
-        while not execute_ret:
-            rospy.sleep(1.0)
-            execute_ret = self.group.execute(plan)
-            # rospy.logdebug("MoveitInterface.execute(): %s", execute_ret)
-        return True
+        return self.group.execute(plan)
 
     def move_to_target(self, target, info, endless=True):
         """

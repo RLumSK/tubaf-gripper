@@ -37,9 +37,11 @@ import sys
 
 try:
     import autonomy.PoseGenerator as pg
+    import autonomy.EvaluatePoseGenerator as ev
 except ImportError as ie:
     sys.path.append("/pkg/python/autonomy")
     import PoseGenerator as pg
+    import EvaluatePoseGenerator as ev
 
 DF_BAG_PATH = '/home/grehl/bags/obj_cloud_2020-01-22/2020-01-22-13-16-05.bag'
 DF_IS = 0
@@ -144,7 +146,7 @@ if __name__ == '__main__':
                                      mc_weight_obstacle, mc_weight_hull)
     lst_gen = [pca, dln, kde, mcr]
 
-    evaluation = pg.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
+    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
     formats = ['.png', '.tex', '.pdf']
 
     print("Starting: bag has " + str(n_msg) + " messages")
@@ -168,7 +170,8 @@ if __name__ == '__main__':
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
         try:
-            pg.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+            ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+            ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
         except IndexError as ie:
             print("IndexError during view_all")
 

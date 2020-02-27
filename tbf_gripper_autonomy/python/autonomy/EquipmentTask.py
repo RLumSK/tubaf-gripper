@@ -145,18 +145,28 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         stages = frozenset(stages)
+        query_pose = None
         # 0. Open hand, in case smart equipment is still stuck
         if 0 in stages:
             rospy.loginfo("STAGE 0: Open Hand")
-            rospy.loginfo("EquipmentTask.perform(): Equipment handling started - Robot starting at HOME position")
+            rospy.loginfo("EquipmentTask.perform([0]): Equipment handling started - Robot starting at HOME position")
             self.hand_controller.openHand()
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
         # 1. Scan Environment
         if 1 in stages:
             rospy.loginfo("STAGE 1: Scan Env")
-            rospy.loginfo("EquipmentTask.perform(): Closing hand and scan the environment by given watch pose")
+            rospy.loginfo("EquipmentTask.perform([1]): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand()
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
+            # Sense for target_pose
+            sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
+            sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
+            rospy.sleep(5.0)
+            query_pose = sense_pose_cache.getLast()
+            rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % query_pose)
+            self.selected_equipment.place_ps = query_pose
+            del sense_pose_cache
+            del sense_pose_subscriber
 
         # 2. Pick Up Equipment
         if 2 in stages:
@@ -189,10 +199,9 @@ class EquipmentTask(GraspTask):
         int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
         intermediate_pose = None
         while not set_successfully:
-            query_pose = None
             target_pose = None
             # 4. Query Goal from User Interface
-            if 4 in stages:
+            if 4 in stages and query_pose is None:
                 rospy.loginfo("STAGE 4: Ask for target Pose")
                 int_marker.enable_marker()
                 query_pose_topic = int_marker.get_pose_topic()
@@ -203,6 +212,10 @@ class EquipmentTask(GraspTask):
                     self.selected_equipment.place_ps = query_pose
                     rospy.sleep(0.5)
                 int_marker.disable_marker()
+                del query_pose_cache
+                del query_pose_subscriber
+                del query_pose_topic
+
             if query_pose is None:
                 rospy.logwarn("EquipmentTask.perform(): There is no interactive marker for the target pose")
                 query_pose = self.selected_equipment.place_ps
@@ -270,7 +283,7 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([2, 3, 4, 5, 6, 7, 8, 9])
+        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
 
 
 if __name__ == '__main__':

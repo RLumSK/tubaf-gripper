@@ -34,9 +34,9 @@ import sys
 if sys.version_info.major < 3:
     from __builtin__ import staticmethod
 
-import os
 import rospy
 import numpy as np
+import quaternion
 import signal
 import abc
 import datetime
@@ -54,8 +54,6 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 from pylab import *
 import matplotlib.pyplot as plt
-import pandas as pd
-from matplotlib.image import NonUniformImage
 from matplotlib import ticker
 
 if sys.version_info.major < 3:
@@ -63,6 +61,25 @@ if sys.version_info.major < 3:
     import matplotlib2tikz as mpl2tkz
 else:
     import tikzplotlib as mpl2tkz
+
+
+def pose_to_array(pose_msg, dst=None):
+    """
+    Convert a pose message to a 4x4 numpy array representing the affine transform from the pose
+    :param pose_msg: the geometry_msgs/Pose message object
+    :param dst: optional 4x4 output numpy array
+    :return: dst or a newly created 4x4 numpy array
+    :rtype: np.array
+    """
+    q = pose_msg.orientation
+    q = np.quaternion(q.w, q.x, q.y, q.z)
+    if dst is None:
+        dst =np.eye(4)
+    dst[:3, :3] = quaternion.as_rotation_matrix(q)
+    dst[0, 3] = pose_msg.position.x
+    dst[1, 3] = pose_msg.position.y
+    dst[2, 3] = pose_msg.position.z
+    return dst
 
 
 class InterruptError(Exception):
@@ -98,6 +115,182 @@ class PoseGeneratorRosInterface:
     """
 
     HULL_THRESHOLD = 6
+
+    @staticmethod
+    def transform_points_to_plane(pnts, floor_msg):
+        """
+        Transform a given set of points to a plane using a affine transformation
+        :param pnts: list of n three-dimensional points (nx3)
+        :type pnts: list of Point
+        :param floor_msg: plane as table
+        :type floor_msg: Table
+        :return: list with points (nx3)
+        :rtype: np.ndarray
+        """
+        # A = tubaf_tools.help.pose_to_array(floor_msg.pose)
+        A = pose_to_array(floor_msg.pose)
+        t = np.ones((4, len(pnts)))
+        t[:3, :] = np.asarray(pnts).T
+        x = np.matmul(np.linalg.inv(A), t)
+        x[2, :] = np.zeros(len(pnts))
+        return np.matmul(A, x).T[:, :3]
+
+    @staticmethod
+    def transform_hull_to_camera(hull, floor_msg):
+        """
+        Transform a given set of points to a plane using a affine transformation
+        :param pnts: list of n three-dimensional points (nx3)
+        :type pnts: list of Point
+        :param floor_msg: plane as table
+        :type floor_msg: Table
+        :return: list with points (nx3)
+        :rtype: np.ndarray
+        """
+        A = pose_to_array(floor_msg.pose)
+        t = np.ones((4, len(hull)))
+        t[:3, :] = np.asarray(hull).T
+        return np.matmul(A, t).T[:, :3]
+
+    @staticmethod
+    def calc_perpendicular_point(p0, line):
+        """
+        Calculate the perpendicular of a given point on a given line
+        :param p0: point not in line
+        :type p0: np.ndarray
+        :param line: line given by a set of two points in the line
+        :type line: np.ndarray
+        :return: perpendicular point in line
+        :rtype: np.ndarray
+        """
+        # https://www.mathematik-oberstufe.de/vektoren/a/abstand-punkt-gerade-lot.html
+        ax, ay = line[0, 0], line[0, 1]
+        bx, by = line[1, 0] - line[0, 0], line[1, 1] - line[0, 1]
+        rx, ry = p0[0], p0[1]
+        s = (bx * (rx - ax) + by * (ry - ay)) / (bx ** 2 + by ** 2)
+        f = np.asarray([ax, ay]) + s * np.asarray([bx, by])  # s in g
+        return f
+
+    @staticmethod
+    def calc_min_distance(point, lst_points, mode="PP"):
+        """
+        Given a point, calculate the minimal distance to a list of points
+        :param point: point of interest
+        :type point: np.ndarray
+        :param lst_points: list of points to test against
+        :type lst_points: list
+        :param type: PP - point to point distance, PL - point to line distance
+        :type mode: str
+        :return: minimal distance, point of the perpendicular
+        :rtype: float, np.ndarray
+        """
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] point = %s" % point)
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] len(lst_points) = %s" % len(lst_points))
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] lst_points = %s" % lst_points)
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] mode = %s" % mode)
+        nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
+            lst_points)  # type: NearestNeighbors
+        tmp = nn.kneighbors([point])
+        distance, i_min = tmp[0][0][0], tmp[1][0][0]
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] distance: %s" % distance)
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] i_min: %s" % i_min)
+        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] nn: %s" % lst_points[i_min])
+        if "PP" in mode:
+            return distance, lst_points[i_min]
+        elif "PL" in mode:
+            min_d = float('inf')
+            min_f = np.asarray([0, 0])
+            p1 = point[0:2]
+            p3 = np.asarray(lst_points[-1])[0:2]
+            for i in range(0, len(lst_points)):
+                p2 = p3
+                p3 = np.asarray(lst_points[i])[0:2]
+                # d = np.cross(p2 - p1, p1 - p3) / np.linalg.norm(p2 - p1)
+                f = PoseGeneratorRosInterface.calc_perpendicular_point(p1, np.asarray([p2, p3]))
+                # rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] distance: %s" % d)
+                # rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] f: %s" % f)
+                # rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] |pf|: %s" % np.linalg.norm(f-p1))
+                d = np.linalg.norm(f - p1)
+
+                if d < min_d:
+                    min_d = d
+                    min_f = f  # perpendicular point
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] distance: %g" % min_d)
+            return min_d, min_f
+        else:
+            rospy.logwarn("[PoseGeneratorRosInterface.calc_min_distance()] unknown mode %s" % mode)
+            return float('NaN')
+
+    @staticmethod
+    def _as_pose_stamped(lst_pos, floor_msg):
+        # type: (np.ndarray, Table) -> PoseStamped
+        """
+        Generate the target pose for the given position by using the orientation of the plane
+        :param lst_pos: position [x, y, z]
+        :type lst_pos: np.ndarray
+        :param floor_msg: floor plane
+        :type floor_msg: Table
+        :return: target pose
+        :rtype: PoseStamped
+        """
+        if isinstance(lst_pos, np.ndarray):
+            lst_pos = lst_pos.tolist()
+        if len(lst_pos) == 0:
+            lst_pos.append(floor_msg.pose.position.x)
+        if len(lst_pos) == 1:
+            lst_pos.append(floor_msg.pose.position.y)
+        if len(lst_pos) == 2:
+            lst_pos.append(floor_msg.pose.position.z)
+        ps = PoseStamped()
+        ps.header = floor_msg.header
+        ps.pose.position.x = lst_pos[0]
+        ps.pose.position.y = lst_pos[1]
+        ps.pose.position.z = lst_pos[2]
+        ps.pose.orientation = floor_msg.pose.orientation
+        # rospy.logdebug("[PcaPoseGenerator._generate()] ps.pose: %s" % ps.pose)
+        return ps
+
+    @staticmethod
+    def in_hull(hull, pnts):
+        """
+        Determine all points within the given hull
+        :param hull: linear hull
+        :type hull: Delaunay or list
+        :param pnts: points
+        :type pnts: np.ndarray or list
+        :return: list with points inside of the hull
+        :rtype: np.ndarray
+        """
+        # From:
+        # https://stackoverflow.com/questions/16750618/whats-an-efficient-way-to-find-if-a-point-lies-in-the-convex-hull-of-a-point-cl
+        if not isinstance(hull, Delaunay):
+            lin_hull = Delaunay(np.asarray(hull)[:, :2], qhull_options="Pp")
+        else:
+            lin_hull = hull
+        valid_sample = []
+        for s in pnts:
+            if lin_hull.find_simplex(s) >= 0:
+                valid_sample.append(s)
+        return np.asarray(valid_sample)
+
+    @staticmethod
+    def metric(d_obstacles, d_hull, wo=1.0, wh=1.0):
+        """
+        Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
+        :param wo: [optional] weight fot the obstacle distance, default: 1.0
+        :type wo: float
+        :param wh: [optional] weight fot the hull distance, default 1.0
+        :type wh: float
+        :param d_obstacles: distance to the nearest obstacle
+        :type d_obstacles: float
+        :param d_hull: distance to the convex hull, perpendicular to the nearest line
+        :type d_hull: float
+        :return: combined distance
+        :rtype: float
+        """
+        ret_val = np.power(float(d_obstacles), wo) * np.power(float(d_hull), wh)
+        rospy.logdebug(
+            "[PoseGeneratorRosInterface.metric()] %g^%g *%g^%g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
+        return ret_val
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
                  enable_ros=DF_ENABLE_ROS):
@@ -152,10 +345,12 @@ class PoseGeneratorRosInterface:
         from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
         response = GenerateSetPoseResponse()
         response.set_pose = ps
-        response.nn_distance, _ = EvaluatePoseGenerators.calc_min_distance(self.result, obstacles.tolist(), mode="PP")
-        response.hull_distance, _ = EvaluatePoseGenerators.calc_min_distance(self.result, hull.tolist(), mode="PP")
+        response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, obstacles.tolist(),
+                                                                              mode="PP")
+        response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, hull.tolist(), mode="PP")
 
         if request.print_evaluation:
+            from EvaluatePoseGenerator import print_tex as print_tex
             print_tex(self)
 
         return response
@@ -307,79 +502,6 @@ class PoseGeneratorRosInterface:
         del self._dbg_pub_projection
         del self.pub
 
-    @staticmethod
-    def calculate_plane_equation(floor_msg):
-        """
-        Calculate the plane equation: ax + by + cz + d = 0
-        :param floor_msg: floor plane
-        :type floor_msg: Table
-        :return: [a, b, c, d]
-        :rtype: list
-        """
-        from scipy.spatial.transform import Rotation
-
-        def global_coords(flr_msg, i):
-            x = flr_msg.convex_hull[i].x - flr_msg.pose.position.x
-            y = flr_msg.convex_hull[i].y - flr_msg.pose.position.y
-            z = flr_msg.convex_hull[i].z - flr_msg.pose.position.z
-            rot = Rotation.from_quat([flr_msg.pose.orientation.x, flr_msg.pose.orientation.y,
-                                      flr_msg.pose.orientation.z, flr_msg.pose.orientation.w])
-            result = np.matmul(rot.as_dcm(), [x, y, z])  # type: np.ndarray
-            return result.tolist()
-
-        # see: http://kitchingroup.cheme.cmu.edu/blog/2015/01/18/Equation-of-a-plane-through-three-points/
-        # Get plane equation: ax + by + cz + d = 0
-        p0 = np.array(global_coords(floor_msg, 0))
-        p1 = np.array(global_coords(floor_msg, 1))
-        p2 = np.array(global_coords(floor_msg, 2))
-
-        v1 = p1 - p0
-        v2 = p2 - p0
-
-        n = np.cross(v1, v2)
-        a, b, c = n
-        d = -np.dot(n, p2)
-        return [a, b, c, d]
-
-    @staticmethod
-    def point_on_plane(pnt, pln):
-        """
-        Calculate the projection of the point on the plane
-        :param pnt: 3D point
-        :type pnt: Point
-        :param pln: plane parameters for: ax + by + cz + d = 0
-        :type pln: list
-        :return: 2D point on the plane
-        :rtype: array
-        """
-        a = pln[0]
-        b = pln[1]
-        c = pln[2]
-        d = pln[3]
-        # see: https://www.geeksforgeeks.org/find-the-foot-of-perpendicular-of-a-point-in-a-3-d-plane/
-        x1 = pnt.x
-        y1 = pnt.y
-        z1 = pnt.z
-        k = (-a * x1 - b * y1 - c * z1 - d) / (a * a + b * b + c * c)
-        x2 = a * k + x1
-        y2 = b * k + y1
-        z2 = c * k + z1
-
-        return [x2, y2, z2]
-
-    @abc.abstractmethod
-    def _generate(self, lst_obs_points, hull=None):
-        """
-        Algorithm to determine a valid pose given a floor plane and obstacles
-        :param lst_obs_points: list with all obstacle points projected on the floor plane
-        :type lst_obs_points: np.ndarray
-        :param hull: optional give the linear hull included in lst_points
-        :type hull: list
-        :return: tuple of the position [x, y, z]
-        :rtype: np.ndarray
-        """
-        pass
-
     def extract_points(self, obs_msg, flr_msg):
         """
         Project obstacles and convex hull on the floor plane
@@ -405,8 +527,10 @@ class PoseGeneratorRosInterface:
 
         obstacles = []
         dbg_pnts = []
-        dbg_markers = []
-        plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
+        # plane_parameters = PoseGeneratorRosInterface.calculate_plane_equation(flr_msg)
+
+        # rospy.loginfo("[PoseGeneratorRosInterface.extract_points()] Obstacles frame: %s" % obs_msg.markers[start].header.frame_id)
+        # rospy.loginfo("[PoseGeneratorRosInterface.extract_points()] Floor frame: %s" % flr_msg.header.frame_id)
 
         i = 0
         for obstacle in obs_msg.markers[start:]:  # type: Marker
@@ -419,117 +543,63 @@ class PoseGeneratorRosInterface:
                               "we use %g points - impossible, hence useing at least one" %
                               (len(obstacle.points), self.subsample, len(obstacle.points) * self.subsample))
                 point = obstacle.points[len(obstacle.points) % 42]
-                prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
-                obstacles.append(prjt_pnt)
-                point.x = prjt_pnt[0]
-                point.y = prjt_pnt[1]
-                point.z = prjt_pnt[2]
-                dbg_pnts.append(point)
+                obstacles.append([point.x, point.y, point.z])
                 continue
             for point in obstacle.points:  # type: Point
                 i += 1
                 if i % ss == 0:
-                    prjt_pnt = PoseGeneratorRosInterface.point_on_plane(point, plane_parameters)
-                    obstacles.append(prjt_pnt)
-                    point.x = prjt_pnt[0]
-                    point.y = prjt_pnt[1]
-                    point.z = prjt_pnt[2]
-                    dbg_pnts.append(point)
+                    obstacles.append([point.x, point.y, point.z])
+        prj_obstacles = PoseGeneratorRosInterface.transform_points_to_plane(obstacles, flr_msg)
+        dbg_pnts.extend(prj_obstacles)
 
         rospy.logdebug(
             "[PoseGeneratorRosInterface.extract_points(%s)] #Markers: %s" % (self.get_name(), len(obstacles)))
         # Add convex hull to dataset
         hull_pnts = []
-        for i in range(0, len(flr_msg.convex_hull)):
-            prjt_pnt = PoseGeneratorRosInterface.point_on_plane(flr_msg.convex_hull[i], plane_parameters)
-            hull_pnts.append(prjt_pnt)
-            a_point = Point()
-            a_point.x = prjt_pnt[0]
-            a_point.y = prjt_pnt[1]
-            a_point.z = prjt_pnt[2]
-            # dbg_pnts.append(a_point)
+        for point in flr_msg.convex_hull:
+            hull_pnts.append([point.x, point.y, 0])
+        prj_hull = PoseGeneratorRosInterface.transform_hull_to_camera(hull_pnts, flr_msg)
+        dbg_pnts.extend(prj_hull)
 
-        if len(obs_msg.markers) > 0:
-            dbg_markers.append(obs_msg.markers[0])
-            obs_msg.markers[0].points = dbg_pnts
-            if self.ros:
-                self._dbg_pub_projection.publish(obs_msg)
+        if self.ros:
+            dbg_ma = MarkerArray()
+            dbg_mkr = Marker()
+            dbg_mkr.header = flr_msg.header
+            dbg_mkr.type = Marker.POINTS
+            dbg_mkr.action = Marker.ADD
+            # POINTS markers use x and y scale for width / height respectively
+            dbg_mkr.scale.x = 0.02
+            dbg_mkr.scale.y = 0.02
+            dbg_mkr.color.r = 0.1216
+            dbg_mkr.color.g = 0.4666
+            dbg_mkr.color.b = 0.7059
+            dbg_mkr.color.a = 1
+            dbg_mkr.points = []
+            for i_pnt in range(0, len(dbg_pnts)):
+                dbg_mkr.points.append(Point(x=dbg_pnts[i_pnt][0], y=dbg_pnts[i_pnt][1], z=dbg_pnts[i_pnt][2]))
+            dbg_ma.markers.append(dbg_mkr)
+            self._dbg_pub_projection.publish(dbg_ma)
 
-        hull_pnts = np.asarray(hull_pnts)
-        obstacles = np.asarray(obstacles)
+        hull_pnts = np.asarray(hull_pnts)  # np.asarray(hull_pnts)  prj_hull
+        obstacles = np.asarray(obstacles)  # np.asarray(obstacles)  prj_obstacles
+
+        hull_pnts = prj_hull
+        obstacles = prj_obstacles
+
         return [obstacles, hull_pnts]
 
-    @staticmethod
-    def _as_pose_stamped(lst_pos, floor_msg):
-        # type: (np.ndarray, Table) -> PoseStamped
+    @abc.abstractmethod
+    def _generate(self, lst_obs_points, hull=None):
         """
-        Generate the target pose for the given position by using the orientation of the plane
-        :param lst_pos: position [x, y, z]
-        :type lst_pos: np.ndarray
-        :param floor_msg: floor plane
-        :type floor_msg: Table
-        :return: target pose
-        :rtype: PoseStamped
-        """
-        if isinstance(lst_pos, np.ndarray):
-            lst_pos = lst_pos.tolist()
-        if len(lst_pos) == 0:
-            lst_pos.append(floor_msg.pose.position.x)
-        if len(lst_pos) == 1:
-            lst_pos.append(floor_msg.pose.position.y)
-        if len(lst_pos) == 2:
-            lst_pos.append(floor_msg.pose.position.z)
-        ps = PoseStamped()
-        ps.header = floor_msg.header
-        ps.pose.position.x = lst_pos[0]
-        ps.pose.position.y = lst_pos[1]
-        ps.pose.position.z = lst_pos[2]
-        ps.pose.orientation = floor_msg.pose.orientation
-        # rospy.logdebug("[PcaPoseGenerator._generate()] ps.pose: %s" % ps.pose)
-        return ps
-
-    @staticmethod
-    def in_hull(hull, pnts):
-        """
-        Determine all points within the given hull
-        :param hull: linear hull
-        :type hull: Delaunay or list
-        :param pnts: points
-        :type pnts: np.ndarray or list
-        :return: list with points inside of the hull
+        Algorithm to determine a valid pose given a floor plane and obstacles
+        :param lst_obs_points: list with all obstacle points projected on the floor plane
+        :type lst_obs_points: np.ndarray
+        :param hull: optional give the linear hull included in lst_points
+        :type hull: list
+        :return: tuple of the position [x, y, z]
         :rtype: np.ndarray
         """
-        # From:
-        # https://stackoverflow.com/questions/16750618/whats-an-efficient-way-to-find-if-a-point-lies-in-the-convex-hull-of-a-point-cl
-        if not isinstance(hull, Delaunay):
-            lin_hull = Delaunay(np.asarray(hull)[:, :2], qhull_options="Pp")
-        else:
-            lin_hull = hull
-        valid_sample = []
-        for s in pnts:
-            if lin_hull.find_simplex(s) >= 0:
-                valid_sample.append(s)
-        return np.asarray(valid_sample)
-
-    @staticmethod
-    def metric(d_obstacles, d_hull, wo=1.0, wh=1.0):
-        """
-        Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
-        :param wo: [optional] weight fot the obstacle distance, default: 1.0
-        :type wo: float
-        :param wh: [optional] weight fot the hull distance, default 1.0
-        :type wh: float
-        :param d_obstacles: distance to the nearest obstacle
-        :type d_obstacles: float
-        :param d_hull: distance to the convex hull, perpendicular to the nearest line
-        :type d_hull: float
-        :return: combined distance
-        :rtype: float
-        """
-        ret_val = np.power(float(d_obstacles), wo) * np.power(float(d_hull), wh)
-        rospy.logdebug(
-            "[PoseGeneratorRosInterface.metric()] %g^%g *%g^%g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
-        return ret_val
+        pass
 
 
 @add_metaclass(abc.ABCMeta)
@@ -551,13 +621,13 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         if "stacle" in name or "indernis" in name:
             return 'C0'
         elif "roundarea" in name or "oden" in name:
-            return 'C1'
+            return 'k'
         elif "elaunay" in name:
             return 'C2'
         elif "inimalDensityEstimate" in name:
             return 'blue'
         elif "onteCarlo" in name:
-            return 'k'
+            return 'C1'
         elif "ca" in name:
             return 'C4'
         else:
@@ -604,10 +674,9 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
                     label=n + " Hilfslinien")
 
         if obstacles:
-            as_array = np.asarray(self.obs_points)
             n = "Hindernisse"
-            rospy.loginfo("[PoseGeneratorRosView.plot(%s)] obstacles: %s" % (n, as_array))
-            ax.plot(as_array[:, 0], as_array[:, 1], '.', label=n, zorder=3.5, color=PoseGeneratorRosView.get_color(n))
+            ax.plot(self.obs_points[:, 0], self.obs_points[:, 1], '.', label=n, zorder=3.5,
+                    color=PoseGeneratorRosView.get_color(n))
         if hull:
             hull = self.hull_points.tolist()
             hull.append(hull[0])
@@ -884,10 +953,10 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         xmin, xmax = min(self.hlp_positions[:, 0]), max(self.hlp_positions[:, 0])
         ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
         if xmin == xmax or ymin == ymax:
-            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] xmin: %s" % xmin)
-            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] xmax: %s" % xmax)
-            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] ymin: %s" % ymin)
-            rospy.loginfo("[MinimalDensityEstimatePoseGenerator.plot()] ymax: %s" % ymax)
+            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] xmin: %s" % xmin)
+            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] xmax: %s" % xmax)
+            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] ymin: %s" % ymin)
+            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] ymax: %s" % ymax)
             return
         xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
         f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
@@ -970,7 +1039,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         # Distance calculation
         extended_positions = np.ndarray((len(positions), 3))
         for i in range(0, len(positions)):
-            hull_distance, _ = EvaluatePoseGenerators.calc_min_distance(positions[i], hull.tolist(), mode="PL")
+            hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(positions[i], hull.tolist(), mode="PL")
             d, i_dp = obs_nn.kneighbors([positions[i, 0:2]])
             m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance, wo=self.wo, wh=self.wh)
             extended_positions[i] = np.append(positions[i], m)
@@ -981,486 +1050,10 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] distances: \n%s" % extended_positions[:, -1])
         # Calculate help lines
         obs_d, obs_i = obs_nn.kneighbors([ret_pos])
-        hul_d, hp = EvaluatePoseGenerators.calc_min_distance(ret_pos, hull.tolist(), mode="PL")
+        hul_d, hp = PoseGeneratorRosInterface.calc_min_distance(ret_pos, hull.tolist(), mode="PL")
         obs_i = obs_i[0][0]
         obs = lst_obs_points[obs_i]
 
         self.lines = [[hp, ret_pos], [ret_pos, obs]]
 
         return ret_pos
-
-
-def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot"):
-    """
-    Plot all given generators into one figure
-    :param save_to: [optional] directory where the plots are stored
-    :type save_to: str
-    :param ff:  [optional] list of file formats, eg pgf, pdf
-    :type ff: list
-    :param print_it: [optional] print the plot
-    :type print_it: bool
-    :param show_it: [optional] show the plot
-    :type show_it: bool
-    :param lst_generator: list of pose generators of type PoseGeneratorRosView
-    :type lst_generator: list()
-    :return: -
-    :rtype:-
-    """
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(*ax.get_xlim())
-    for generator in lst_generator:  # type: PoseGeneratorRosView
-        if len(generator.obs_points) == 0:
-            plt.close()
-            return
-        generator.plot(ax, hull=False, obstacles=False)
-        rospy.loginfo("[view_all(%s)] #obstacles: %g" % (generator.get_name(), len(generator.obs_points)))
-
-    as_array = np.asarray(lst_generator[-1].obs_points)
-    rospy.logdebug("[view_all()] #obstacles: %g" % len(lst_generator[-1].obs_points))
-    name = "Hindernisse"
-    ax.plot(as_array[:, 0], as_array[:, 1], '.', label=name, zorder=10, color=PoseGeneratorRosView.get_color(name))
-    hull = lst_generator[-1].hull_points.tolist()
-    hull.append(hull[0])
-    as_array = np.asarray(hull)
-    name = "Boden"
-    ax.plot(as_array[:, 0], as_array[:, 1], '+--', label=name, zorder=9, color=PoseGeneratorRosView.get_color(name))
-
-    # Text
-    if lst_generator[-1].subsample > 1.0:
-        txt = fig.text(0.15, 0.01, "Teilstichprobe alle " + str(lst_generator[-1].subsample) + " Hindernisse")
-    else:
-        txt = fig.text(0.15, 0.01,
-                       "Teilstichprobe mit " + str(lst_generator[-1].subsample * 100.0) + "% der Hindernisse")
-
-    def legend_without_duplicate_labels(axis):
-        handles, labels = axis.get_legend_handles_labels()
-        unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-        # Place a legend above this subplot, expanding itself to
-        # fully use the given bounding box.
-        return axis.legend(*zip(*unique), bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=2,
-                           mode="expand", borderaxespad=0.)
-
-    # lgd = legend_without_duplicate_labels(ax)
-
-    if show_it:
-        plt.show()
-    if print_it:
-        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte", save_dir=save_to)
-
-
-def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages",
-              suffix=''):
-    """
-    Print the current figure to a file
-    :param file_formats:  [optional] list of file formats, eg pgf, pdf
-    :type file_formats: list
-    :param extras: [optional] passed to matplotlib.savefig(bbox_extra_artists)
-    :type extras: list
-    :param save_dir: [optional] target directory
-    :type save_dir: str
-    :param suffix: [optional] file name suffix
-    :type suffix: str
-    :return: -
-    :rtype: -
-    """
-    if not os.path.exists(save_dir):
-        rospy.logwarn("[print_plt] Creating '%s' to store plots" % save_dir)
-        os.makedirs(save_dir)
-
-    ts = datetime.datetime.now().strftime("[%Y-%m-%d_%H:%M:%S:%f]")
-    for c in file_formats:
-        try:
-            p = os.path.join(save_dir, c[1:])
-            if not os.path.exists(p):
-                rospy.logwarn("[print_plt] Creating '%s' to store plots" % p)
-                os.makedirs(p)
-            p = os.path.join(p, ts + suffix + c)
-            if 'tex' in c or 'tikz' in c:
-                mpl2tkz.save(p, encoding='utf-8')
-            else:
-                plt.savefig(p, bbox_extra_artists=extras, bbox_inches='tight')
-        except RuntimeError as re:
-            rospy.logerr("[print_plt] RuntimeError during format %s\n%s" % (c, re))
-        except IndexError as ie:
-            rospy.logerr("[print_plt] IndexError during format %s\n%s" % (c, ie))
-    plt.close()
-
-
-def print_tex(generator, save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages"):
-    """
-    Save the current state in a LaTeX conform plot
-    :param generator: pose generator after at least one computation, or alist of them
-    :type generator: PoseGeneratorRosView or list
-    :param save_dir: directory where the plots are stored
-    :type save_dir: str
-    :return: -
-    :rtype: -
-    """
-    view_all(generator, show_it=False)
-    print_plt(file_formats=[".pdf", ".tex"], save_dir=save_dir)
-
-
-class EvaluatePoseGenerators(object):
-    """
-    Evaluation for a PoseGeneratorRosInterface instance
-    """
-
-    C_MAP = u'tab20c_r'
-
-    @staticmethod
-    def calc_min_distance(point, lst_points, mode="PP"):
-        """
-        Given a point, calculate the minimal distance to a list of points
-        :param point: point of interest
-        :type point: np.ndarray
-        :param lst_points: list of points to test against
-        :type lst_points: list
-        :param type: PP - point to point distance, PL - point to line distance
-        :type mode: str
-        :return: minimal distance, point of the perpendicular
-        :rtype: float, np.ndarray
-        """
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] point = %s" % point)
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] len(lst_points) = %s" % len(lst_points))
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] lst_points = %s" % lst_points)
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] mode = %s" % mode)
-        nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
-            lst_points)  # type: NearestNeighbors
-        tmp = nn.kneighbors([point])
-        distance, i_min = tmp[0][0][0], tmp[1][0][0]
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] distance: %s" % distance)
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] i_min: %s" % i_min)
-        rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance()] nn: %s" % lst_points[i_min])
-        if "PP" in mode:
-            return distance, lst_points[i_min]
-        elif "PL" in mode:
-            min_d = float('inf')
-            min_f = np.asarray([0, 0])
-            p1 = point[0:2]
-            p3 = np.asarray(lst_points[-1])[0:2]
-            for i in range(0, len(lst_points)):
-                p2 = p3
-                p3 = np.asarray(lst_points[i])[0:2]
-                # d = np.cross(p2 - p1, p1 - p3) / np.linalg.norm(p2 - p1)
-                f = EvaluatePoseGenerators.calc_perpendicular_point(p1, np.asarray([p2, p3]))
-                # rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] distance: %s" % d)
-                # rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] f: %s" % f)
-                # rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] |pf|: %s" % np.linalg.norm(f-p1))
-                d = np.linalg.norm(f - p1)
-
-                if d < min_d:
-                    min_d = d
-                    min_f = f  # perpendicular point
-            rospy.logdebug("[EvaluatePoseGenerators.calc_min_distance(PL)] distance: %g" % min_d)
-            return min_d, min_f
-        else:
-            rospy.logwarn("[EvaluatePoseGenerators.calc_min_distance()] unknown mode %s" % mode)
-            return float('NaN')
-
-    @staticmethod
-    def calc_perpendicular_point(p0, line):
-        """
-        Calculate the perpendicular of a given point on a given line
-        :param p0: point not in line
-        :type p0: np.ndarray
-        :param line: line given by a set of two points in the line
-        :type line: np.ndarray
-        :return: perpendicular point in line
-        :rtype: np.ndarray
-        """
-        # https://www.mathematik-oberstufe.de/vektoren/a/abstand-punkt-gerade-lot.html
-        ax, ay = line[0, 0], line[0, 1]
-        bx, by = line[1, 0] - line[0, 0], line[1, 1] - line[0, 1]
-        rx, ry = p0[0], p0[1]
-        s = (bx * (rx - ax) + by * (ry - ay)) / (bx ** 2 + by ** 2)
-        f = np.asarray([ax, ay]) + s * np.asarray([bx, by])  # s in g
-        return f
-
-    @staticmethod
-    def calc_metric_dict(dct_hull, dct_obs, wo=1.0, wh=1.0):
-        """
-        Calculate a dictionary with the metric based on the hull and obstacle distance
-        :param wh: [optional] weight for hull distance
-        :type wh: float
-        :param wo: [optional] weight for obstacle distance
-        :type wo: float
-        :param dct_hull: dictionary with hull distances
-        :type dct_hull: dict
-        :param dct_obs: dictionary with obstacles distances
-        :type dct_obs: dict
-        :return: dictionary with metric
-        :rtype: dict
-        """
-        dct_metric = {}
-        obs_keys = dct_obs.keys()
-        for k in dct_hull.keys():
-            if k in obs_keys:
-                dct_metric[k] = []
-
-        for k in dct_metric:
-            dh = dct_hull[k]
-            do = dct_obs[k]
-            for i in range(0, min(len(do), len(dh))):
-                dct_metric[k].append(PoseGeneratorRosInterface.metric(do[i], dh[i], wo, wh))
-        return dct_metric
-
-
-    @staticmethod
-    def get_ident(obj):
-        return str(type(obj)).split(".")[-1][:-2]
-
-    def __init__(self, generators, timeit=True, save_dir="/out/plot"):
-        """
-        Default constructor
-        :param generators: pose generators
-        :type generators: list of PoseGeneratorRosInterface
-        :param timeit: measure time during run
-        :type timeit: bool
-        :param save_dir: directory with plots
-        :type save_dir: str
-        """
-        self._generators = generators
-
-        self.dct_result = {}
-        self.dct_lst_hull_distance = {}
-        self.dct_lst_obstacle_distance = {}
-        self.dct_count_largest_hull_distance = {}
-        self.dct_count_largest_obstacle_distance = {}
-        self.dct_timing = {}
-
-        self.timeit = timeit
-        self.plot_dir = save_dir
-
-        for g in self._generators:  # type: PoseGeneratorRosInterface
-            ident = g.get_name()
-            self.dct_lst_hull_distance[ident] = []
-            self.dct_lst_obstacle_distance[ident] = []
-            self.dct_count_largest_hull_distance[ident] = 0
-            self.dct_count_largest_obstacle_distance[ident] = 0
-            self.dct_timing[ident] = []
-            self.dct_result[ident] = []
-
-    def perform(self, timeout=1.0, samples=1000):
-        """
-        Evaluate the generator for samples
-        :param samples: number of iterations
-        :type samples: int
-        :param timeout: time between triggers
-        :type timeout: float
-        :return: -
-        :rtype: -
-        """
-        i = 1
-        n_samples = samples
-        while not rospy.is_shutdown() and i <= n_samples:
-            self.run()
-            rospy.loginfo("[EvaluatePoseGenerators.perform()] %g/%g" % (i, n_samples))
-            rospy.sleep(timeout)
-            i += 1
-        self.evaluate()
-
-    def run(self, obs=None, flr=None):
-        """
-        Trigger given generators and save evaluation parameters
-        :param obs: [optional] use the given obstacles
-        :type obs: MarkerArray
-        :param flr: [optional] use the given floor plane
-        :type flr: TableArray
-        :return: -
-        :rtype: -
-        """
-        while not self._generators[0].check_messages(obs, flr):
-            rospy.logdebug("[EvaluatePoseGenerators.run()] Getting new messages")
-            obs, flr = self._generators[0].get_messages()
-            rospy.sleep(1.0)
-
-        d_hull = 0
-        d_obst = d_hull
-        hull_ident = ""
-        obst_ident = hull_ident
-
-        for g in self._generators:  # type: PoseGeneratorRosInterface
-            ident = g.get_name()
-            if self.timeit:
-                t = time.time()
-            g.once(obstacles_msg=obs, floor_msg=flr, current_time=flr.header.stamp)
-            if self.timeit:
-                self.dct_timing[ident].append(time.time() - t)
-            result = g.result
-            self.dct_result[ident].append(result)
-            obstacles = g.obs_points
-            hull = g.hull_points
-            if len(hull) == 0 or len(obstacles) == 0:
-                return
-
-            hull_distance, _ = EvaluatePoseGenerators.calc_min_distance(result, hull, mode="PL")
-            obstacle_distance, _ = EvaluatePoseGenerators.calc_min_distance(result, obstacles, mode="PP")
-            self.dct_lst_hull_distance[ident].append(hull_distance)
-            self.dct_lst_obstacle_distance[ident].append(obstacle_distance)
-            rospy.logdebug("[EvaluatePoseGenerators.run() - %s] Min(Distance2Hull) = %g" %
-                           (ident, hull_distance))
-            rospy.logdebug("[EvaluatePoseGenerators.run() - %s] Min(Distance2Obstacles) = %g" %
-                           (ident, obstacle_distance))
-
-            # Evaluate who is best most of the time
-            if hull_distance > d_hull:
-                d_hull = hull_distance
-                hull_ident = ident
-            if obstacle_distance > d_obst:
-                d_obst = obstacle_distance
-                obst_ident = ident
-
-        # Sometimes no obstacles are present, resulting in the same position for all generators,
-        # we want to filter such cases
-        obs_points, hull_points = self._generators[-1].extract_points(obs, flr.tables[0])
-        valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(hull_points[:, :2], qhull_options="Pp"),
-                                                         obs_points[:, :2])
-        purge_last_evaluation = len(valid_points) == 0
-        if purge_last_evaluation:
-            rospy.logdebug("[EvaluatePoseGenerators.run()] No obstacles in hull, we wont evaluate this sample")
-            for g in self._generators:
-                ident = g.get_name()
-                self.dct_timing[ident].pop()
-                self.dct_result[ident].pop()
-                self.dct_lst_hull_distance[ident].pop()
-                self.dct_lst_obstacle_distance[ident].pop()
-            return
-
-        self.dct_count_largest_hull_distance[hull_ident] += 1
-        self.dct_count_largest_obstacle_distance[obst_ident] += 1
-
-    def evaluate(self, print_it=False, ff=['.tex', '.pdf'], weight_obs=1.0, weight_hull=1.0):
-        """
-        Plot the gathered data
-        :return: -
-        :rtype:-
-        """
-        for k in self.dct_lst_hull_distance.keys():
-            if len(self.dct_lst_hull_distance[k]) == 0:
-                return
-
-        rospy.loginfo("[EvaluatePoseGenerators.evaluate()] Number of largest distances to the hull:")
-        for k in self.dct_count_largest_hull_distance:
-            rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_hull_distance[k]))
-        rospy.loginfo("[EvaluatePoseGenerators.evaluate()] Number of largest distances to nearest obstacles:")
-        for k in self.dct_count_largest_obstacle_distance:
-            rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_obstacle_distance[k]))
-
-        n_bin = 25
-        alpha = 0.75
-        self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
-        if print_it:
-            print_plt(file_formats=ff, suffix="hull_histogram", save_dir=self.plot_dir)
-        self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
-        if print_it:
-            print_plt(file_formats=ff, suffix="obstacle_histogram", save_dir=self.plot_dir)
-        dct_metric = EvaluatePoseGenerators.calc_metric_dict(self.dct_lst_hull_distance,
-                                                             self.dct_lst_obstacle_distance,
-                                                             wo=weight_obs, wh=weight_hull)
-        self.plot_hist(dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
-        if print_it:
-            print_plt(file_formats=ff, suffix="metric_histogram", save_dir=self.plot_dir)
-        self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
-        if print_it:
-            print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
-
-    def distance_to(self, lst_results, n_bin=25, alpha=0.75, print_it=False, show_it=False, ff=['.tex', '.pdf']):
-        """
-        Determine the distance to a list of results
-        :param print_it: whether or not to print the plots
-        :type print_it: bool
-        :param show_it: whether or not to show_it the plots
-        :type show_it: bool
-        :param ff: file formats of the print
-        :type ff: list
-        :param alpha: Alpha channel of the bar plot
-        :type alpha: float
-        :param lst_results: list of results
-        :type lst_results: list
-        :param n_bin: number of bins used in bar plot histogram
-        :type n_bin: int
-        :return: -
-        :rtype: -
-        """
-        dct_distances = {}
-        for key in self.dct_result.keys():
-            dct_distances[key] = []
-        for key in dct_distances.keys():
-            for i in range(0, len(lst_results)):
-                d = np.linalg.norm(lst_results[i] - self.dct_result[key][i])
-                if d != 0:
-                    dct_distances[key].append(d)
-        for key in self.dct_result.keys():
-            if len(dct_distances[key]) == 0:
-                del dct_distances[key]
-        self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Referenz', alpha=alpha)
-        if print_it:
-            print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Referenzevaluierung")
-        if show_it:
-            plt.show()
-
-    def plot_heatmap(self, name='all', n_bin=20, print_it=False, show_it=False, ff=['.tex', '.pdf']):
-        """
-        Plot a heatmap of all results
-        :param name:
-        :type name: str
-        :param n_bin: number of bins for the 2d histogram
-        :type n_bin: int
-        :param print_it: whether or not to print the plots
-        :type print_it: bool
-        :param show_it: whether or not to show_it the plots
-        :type show_it: bool
-        :param ff: file formats of the print
-        :type ff: list
-        :return: -
-        :rtype: -
-        """
-        lst_names = []
-        if 'all' in name:
-            for g in self._generators:
-                lst_names.append(g.get_name())
-        else:
-            lst_names.append(name)
-
-        rospy.logdebug("[EvaluatePoseGenerators.plot_heatmap()] %s" % lst_names)
-        for n in lst_names:
-            values = np.asarray(self.dct_result[n])
-            if len(values.shape) != 2:
-                # TODO: Why do I need this?
-                values = np.vstack([values[0], values[1]])
-            # See: https://docs.scipy.org/doc/numpy/reference/generated/numpy.histogram2d.html
-            data, xedges, yedges = np.histogram2d(values[:, 0].T, values[:, 1].T, bins=n_bin, range=[[-1, 1], [-1, 1]])
-            data = data.T
-            a_title = "Heatmap " + n
-            fig = plt.figure()
-            ax = fig.add_subplot(111, title=a_title, aspect='equal', xlim=[-1, 1], ylim=[-1, 1])
-            im = NonUniformImage(ax, interpolation='nearest')
-            im.set_cmap(EvaluatePoseGenerators.C_MAP)
-            im.set_clim(vmin=0, vmax=0.2 * len(values))
-            xcenters = (xedges[:-1] + xedges[1:]) / 2
-            ycenters = (yedges[:-1] + yedges[1:]) / 2
-            rospy.logdebug("[EvaluatePoseGenerators.plot_heatmap(%s)] data:\n %s" % (n, data))
-            im.set_data(xcenters, ycenters, data)
-            ax.images.append(im)
-            plt.colorbar(im)
-            if print_it:
-                print_plt(file_formats=ff, suffix=a_title, save_dir=self.plot_dir)
-            if show_it:
-                plt.show()
-
-    @staticmethod
-    def plot_hist(dct, **kwargs):
-        """
-        plot the given dictionary in a histogram
-        :param dct: data
-        :type dct: dict
-        :return: -
-        :rtype:-
-        """
-        my_colors = []
-        for k in dct.keys():
-            my_colors.append(PoseGeneratorRosView.get_color(k))
-        plt.hist(dct.values(), color=my_colors, label=dct.keys())
-        # pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)

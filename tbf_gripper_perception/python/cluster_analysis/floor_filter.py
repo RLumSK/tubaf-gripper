@@ -28,12 +28,22 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import sys
+import signal
 import rospy
 import tf
 
 from geometry_msgs.msg import PoseStamped, QuaternionStamped
 from object_recognition_msgs.msg import TableArray
 from message_filters import Subscriber, Cache
+
+
+def signal_handler(_signal, _frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
 
 
 class FloorFilter(object):
@@ -52,7 +62,7 @@ class FloorFilter(object):
         _floor_topic = rospy.get_param('~floor_topic', "/ork/floor_plane")
         _normal_topic = rospy.get_param('~normal_topic', "/ork/floor_normal")
         _pose_topic = rospy.get_param('~pose_topic', "/ork/floor_pose")
-        self.floor_frame = rospy.get_param('~floor_frame', "base_link")
+        self.floor_frame = rospy.get_param('~floor_frame', "base_footprint")
         self.floor_frame_offset = rospy.get_param('~floor_frame_offset', 0.53)
         # publisher
         self._floor_publisher = rospy.Publisher(name=_floor_topic, data_class=TableArray, queue_size=10)
@@ -69,7 +79,7 @@ class FloorFilter(object):
         :return: -
         :rtype: None
         """
-        while True:
+        while not rospy.is_shutdown():
             msg = self._planes_cache.getLast()
             if msg is None:
                 rospy.sleep(1.0)
@@ -95,24 +105,26 @@ class FloorFilter(object):
         """
         Transform a given pose into another frame using the transform library (tf)
         :param frame_from: frame in which the orientation is valid
-        :type frame_from: string
+        :type frame_from: str
         :param frame_to:target frame for the transformation
-        :type frame_to: string
+        :type frame_to: str
         :param pose: pose that should be transformed
         :type pose: geometry_msgs.msg.Pose
         :return: transformed pose
-        :rtype: geometry_msgs.msg.Pose
+        :rtype: geometry_msgs.msg.PoseStamped
         """
         # see:  http://wiki.ros.org/tf/TfUsingPython#TransformerROS_and_TransformListener
         #       http://wiki.ros.org/tf/Tutorials/tf%20and%20Time%20(Python)
-        if self._tf.frameExists(frame_from) and self._tf.frameExists(frame_to):
+        from_exists = self._tf.frameExists(frame_from)
+        to_exists = self._tf.frameExists(frame_to)
+        if from_exists and to_exists:
             ps = PoseStamped()
             ps.header.frame_id = frame_from
             ps.pose = pose
             self._tf.waitForTransform(frame_from, frame_to, rospy.Time(), rospy.Duration(4))
             try:
                 ret_ps = self._tf.transformPose(frame_to, ps)
-                return ret_ps.pose
+                return ret_ps
             except Exception as ex:
                 rospy.logwarn("[cluster_analysis::FloorFilter.transform] Couldn't Transform from " + frame_from +
                               " to " + frame_to)
@@ -138,16 +150,23 @@ class FloorFilter(object):
             pose = self.transform(plane.header.frame_id, self.floor_frame, plane.pose)
             if pose is None:
                 continue
-            rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] plane-frame_id = " + plane.header.frame_id)
-            rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] floor-frame_id = " + self.floor_frame)
-            rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor]  its quaternion = (" +
-                           str(pose.orientation.x) + "," + str(pose.orientation.y) + "," +
-                           str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
+            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] plane-frame_id = %s, z=%g" % (plane.header.frame_id, plane.pose.position.z))
+            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] trans-frame_id = %s, z=%g" % (pose.header.frame_id, pose.pose.position.z))
+            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] floor-frame_id = " + self.floor_frame)
+            pose = pose.pose
+            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor]  its quaternion = (" +
+            #                str(pose.orientation.x) + "," + str(pose.orientation.y) + "," +
+            #                str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
             # TODO: Check criteria
-            if abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
-                if min_z > abs(pose.position.z + self.floor_frame_offset):
+            z = pose.position.z
+            if z < 0 and abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
+                v = pose.position.z + self.floor_frame_offset
+                rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] %g = %g + %g" % (
+                        v, pose.position.z, self.floor_frame_offset
+                ))
+                if min_z > v:
                     ret_plane = plane
-                    min_z = plane.pose.position.z
+                    min_z = v
                     rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] min_z = " + str(min_z))
         ret_plane.header = tables.header
         return ret_plane
