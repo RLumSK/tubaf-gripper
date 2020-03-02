@@ -25,8 +25,10 @@ COPY ./docker/entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 
 # create filestructure
+USER dockeruser
 VOLUME /out/plots
 VOLUME /in/bag
+RUN chown dockeruser /out/plots
 
 RUN mkdir /pkg
 COPY ./tbf_gripper_autonomy /pkg
