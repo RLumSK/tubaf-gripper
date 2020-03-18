@@ -1,0 +1,9 @@
+scipy
+sklearn
+pyyaml
+rospkg
+matplotlib
+pandas
+cython
+matplotlib2tikz
+tikzplotlib

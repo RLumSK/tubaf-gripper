@@ -76,10 +76,8 @@ if __name__ == '__main__':
 
     parser.add_argument("-ss", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate', type=float)
     parser.add_argument("-nb", "--n_bins", default=pg.DF_SUB_SAMPLE, help='[KDE] Number of Bins used ', type=int)
-    parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[MC] Number of x and y line', type=int)
-    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[MC] Weight for obstacle distance',
-                        type=float)
-    parser.add_argument("-mc_wh", "--mc_weight_hull", default=pg.DF_MC_WH, help='[MC] Weight for hull distance',
+    parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[Ref] Number of x and y line', type=int)
+    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[Ref] Weight for obstacle distance',
                         type=float)
     parser.add_argument("-is", "--start_index", default=DF_IS, help='Message number to start the analysis', type=int)
     parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis', type=int)
@@ -97,10 +95,9 @@ if __name__ == '__main__':
         obstacles_topic = rospy.get_param("~obstacles_topic", pg.DF_OBS_TOPIC)
         sub_sample = rospy.get_param("~sub_sample", pg.DF_SUB_SAMPLE)
         n_bins = rospy.get_param("~n_bins", pg.DF_N_BINS)
-        mc_raster = rospy.get_param("~mc_raster", pg.DF_MC_RASTER)
+        mc_raster = rospy.get_param("~ref_raster", pg.DF_MC_RASTER)
         plot_dir = rospy.get_param("~plot_dir", pg.DF_PLT_SAVE_DIR)
-        mc_weight_hull = rospy.get_param("~mc_wh", pg.DF_MC_WH)
-        mc_weight_obstacle = rospy.get_param("~mc_wo", pg.DF_MC_WO)
+        mc_weight_obstacle = rospy.get_param("~ref_wo", pg.DF_MC_WO)
         start_index = rospy.get_param("~start_index", DF_IS)
         end_index = rospy.get_param("~end_index", DF_IE)
     else:
@@ -114,7 +111,6 @@ if __name__ == '__main__':
         n_bins = args.n_bins
         mc_raster = args.mc_raster
         plot_dir = args.plot_dir
-        mc_weight_hull = args.mc_weight_hull
         mc_weight_obstacle = args.mc_weight_obstacle
         start_index = args.start_index
         end_index = args.end_index
@@ -143,7 +139,7 @@ if __name__ == '__main__':
     kde = pg.MinimalDensityEstimatePoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros,
                                                  n_bins)
     mcr = pg.MonteCarloPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
-                                     mc_weight_obstacle, mc_weight_hull)
+                                     mc_weight_obstacle)
     lst_gen = [pca, dln, kde, mcr]
 
     evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
@@ -170,11 +166,11 @@ if __name__ == '__main__':
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
         try:
-            ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-            ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+            # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+            ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
         except IndexError as ie:
             print("IndexError during view_all")
 
-    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
-    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
-    evaluation.evaluate(print_it=True, ff=formats, weight_hull=mc_weight_hull, weight_obs=mc_weight_obstacle)
+#    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
+#    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
+#    evaluation.evaluate(print_it=True, ff=formats, weight_hull=mc_weight_hull, weight_obs=mc_weight_obstacle)

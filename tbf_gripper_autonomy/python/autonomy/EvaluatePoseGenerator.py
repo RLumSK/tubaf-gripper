@@ -98,7 +98,7 @@ def view_general(generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
         print_plt(file_formats=ff, suffix=u"Szene", save_dir=save_to)
 
 
-def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=[-1, 1]):
+def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=[-1, 1], index=-1):
     """
     Plot all given generators into one figure
     :param save_to: [optional] directory where the plots are stored
@@ -111,6 +111,8 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
     :type show_it: bool
     :param lst_generator: list of pose generators of type PoseGeneratorRosView
     :type lst_generator: list()
+    :param index: scene index
+    :type index: int
     :return: -
     :rtype:-
     """
@@ -153,10 +155,16 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
 
     # lgd = legend_without_duplicate_labels(ax)
 
+    try:
+        # https://tikzplotlib.readthedocs.io/en/latest/index.html#tikzplotlib.clean_figure
+        mpl2tkz.clean_figure(fig)
+    except AttributeError as ae:
+        rospy.logerror("[view_all()] AttributeError at <mpl2tkz.clean_figure(fig)> %s" % ae)
+
     if show_it:
         plt.show()
     if print_it:
-        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte", save_dir=save_to)
+        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte - Szene "+str(index), save_dir=save_to)
 
 
 def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages",

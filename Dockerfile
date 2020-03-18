@@ -13,11 +13,12 @@ RUN rm -rf /var/lib/apt/lists/* \
  	ros-kinetic-message-filters \
  	texlive-xetex \
  	ghostscript\
- 	 dvipng \
+ 	dvipng \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --upgrade pip
-RUN pip3 install scipy sklearn pyyaml rospkg matplotlib pandas matplotlib2tikz tikzplotlib cython
+COPY ./docker/requirements.txt /tmp
+RUN pip3 install -r requirements.txt
 RUN pip3 install numpy-quaternion
 # We need latex for matplotlib latex export: https://matplotlib.org/3.1.1/tutorials/text/usetex.html
 
@@ -25,10 +26,8 @@ COPY ./docker/entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 
 # create filestructure
-USER dockeruser
 VOLUME /out/plots
 VOLUME /in/bag
-RUN chown dockeruser /out/plots
 
 RUN mkdir /pkg
 COPY ./tbf_gripper_autonomy /pkg

@@ -102,7 +102,6 @@ DF_ENABLE_ROS = True
 DF_N_BINS = 10
 DF_MC_RASTER = 20
 DF_MC_WO = 1.0
-DF_MC_WH = 1.0
 DF_PLT_SAVE_DIR = "/home/grehl/Schreibtisch/PoseGeneratorImages"
 
 
@@ -273,13 +272,11 @@ class PoseGeneratorRosInterface:
         return np.asarray(valid_sample)
 
     @staticmethod
-    def metric(d_obstacles, d_hull, wo=1.0, wh=1.0):
+    def metric(d_obstacles, d_hull, wo=1.0):
         """
         Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
         :param wo: [optional] weight fot the obstacle distance, default: 1.0
         :type wo: float
-        :param wh: [optional] weight fot the hull distance, default 1.0
-        :type wh: float
         :param d_obstacles: distance to the nearest obstacle
         :type d_obstacles: float
         :param d_hull: distance to the convex hull, perpendicular to the nearest line
@@ -287,9 +284,44 @@ class PoseGeneratorRosInterface:
         :return: combined distance
         :rtype: float
         """
-        ret_val = np.power(float(d_obstacles), wo) * np.power(float(d_hull), wh)
+        return PoseGeneratorRosInterface.product_metric(d_obstacles, d_hull, wo)
+
+    @staticmethod
+    def product_metric(d_obstacles, d_hull, wo=1.0):
+        """
+        Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
+        :param wo: [optional] weight fot the obstacle distance, default: 1.0
+        :type wo: float
+        :param d_obstacles: distance to the nearest obstacle
+        :type d_obstacles: float
+        :param d_hull: distance to the convex hull, perpendicular to the nearest line
+        :type d_hull: float
+        :return: combined distance
+        :rtype: float
+        """
+        wh = 1 - wo
+        ret_val = np.power(float(d_obstacles), 1 + wo) * np.power(float(d_hull), 1 + wh)
         rospy.logdebug(
             "[PoseGeneratorRosInterface.metric()] %g^%g *%g^%g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
+        return ret_val
+
+    @staticmethod
+    def sum_metric(d_obstacles, d_hull, wo=0.5):
+        """
+        Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
+        :param wo: [optional] weight fot the obstacle distance, default: 0.5 - weight for hull distance is 1-wo
+        :type wo: float
+        :param d_obstacles: distance to the nearest obstacle
+        :type d_obstacles: float
+        :param d_hull: distance to the convex hull, perpendicular to the nearest line
+        :type d_hull: float
+        :return: combined distance
+        :rtype: float
+        """
+        wh = 1 - wo
+        ret_val = float(d_obstacles) * wo + float(d_hull) * wh
+        rospy.logdebug(
+            "[PoseGeneratorRosInterface.sum_metric()] %g*%g +%g* %g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
         return ret_val
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
@@ -533,11 +565,11 @@ class PoseGeneratorRosInterface:
         # rospy.loginfo("[PoseGeneratorRosInterface.extract_points()] Floor frame: %s" % flr_msg.header.frame_id)
 
         i = 0
+        if self.subsample >= 1.0:
+            ss = self.subsample
+        else:
+            ss = int(n_obstacles * self.subsample)
         for obstacle in obs_msg.markers[start:]:  # type: Marker
-            if self.subsample >= 1.0:
-                ss = self.subsample
-            else:
-                ss = int(n_obstacles * self.subsample)
             if ss == 0:
                 rospy.logwarn("[PoseGeneratorRosInterface.extract_points] Given %g points and a subsampling rate of %g "
                               "we use %g points - impossible, hence useing at least one" %
@@ -619,7 +651,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         :rtype: char
         """
         if "stacle" in name or "indernis" in name:
-            return 'C0'
+            return 'gray'
         elif "roundarea" in name or "oden" in name:
             return 'k'
         elif "elaunay" in name:
@@ -974,7 +1006,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
     """
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
-                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER, mc_wo=DF_MC_WO, mc_wh=DF_MC_WH):
+                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER, mc_wo=DF_MC_WO):
         """
         Default constructor
         :param pub_topic: Topic where the calculated pose gets published
@@ -991,14 +1023,11 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         :type mc_raster: int
         :param mc_wo: weight for distance to obstacle
         :type mc_wo: float
-        :param mc_wh: weight for distance to hull
-        :type mc_wh: float
         """
         super(MonteCarloPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
         self.n_xlines = mc_raster
         self.n_ylines = self.n_xlines
         self.wo = mc_wo
-        self.wh = mc_wh
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -1041,7 +1070,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         for i in range(0, len(positions)):
             hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(positions[i], hull.tolist(), mode="PL")
             d, i_dp = obs_nn.kneighbors([positions[i, 0:2]])
-            m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance, wo=self.wo, wh=self.wh)
+            m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance, wo=self.wo)
             extended_positions[i] = np.append(positions[i], m)
         i_max = np.argmax(extended_positions[:, -1])
         ret_pos = extended_positions[i_max, 0:-1]
