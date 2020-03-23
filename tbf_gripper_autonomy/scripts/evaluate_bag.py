@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument("-ft", "--floor_topic", default=pg.DF_FLR_TOPIC, help='Topic name of the floor', type=str)
 
     parser.add_argument("-ss", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate', type=float)
-    parser.add_argument("-nb", "--n_bins", default=pg.DF_SUB_SAMPLE, help='[KDE] Number of Bins used ', type=int)
+    parser.add_argument("-nb", "--n_bins", default=pg.DF_N_BINS, help='[KDE] Number of Bins used ', type=int)
     parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[Ref] Number of x and y line', type=int)
     parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[Ref] Weight for obstacle distance',
                         type=float)
@@ -115,10 +115,10 @@ if __name__ == '__main__':
         start_index = args.start_index
         end_index = args.end_index
 
-        from logging import basicConfig, getLogger, ERROR
+        from logging import basicConfig, getLogger, ERROR, INFO
 
         log = getLogger("not_ros")
-        basicConfig(level=ERROR)
+        basicConfig(level=INFO)
 
 
         class rospy:

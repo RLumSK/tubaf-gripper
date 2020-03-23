@@ -937,10 +937,13 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         """
         super(MinimalDensityEstimatePoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample,
                                                                   enable_ros)
-        self.n_bins = n_bins
+        self.n_bins = int(n_bins)  # type: int
         # self.hlp_xx, self.hlp_yy = np.mgrid[-1:1: self.n_bins * 1j, -1:1: self.n_bins * 1j]
         self.hlp_positions = np.zeros((self.n_bins ** 2, 2))
         self.hlp_f = np.zeros(self.n_bins ** 2)
+
+        # rospy.loginfo("[MinimalDensityEstimatePoseGenerator.__init__()] self.hlp_positions %s" % self.hlp_positions)
+        # rospy.loginfo("[MinimalDensityEstimatePoseGenerator.__init__()]  self.hlp_f %s" % self.hlp_f)
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -964,7 +967,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         xmin, xmax = min(hull[:, 0]), max(hull[:, 0])
         ymin, ymax = min(hull[:, 1]), max(hull[:, 1])
 
-        # Peform the kernel density estimate
+        # Perform the kernel density estimate
         xx, yy = np.mgrid[xmin:xmax: self.n_bins * 1j, ymin:ymax: self.n_bins * 1j]
         all_positions = np.vstack([xx.ravel(), yy.ravel()]).T
         positions = PoseGeneratorRosInterface.in_hull(Delaunay(hull[:, :2], qhull_options="Pp"), all_positions)
@@ -973,6 +976,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
 
         self.hlp_f = kernel(all_positions.T)
         self.hlp_positions = all_positions
+
         z_i = np.argmin(kernel(positions.T))
         z_x = positions[z_i, 0]
         z_y = positions[z_i, 1]
