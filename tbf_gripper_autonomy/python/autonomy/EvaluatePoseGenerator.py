@@ -96,6 +96,7 @@ def view_general(generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
         plt.show()
     if print_it:
         print_plt(file_formats=ff, suffix=u"Szene", save_dir=save_to)
+    plt.close(fig)
 
 
 def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=[-1, 1], index=-1):
@@ -116,8 +117,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
     :return: -
     :rtype:-
     """
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.set_xlabel(xlabel="x [m]")
     ax.set_ylabel(ylabel="y [m]")
     ax.set_xlim(xylim[0], xylim[1])
@@ -162,6 +162,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
         plt.show()
     if print_it:
         print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte - Szene "+str(index), save_dir=save_to)
+    plt.close(fig)
 
 
 def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages",

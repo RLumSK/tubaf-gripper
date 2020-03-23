@@ -43,7 +43,7 @@ except ImportError as ie:
     import PoseGenerator as pg
     import EvaluatePoseGenerator as ev
 
-DF_BAG_PATH = '/home/grehl/bags/obj_cloud_2020-01-22/2020-01-22-13-16-05.bag'
+DF_BAG_PATH = '/in/bag/buero.bag'
 DF_IS = 0
 DF_IE = -DF_IS
 

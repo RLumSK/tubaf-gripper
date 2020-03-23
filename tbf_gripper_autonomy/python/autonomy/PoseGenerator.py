@@ -97,12 +97,12 @@ signal.signal(signal.SIGINT, signal_handler)
 DF_OBS_TOPIC = "/ork/tabletop/clusters"
 DF_FLR_TOPIC = "/ork/floor_plane"
 DF_PUB_TOPIC = "/pub_set_pose"
-DF_SUB_SAMPLE = 100
+DF_SUB_SAMPLE = 0.01
 DF_ENABLE_ROS = True
 DF_N_BINS = 10
-DF_MC_RASTER = 20
-DF_MC_WO = 1.0
-DF_PLT_SAVE_DIR = "/home/grehl/Schreibtisch/PoseGeneratorImages"
+DF_MC_RASTER = 32
+DF_MC_WO = 0.5
+DF_PLT_SAVE_DIR = "/out/plots"
 
 
 @add_metaclass(abc.ABCMeta)
@@ -695,8 +695,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         :rtype: plt.axes.Axis
         """
         if ax is None:
-            fig = plt.figure()
-            ax = fig.gca()
+            fig, ax = plt.subplots()
         else:
             fig = plt.gcf()
         n = self.get_name()
@@ -708,14 +707,14 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
             x = [lne[0][0], lne[1][0]]
             y = [lne[0][1], lne[1][1]]
             # ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
-            ax.plot(x, y, ':', color=c, alpha=0.75, zorder=5, label=n + " Hilfslinien")
-        try:
-            # https://tikzplotlib.readthedocs.io/en/latest/index.html#tikzplotlib.clean_figure
-            mpl2tkz.clean_figure()
-        except AttributeError as ae:
-            rospy.logerr("[view_all()] AttributeError at <mpl2tkz.clean_figure(fig)> %s" % ae)
-        except ValueError as ve:
-            rospy.logerr("[view_all()] ValueError at <mpl2tkz.clean_figure(fig)> %s" % ve)
+            ax.plot(x, y, linestyle='dashed', color=c, alpha=0.75, zorder=5, label=n + " Hilfslinien")
+        # try:
+        #     # https://tikzplotlib.readthedocs.io/en/latest/index.html#tikzplotlib.clean_figure
+        #     mpl2tkz.clean_figure(fig)
+        # except AttributeError as ae:
+        #     rospy.logerr("[view_all()] AttributeError at <mpl2tkz.clean_figure(fig)> %s" % ae)
+        # except ValueError as ve:
+        #     rospy.logerr("[view_all()] ValueError at <mpl2tkz.clean_figure(fig)> %s" % ve)
 
         if obstacles:
             n = "Hindernisse"
