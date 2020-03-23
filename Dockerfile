@@ -1,4 +1,4 @@
-FROM ros:kinetic-robot
+FROM ros:melodic-robot
 LABEL maintainer="grehl" mail="Steve.Grehl@informatik.tu-freiberg.de" company="TU Bergakademie Freiberg"
 
 ## Install python modules
@@ -7,10 +7,11 @@ RUN rm -rf /var/lib/apt/lists/* \
  && apt-get update \
  && apt-get install -y \
  	python3-pip \
- 	ros-kinetic-object-recognition-msgs \
- 	ros-kinetic-visualization-msgs \
- 	ros-kinetic-geometry-msgs \
- 	ros-kinetic-message-filters \
+ 	python3-tk \
+ 	ros-melodic-object-recognition-msgs \
+ 	ros-melodic-visualization-msgs \
+ 	ros-melodic-geometry-msgs \
+ 	ros-melodic-message-filters \
  	texlive-xetex \
  	ghostscript\
  	dvipng \

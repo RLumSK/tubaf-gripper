@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 # Software License Agreement (BSD License)
 #
@@ -115,17 +115,17 @@ if __name__ == '__main__':
         start_index = args.start_index
         end_index = args.end_index
 
-        import logging
+        from logging import basicConfig, getLogger, ERROR
 
-        log = logging.getLogger("not_ros")
-        logging.basicConfig(level=logging.ERROR)
+        log = getLogger("not_ros")
+        basicConfig(level=ERROR)
 
 
         class rospy:
             logdebug = log.debug
             loginfo = log.info
-            logwarn = log.warn
-            logerror = log.error
+            logwarn = log.warning
+            logerr = log.error
 
     floor_msg = None
     obstacle_msg = None

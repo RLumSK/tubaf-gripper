@@ -122,6 +122,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
     ax.set_ylabel(ylabel="y [m]")
     ax.set_xlim(xylim[0], xylim[1])
     ax.set_ylim(*ax.get_xlim())
+
     for generator in lst_generator:  # type: PoseGeneratorRosView
         if len(generator.obs_points) == 0:
             plt.close()
@@ -143,7 +144,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
         txt = fig.text(0.15, -0.02, "Teilstichprobe alle " + str(lst_generator[-1].subsample) + " Hindernisse")
     else:
         txt = fig.text(0.15, -0.02,
-                       "Teilstichprobe mit " + str(lst_generator[-1].subsample * 100.0) + "% der Hindernisse")
+                       "Teilstichprobe mit " + str(lst_generator[-1].subsample * 100.0) + "\% der Hindernisse")
 
     def legend_without_duplicate_labels(axis):
         handles, labels = axis.get_legend_handles_labels()
@@ -155,11 +156,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
 
     # lgd = legend_without_duplicate_labels(ax)
 
-    try:
-        # https://tikzplotlib.readthedocs.io/en/latest/index.html#tikzplotlib.clean_figure
-        mpl2tkz.clean_figure(fig)
-    except AttributeError as ae:
-        rospy.logerror("[view_all()] AttributeError at <mpl2tkz.clean_figure(fig)> %s" % ae)
+
 
     if show_it:
         plt.show()

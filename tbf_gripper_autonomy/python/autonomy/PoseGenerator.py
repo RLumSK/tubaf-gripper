@@ -51,7 +51,7 @@ from geometry_msgs.msg import PoseStamped, Point
 
 import matplotlib
 
-matplotlib.use('Qt5Agg')
+# matplotlib.use('TKAgg')
 from pylab import *
 import matplotlib.pyplot as plt
 from matplotlib import ticker
@@ -697,13 +697,25 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         if ax is None:
             fig = plt.figure()
             ax = fig.gca()
+        else:
+            fig = plt.gcf()
         n = self.get_name()
         c = PoseGeneratorRosView.get_color(n)
+        # TODO: Fix matplotlib deprecated warning
         if type(self.result) is list or (len(self.result.shape) == 1 and self.result.shape[0] == 3):
             self.result = np.asarray([self.result])
         for lne in self.lines:
-            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
-                    label=n + " Hilfslinien")
+            x = [lne[0][0], lne[1][0]]
+            y = [lne[0][1], lne[1][1]]
+            # ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
+            ax.plot(x, y, ':', color=c, alpha=0.75, zorder=5, label=n + " Hilfslinien")
+        try:
+            # https://tikzplotlib.readthedocs.io/en/latest/index.html#tikzplotlib.clean_figure
+            mpl2tkz.clean_figure()
+        except AttributeError as ae:
+            rospy.logerr("[view_all()] AttributeError at <mpl2tkz.clean_figure(fig)> %s" % ae)
+        except ValueError as ve:
+            rospy.logerr("[view_all()] ValueError at <mpl2tkz.clean_figure(fig)> %s" % ve)
 
         if obstacles:
             n = "Hindernisse"
