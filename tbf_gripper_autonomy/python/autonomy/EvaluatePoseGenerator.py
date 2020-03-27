@@ -32,6 +32,7 @@
 
 import os
 from matplotlib.image import NonUniformImage
+import pandas as pd
 
 try:
     from autonomy.PoseGenerator import *
@@ -223,12 +224,13 @@ class EvaluatePoseGenerators(object):
     """
 
     C_MAP = u'tab20c_r'
+    DF_N_BINS = 25
 
     @staticmethod
     def calc_metric_dict(dct_hull, dct_obs, wo=1.0, wh=1.0):
         """
         Calculate a dictionary with the metric based on the hull and obstacle distance
-        :param wh: [optional] weight for hull distance
+        :param wh: deprecated
         :type wh: float
         :param wo: [optional] weight for obstacle distance
         :type wo: float
@@ -249,14 +251,14 @@ class EvaluatePoseGenerators(object):
             dh = dct_hull[k]
             do = dct_obs[k]
             for i in range(0, min(len(do), len(dh))):
-                dct_metric[k].append(PoseGeneratorRosInterface.metric(do[i], dh[i], wo, wh))
+                dct_metric[k].append(PoseGeneratorRosInterface.metric(do[i], dh[i], wo))
         return dct_metric
 
     @staticmethod
     def get_ident(obj):
         return str(type(obj)).split(".")[-1][:-2]
 
-    def __init__(self, generators, timeit=True, save_dir="/out/plot"):
+    def __init__(self, generators, timeit=True, save_dir="/out/plot", n_bins=DF_N_BINS):
         """
         Default constructor
         :param generators: pose generators
@@ -265,6 +267,8 @@ class EvaluatePoseGenerators(object):
         :type timeit: bool
         :param save_dir: directory with plots
         :type save_dir: str
+        :param n_bins: number of bins in the histograms
+        :type n_bins: int
         """
         self._generators = generators
 
@@ -277,6 +281,8 @@ class EvaluatePoseGenerators(object):
 
         self.timeit = timeit
         self.plot_dir = save_dir
+
+        self.n_bins = n_bins
 
         for g in self._generators:  # type: PoseGeneratorRosInterface
             ident = g.get_name()
@@ -394,20 +400,23 @@ class EvaluatePoseGenerators(object):
         for k in self.dct_count_largest_obstacle_distance:
             rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_obstacle_distance[k]))
 
-        n_bin = 25
+        n_bin = self.n_bins
         alpha = 0.75
-        self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
+        # self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
+        self.plot_bar(self.dct_lst_hull_distance, title=u'Abstand zur konvexen Hülle')
         if print_it:
-            print_plt(file_formats=ff, suffix="hull_histogram", save_dir=self.plot_dir)
-        self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
+            print_plt(file_formats=ff, suffix="hull_barplot", save_dir=self.plot_dir)
+        # self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
+        self.plot_bar(self.dct_lst_obstacle_distance, title=u'Abstand zum nächsten Hindernis')
         if print_it:
-            print_plt(file_formats=ff, suffix="obstacle_histogram", save_dir=self.plot_dir)
+            print_plt(file_formats=ff, suffix="obstacle_barplot", save_dir=self.plot_dir)
         dct_metric = EvaluatePoseGenerators.calc_metric_dict(self.dct_lst_hull_distance,
                                                              self.dct_lst_obstacle_distance,
                                                              wo=weight_obs, wh=weight_hull)
-        self.plot_hist(dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
+        # self.plot_hist(dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
+        self.plot_bar(dct_metric, title=u'Metrik')
         if print_it:
-            print_plt(file_formats=ff, suffix="metric_histogram", save_dir=self.plot_dir)
+            print_plt(file_formats=ff, suffix="metric_barplot", save_dir=self.plot_dir)
         self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
         if print_it:
             print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
@@ -441,9 +450,10 @@ class EvaluatePoseGenerators(object):
         for key in self.dct_result.keys():
             if len(dct_distances[key]) == 0:
                 del dct_distances[key]
-        self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Referenz', alpha=alpha)
+        # self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Referenz', alpha=alpha)
+        self.plot_bar(dct_distances, title=u'Abstand zur Referenz')
         if print_it:
-            print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Referenzevaluierung")
+            print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Abstand zur Referenz")
         if show_it:
             plt.show()
 
@@ -510,3 +520,17 @@ class EvaluatePoseGenerators(object):
             my_colors.append(PoseGeneratorRosView.get_color(k))
         plt.hist(dct.values(), color=my_colors, label=dct.keys())
         # pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)
+
+    @staticmethod
+    def plot_bar(dct, title='Barplot'):
+        """
+        Barplot of the dictionary
+        :param dct: dictionary to be translated into a pandas DataFrame
+        :type dct: dict
+        :param title: Title of the plot
+        :type title: str
+        :return:
+        """
+        # pd.DataFrame(data=dct).boxplot(column=dct.keys(), title=title, color=my_colors)
+        pd.DataFrame(data=dct).boxplot()
+        plt.gca().set_title(title)

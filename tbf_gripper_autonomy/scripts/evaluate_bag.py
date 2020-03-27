@@ -79,6 +79,9 @@ if __name__ == '__main__':
     parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[Ref] Number of x and y line', type=int)
     parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[Ref] Weight for obstacle distance',
                         type=float)
+    parser.add_argument("-bh", "--histogram_bins", default=ev.DF_N_BINS, help='Number of Bins used in the Histograms '
+                                                                              'during Evaluation', type=int)
+
     parser.add_argument("-is", "--start_index", default=DF_IS, help='Message number to start the analysis', type=int)
     parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis', type=int)
 
@@ -98,6 +101,7 @@ if __name__ == '__main__':
         mc_raster = rospy.get_param("~ref_raster", pg.DF_MC_RASTER)
         plot_dir = rospy.get_param("~plot_dir", pg.DF_PLT_SAVE_DIR)
         mc_weight_obstacle = rospy.get_param("~ref_wo", pg.DF_MC_WO)
+        histogram_bins = rospy.get_param("~histogram_bins", ev.DF_N_BINS)
         start_index = rospy.get_param("~start_index", DF_IS)
         end_index = rospy.get_param("~end_index", DF_IE)
     else:
@@ -112,6 +116,7 @@ if __name__ == '__main__':
         mc_raster = args.mc_raster
         plot_dir = args.plot_dir
         mc_weight_obstacle = args.mc_weight_obstacle
+        histogram_bins = args.histogram_bins
         start_index = args.start_index
         end_index = args.end_index
 
@@ -142,8 +147,8 @@ if __name__ == '__main__':
                                      mc_weight_obstacle)
     lst_gen = [pca, dln, kde, mcr]
 
-    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
-    formats = ['.png', '.tex', '.pdf']
+    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins)
+    formats = ['.png', '.tex']
 
     print("Starting: bag has " + str(n_msg) + " messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
@@ -165,12 +170,12 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        try:
-            # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-            ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
-        except IndexError as ie:
-            print("IndexError during view_all")
+        # try:
+        #     # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+        #     ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
+        # except IndexError as ie:
+        #     print("IndexError during view_all")
 
-#    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
-#    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
-#    evaluation.evaluate(print_it=True, ff=formats, weight_hull=mc_weight_hull, weight_obs=mc_weight_obstacle)
+    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
+    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
+    evaluation.evaluate(print_it=True, ff=formats, weight_hull=1-mc_weight_obstacle, weight_obs=mc_weight_obstacle)
