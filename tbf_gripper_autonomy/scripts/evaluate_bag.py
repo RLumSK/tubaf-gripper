@@ -147,7 +147,7 @@ if __name__ == '__main__':
                                      mc_weight_obstacle)
     lst_gen = [pca, dln, kde, mcr]
 
-    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins)
+    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins, weight=mc_weight_obstacle)
     formats = ['.png', '.tex']
 
     print("Starting: bag has " + str(n_msg) + " messages")
@@ -178,4 +178,4 @@ if __name__ == '__main__':
 
     evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
     evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
-    evaluation.evaluate(print_it=True, ff=formats, weight_hull=1-mc_weight_obstacle, weight_obs=mc_weight_obstacle)
+    evaluation.evaluate(print_it=True, ff=formats)

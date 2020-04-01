@@ -156,9 +156,6 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
                            mode="expand", borderaxespad=0.)
 
     # lgd = legend_without_duplicate_labels(ax)
-
-
-
     if show_it:
         plt.show()
     if print_it:
@@ -225,6 +222,7 @@ class EvaluatePoseGenerators(object):
 
     C_MAP = u'tab20c_r'
     DF_N_BINS = 25
+    DF_WEIGHT = 1.0
 
     @staticmethod
     def calc_metric_dict(dct_hull, dct_obs, wo=1.0, wh=1.0):
@@ -258,7 +256,7 @@ class EvaluatePoseGenerators(object):
     def get_ident(obj):
         return str(type(obj)).split(".")[-1][:-2]
 
-    def __init__(self, generators, timeit=True, save_dir="/out/plot", n_bins=DF_N_BINS):
+    def __init__(self, generators, timeit=True, save_dir="/out/plot", n_bins=DF_N_BINS, weight=DF_WEIGHT):
         """
         Default constructor
         :param generators: pose generators
@@ -269,6 +267,8 @@ class EvaluatePoseGenerators(object):
         :type save_dir: str
         :param n_bins: number of bins in the histograms
         :type n_bins: int
+        :param weight: weight for the metric formula
+        :type weight: float
         """
         self._generators = generators
 
@@ -278,11 +278,13 @@ class EvaluatePoseGenerators(object):
         self.dct_count_largest_hull_distance = {}
         self.dct_count_largest_obstacle_distance = {}
         self.dct_timing = {}
+        self.dct_metric = {}
 
         self.timeit = timeit
         self.plot_dir = save_dir
 
         self.n_bins = n_bins
+        self.weight = weight
 
         for g in self._generators:  # type: PoseGeneratorRosInterface
             ident = g.get_name()
@@ -292,6 +294,7 @@ class EvaluatePoseGenerators(object):
             self.dct_count_largest_obstacle_distance[ident] = 0
             self.dct_timing[ident] = []
             self.dct_result[ident] = []
+            self.dct_metric[ident] = []
 
     def perform(self, timeout=1.0, samples=1000):
         """
@@ -363,6 +366,10 @@ class EvaluatePoseGenerators(object):
                 d_obst = obstacle_distance
                 obst_ident = ident
 
+            # Calculate the metric
+            self.dct_metric[ident].append(PoseGeneratorRosInterface.metric(obstacle_distance,
+                                                                           hull_distance, self.weight))
+
         # Sometimes no obstacles are present, resulting in the same position for all generators,
         # we want to filter such cases
         obs_points, hull_points = self._generators[-1].extract_points(obs, flr.tables[0])
@@ -378,12 +385,13 @@ class EvaluatePoseGenerators(object):
                 self.dct_result[ident].pop()
                 self.dct_lst_hull_distance[ident].pop()
                 self.dct_lst_obstacle_distance[ident].pop()
+                self.dct_metric[ident].pop()
             return
 
         self.dct_count_largest_hull_distance[hull_ident] += 1
         self.dct_count_largest_obstacle_distance[obst_ident] += 1
 
-    def evaluate(self, print_it=False, ff=['.tex', '.pdf'], weight_obs=1.0, weight_hull=1.0):
+    def evaluate(self, print_it=False, ff=['.tex', '.pdf']):
         """
         Plot the gathered data
         :return: -
@@ -410,14 +418,12 @@ class EvaluatePoseGenerators(object):
         self.plot_bar(self.dct_lst_obstacle_distance, title=u'Abstand zum nächsten Hindernis')
         if print_it:
             print_plt(file_formats=ff, suffix="obstacle_barplot", save_dir=self.plot_dir)
-        dct_metric = EvaluatePoseGenerators.calc_metric_dict(self.dct_lst_hull_distance,
-                                                             self.dct_lst_obstacle_distance,
-                                                             wo=weight_obs, wh=weight_hull)
-        # self.plot_hist(dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
-        self.plot_bar(dct_metric, title=u'Metrik')
+        # self.plot_hist(self.dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
+        self.plot_bar(self.dct_metric, title=u'Metrik')
         if print_it:
             print_plt(file_formats=ff, suffix="metric_barplot", save_dir=self.plot_dir)
-        self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
+        # self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
+        self.plot_bar(self.dct_timing, title=u'Rechenzeit', y_scale='log')
         if print_it:
             print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
 
@@ -522,9 +528,13 @@ class EvaluatePoseGenerators(object):
         # pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)
 
     @staticmethod
-    def plot_bar(dct, title='Barplot'):
+    def plot_bar(dct, title='Barplot', y_scale="linear", x_scale="linear"):
         """
         Barplot of the dictionary
+        :param y_scale: linear, log, symlog, logit
+        :type y_scale: str
+        :param x_scale: linear, log, symlog, logit
+        :type x_scale: str
         :param dct: dictionary to be translated into a pandas DataFrame
         :type dct: dict
         :param title: Title of the plot
@@ -532,5 +542,7 @@ class EvaluatePoseGenerators(object):
         :return:
         """
         # pd.DataFrame(data=dct).boxplot(column=dct.keys(), title=title, color=my_colors)
+        plt.xscale(x_scale)
+        plt.yscale(y_scale)
         pd.DataFrame(data=dct).boxplot()
         plt.gca().set_title(title)

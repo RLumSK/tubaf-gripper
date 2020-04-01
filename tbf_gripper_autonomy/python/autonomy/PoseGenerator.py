@@ -658,7 +658,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
             return 'C2'
         elif "inimalDensityEstimate" in name:
             return 'blue'
-        elif "onteCarlo" in name:
+        elif "onteCarlo" in name or "eferenz" in name:
             return 'C1'
         elif "ca" in name:
             return 'C4'
@@ -747,6 +747,9 @@ class PcaPoseGenerator(PoseGeneratorRosView):
         :type enable_ros: bool
         """
         super(PcaPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
+
+    def get_name(self):
+        return u'PCA'
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -945,6 +948,9 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         # rospy.loginfo("[MinimalDensityEstimatePoseGenerator.__init__()] self.hlp_positions %s" % self.hlp_positions)
         # rospy.loginfo("[MinimalDensityEstimatePoseGenerator.__init__()]  self.hlp_f %s" % self.hlp_f)
 
+    def get_name(self):
+        return u'KDE'
+
     def _generate(self, lst_obs_points, hull=None):
         """
         Algorithm to determine a valid pose given a floor plane and obstacles
@@ -1043,6 +1049,9 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         self.n_xlines = mc_raster
         self.n_ylines = self.n_xlines
         self.wo = mc_wo
+
+    def get_name(self):
+        return "Referenz"
 
     def _generate(self, lst_obs_points, hull=None):
         """
