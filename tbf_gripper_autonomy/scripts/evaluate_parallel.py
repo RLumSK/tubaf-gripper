@@ -34,6 +34,8 @@ from __future__ import print_function
 import rosbag
 import argparse
 import sys
+import numpy as np
+import time
 
 try:
     import autonomy.PoseGenerator as pg
@@ -87,8 +89,6 @@ if __name__ == '__main__':
     parser.add_argument("-is", "--start_index", default=DF_IS, help='Message number to start the analysis', type=int)
     parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis', type=int)
 
-    parser.add_argument("-nc", "--n_cpu", default=mc.DF_N_CPU, help='Number of CPUs used for multiprocessing', type=int)
-
     args = parser.parse_args()
 
     if args.use_ros:
@@ -108,7 +108,6 @@ if __name__ == '__main__':
         histogram_bins = rospy.get_param("~histogram_bins", ev.DF_N_BINS)
         start_index = rospy.get_param("~start_index", DF_IS)
         end_index = rospy.get_param("~end_index", DF_IE)
-        n_cpu = rospy.get_param("~n_cpu", mc.DF_N_CPU)
     else:
         print("Using args")
         print(args)
@@ -124,7 +123,6 @@ if __name__ == '__main__':
         histogram_bins = args.histogram_bins
         start_index = args.start_index
         end_index = args.end_index
-        n_cpu = args.n_cpu
 
         from logging import basicConfig, getLogger, ERROR, INFO
 
@@ -144,17 +142,10 @@ if __name__ == '__main__':
     bag = rosbag.Bag(bag_path)
     n_msg = bag.get_message_count()
     i_msg = 0
-
-    pca = pg.PcaPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros)
-    dln = pg.DelaunayPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros)
-    kde = pg.MinimalDensityEstimatePoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros,
-                                                 n_bins)
-    mcr = mc.MonteCarloClusterPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
-                                     mc_weight_obstacle, n_cpu)
-    lst_gen = [pca, dln, kde, mcr]
-
-    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins, weight=mc_weight_obstacle)
-    formats = ['.png', '.tex']
+    mcr = pg.MonteCarloPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
+                                     mc_weight_obstacle)
+    mcc = mc.MonteCarloClusterPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
+                                     mc_weight_obstacle)
 
     print("Starting: bag has " + str(n_msg) + " messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
@@ -172,16 +163,13 @@ if __name__ == '__main__':
             print("unknown topic")
             continue
 
-        if not pca.check_messages(obstacle_msg, floor_msg):
+        if not mcc.check_messages(obstacle_msg, floor_msg):
             continue
+        t = time.time()
+        mcc.once(obstacles_msg=obstacle_msg, floor_msg=floor_msg)
+        print(time.time() - t)
+        t = time.time()
+        mcr.once(obstacles_msg=obstacle_msg, floor_msg=floor_msg)
+        print(time.time() - t)
+        print(np.linalg.norm(mcc.result - mcr.result))
 
-        evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        # try:
-        #     # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-        #     ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
-        # except IndexError as ie:
-        #     print("IndexError during view_all")
-
-    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
-    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
-    evaluation.evaluate(print_it=True, ff=formats)

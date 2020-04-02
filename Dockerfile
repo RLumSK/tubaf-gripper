@@ -1,7 +1,6 @@
 FROM ros:melodic-robot
 LABEL maintainer="grehl" mail="Steve.Grehl@informatik.tu-freiberg.de" company="TU Bergakademie Freiberg"
 
-## Install python modules
 WORKDIR /tmp
 RUN rm -rf /var/lib/apt/lists/* \
  && apt-get update \
@@ -17,6 +16,8 @@ RUN rm -rf /var/lib/apt/lists/* \
  	dvipng \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+## Install python modules
 RUN pip3 install --upgrade pip
 COPY ./docker/requirements.txt /tmp
 RUN pip3 install -r requirements.txt

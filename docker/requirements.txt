@@ -8,3 +8,4 @@ cython
 matplotlib2tikz
 tikzplotlib
 gnupg
+numba

@@ -186,14 +186,14 @@ class PoseGeneratorRosInterface:
         rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] len(lst_points) = %s" % len(lst_points))
         rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] lst_points = %s" % lst_points)
         rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] mode = %s" % mode)
-        nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
-            lst_points)  # type: NearestNeighbors
-        tmp = nn.kneighbors([point])
-        distance, i_min = tmp[0][0][0], tmp[1][0][0]
-        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] distance: %s" % distance)
-        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] i_min: %s" % i_min)
-        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] nn: %s" % lst_points[i_min])
         if "PP" in mode:
+            nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
+                lst_points)  # type: NearestNeighbors
+            tmp = nn.kneighbors([point])
+            distance, i_min = tmp[0][0][0], tmp[1][0][0]
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] distance: %s" % distance)
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] i_min: %s" % i_min)
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] nn: %s" % lst_points[i_min])
             return distance, lst_points[i_min]
         elif "PL" in mode:
             min_d = float('inf')
@@ -451,7 +451,7 @@ class PoseGeneratorRosInterface:
 
         self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
         if len(self.obs_points) == 0:
-            # TODO: There are messages with obstacles but sometihng is strange with obstacles_msg.markers[0] when there are more then one
+            # TODO: There are messages with obstacles but something is strange with obstacles_msg.markers[0] when there are more then one
             return ps
         # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] #Obstacles: %g" % (self.get_name(), len(self.obs_points)))
         # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] Obstacles: %s" % (self.get_name(), str(self.obs_points)))
@@ -1058,7 +1058,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         Algorithm to determine a valid pose given a floor plane and obstacles
         :param lst_obs_points: list with all obstacle points projected on the floor plane
         :type lst_obs_points: np.ndarray
-        :param hull: optional give the linear hull included in lst_points
+        :param hull: convex hull for the dataset
         :type hull: list
         :return: tuple of the position [x, y, z]
         :rtype: np.ndarray
@@ -1069,8 +1069,6 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         hull = np.asarray(hull)
 
         # see: https://stackoverflow.com/questions/30145957/plotting-2d-kernel-density-estimation-with-python
-        x = np.concatenate((lst_obs_points[:, 0], hull[:, 0]))
-        y = np.concatenate((lst_obs_points[:, 1], hull[:, 1]))
         xmin, xmax = min(hull[:, 0]), max(hull[:, 0])
         ymin, ymax = min(hull[:, 1]), max(hull[:, 1])
 
@@ -1083,8 +1081,8 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         # see: https://scikit-learn.org/stable/modules/neighbors.html
         obs_nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
             lst_obs_points)  # type: NearestNeighbors
-        hul_nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
-            hull)  # type: NearestNeighbors
+        # hul_nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
+        #     hull)  # type: NearestNeighbors
         distances, indices = obs_nn.kneighbors(positions)
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] distances = %s" % distances)
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] indices = %s" % indices)
