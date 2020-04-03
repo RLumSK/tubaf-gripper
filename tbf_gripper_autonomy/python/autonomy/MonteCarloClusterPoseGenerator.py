@@ -75,7 +75,7 @@ class MonteCarloClusterPoseGenerator(PoseGeneratorRosInterface):
         self.w = mc_wo
 
         self.n_cpu = n_cpu
-        rospy.loginfo("[MonteCarloClusterPoseGenerator.__init__()] Using %d CPU's" % mp.cpu_count())
+        rospy.loginfo("[MonteCarloClusterPoseGenerator.__init__()] Using %d CPU's" % self.n_cpu)
 
     def _generate(self, lst_obs_points, hull):
         """

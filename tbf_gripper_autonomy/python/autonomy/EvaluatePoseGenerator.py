@@ -31,15 +31,18 @@
 # author: grehl
 
 import os
+import numpy as np
 from matplotlib.image import NonUniformImage
 import pandas as pd
 
 try:
     from autonomy.PoseGenerator import *
+    from autonomy.MonteCarloClusterPoseGenerator import *
 except ImportError as ie:
     import sys
     sys.path.append("/pkg/python/autonomy")
     from PoseGenerator import *
+    from MonteCarloClusterPoseGenerator import *
 
 
 def view_general(generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=None):
@@ -279,6 +282,7 @@ class EvaluatePoseGenerators(object):
         self.dct_count_largest_obstacle_distance = {}
         self.dct_timing = {}
         self.dct_metric = {}
+        self.dct_rel_d_metric = {}  # Hold difference between metric d and its own
 
         self.timeit = timeit
         self.plot_dir = save_dir
@@ -408,24 +412,84 @@ class EvaluatePoseGenerators(object):
         for k in self.dct_count_largest_obstacle_distance:
             rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_obstacle_distance[k]))
 
-        n_bin = self.n_bins
-        alpha = 0.75
-        # self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
         self.plot_bar(self.dct_lst_hull_distance, title=u'Abstand zur konvexen Hülle')
         if print_it:
             print_plt(file_formats=ff, suffix="hull_barplot", save_dir=self.plot_dir)
-        # self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
+
         self.plot_bar(self.dct_lst_obstacle_distance, title=u'Abstand zum nächsten Hindernis')
         if print_it:
             print_plt(file_formats=ff, suffix="obstacle_barplot", save_dir=self.plot_dir)
-        # self.plot_hist(self.dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
+
         self.plot_bar(self.dct_metric, title=u'Metrik')
         if print_it:
             print_plt(file_formats=ff, suffix="metric_barplot", save_dir=self.plot_dir)
-        # self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
+
         self.plot_bar(self.dct_timing, title=u'Rechenzeit', y_scale='log')
         if print_it:
             print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
+
+        # dct_relative = EvaluatePoseGenerators.relative_distance("MonteCarloCluster", self.dct_metric)
+        # self.plot_bar(dct_relative, title=u'delta zur Metrik')
+        # if print_it:
+        #     print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+
+        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_metric)
+        self.plot_bar(dct_relative, title=u'delta zur Metrik')
+        if print_it:
+            print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+
+        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_obstacle_distance)
+        self.plot_bar(dct_relative, title=u'delta zur d_o')
+        if print_it:
+            print_plt(file_formats=ff,  suffix="d_o_barplot", save_dir=self.plot_dir)
+
+        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_hull_distance)
+        self.plot_bar(dct_relative, title=u'delta zur d_h')
+        if print_it:
+            print_plt(file_formats=ff,  suffix="d_h_barplot", save_dir=self.plot_dir)
+
+    @staticmethod
+    def relative_to_maximum(dct):
+        """
+        Calculate the difference relative to the maximum for each list entry in the lists stored in this dictionary
+        :param dct: dictionary with key - list entries
+        :type dct: dict
+        :return: dictionary with relative differences
+        :rtype: dict
+        """
+        ret_dct = {}
+        keys = list(dct.keys())
+        max_array = np.ndarray([len(keys), len(dct[keys[0]])])
+        for i, k in enumerate(keys):
+            max_array[i] = dct[k]
+        max_array = max_array - np.max(max_array, 0)
+        for i, k in enumerate(keys):
+            ret_dct[k] = max_array[i]
+        return ret_dct
+
+    @staticmethod
+    def relative_distance(ident_reference, dct_d):
+        """
+        Calculate the difference relative to one entry in a dictionary and return the result
+        :param ident_reference: key of ident in dct_d, used as reference (d0)
+        :param dct_d: dictionary with values
+        :type dct_d: dict
+        :return: dictionary with relative differences, key of ident_reference is not in it
+        :rtype: dict
+        """
+        if ident_reference not in dct_d.keys():
+            rospy.logwarn("[EvaluatePoseGenerators.relative_distance()] %s is not in %s" % (ident_reference, dct_d.keys()))
+            return None
+        ret_dct = {}
+        lst_d0 = np.asarray(dct_d[ident_reference])
+        for k in dct_d.keys():
+            if k in ident_reference:
+                continue
+            try:
+                ret_dct[k] = (np.asarray(dct_d[k]) - lst_d0).tolist()
+            except Exception as e:
+                rospy.logwarn("[EvaluatePoseGenerators.relative_distance()] Exception during key=%s\n%s" % (k, e))
+        return ret_dct
 
     def distance_to(self, lst_results, n_bin=25, alpha=0.75, print_it=False, show_it=False, ff=['.tex', '.pdf']):
         """
@@ -456,7 +520,7 @@ class EvaluatePoseGenerators(object):
         for key in self.dct_result.keys():
             if len(dct_distances[key]) == 0:
                 del dct_distances[key]
-        # self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Referenz', alpha=alpha)
+
         self.plot_bar(dct_distances, title=u'Abstand zur Referenz')
         if print_it:
             print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Abstand zur Referenz")

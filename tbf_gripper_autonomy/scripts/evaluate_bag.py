@@ -182,6 +182,6 @@ if __name__ == '__main__':
         # except IndexError as ie:
         #     print("IndexError during view_all")
 
-    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
-    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
+    # evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
+    # evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
     evaluation.evaluate(print_it=True, ff=formats)
