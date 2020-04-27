@@ -39,6 +39,7 @@ from std_msgs.msg import Header
 from object_recognition_msgs.msg import TableArray
 from visualization_msgs.msg import MarkerArray
 from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
+from geometry_msgs.msg import PoseStamped
 
 
 class InterruptError(Exception):
@@ -64,7 +65,7 @@ if __name__ == '__main__':
     request = GenerateSetPoseRequest()
     request.header = Header()
     request.header.stamp = rospy.Time.now()
-    request.print_evaluation = True
+    request.print_evaluation = False
     request.policy = "hl"
 
     _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
@@ -72,6 +73,8 @@ if __name__ == '__main__':
 
     _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
     _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+
+    pose_pub = rospy.Publisher("set_pose", PoseStamped)
 
     while True:
         try:
@@ -81,7 +84,10 @@ if __name__ == '__main__':
                 rospy.sleep(1.0)
                 continue
             rospy.logdebug("[main] Request:\n%s" % request)
-            rospy.loginfo("[main] %s says %s" % (service_name, service(request)))
+            reply = service(request)
+            rospy.loginfo("[main] %s says %s" % (service_name, reply))
+            pose_pub.publish(reply.set_pose)
+
         except rospy.ServiceException as e:
             rospy.logerr("[main] Service %s call failed\n%s" % (service_name, e.message))
 

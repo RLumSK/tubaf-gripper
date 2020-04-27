@@ -67,18 +67,20 @@ if __name__ == '__main__':
     _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
     _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
 
-    r = rospy.Rate(1.0)
-    while not rospy.is_shutdown():
-        floor = None
-        obstacles = None
-        while not rospy.is_shutdown() and (floor is None or obstacles is None):
-            floor = _floor_cache.getLast()
-            obstacles = _obstacle_cache.getLast()
-            rospy.sleep(1.0)
-        evaluator.run(obs=obstacles, flr=floor)
-        ev.view_general(generator=lst_gen[0], show_it=False, print_it=True, save_to=plot_dir)
-        rospy.logdebug("{test_SetPoseGenerator.main()} sleeping")
-        r.sleep()
+    rospy.spin()
+
+    # r = rospy.Rate(1.0)
+    # while not rospy.is_shutdown():
+    #     floor = None
+    #     obstacles = None
+    #     while not rospy.is_shutdown() and (floor is None or obstacles is None):
+    #         floor = _floor_cache.getLast()
+    #         obstacles = _obstacle_cache.getLast()
+    #         rospy.sleep(1.0)
+    #     evaluator.run(obs=obstacles, flr=floor)
+    #     ev.view_general(generator=lst_gen[0], show_it=False, print_it=True, save_to=plot_dir)
+    #     rospy.logdebug("{test_SetPoseGenerator.main()} sleeping")
+    #     r.sleep()
 
     # lst_generators = [pca, dln, kde]
     #

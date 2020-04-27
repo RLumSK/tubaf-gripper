@@ -335,23 +335,19 @@ class PoseGeneratorRosInterface:
         :return: pose, distances
         :rtype: GenerateSetPoseResponse
         """
+        if not self.check_messages(request.obstacles, request.floor):
+            rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] Messages seem to be faulty")
 
         ps = self.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
-
-        self.result = np.asarray([[ps.pose.position.x, ps.pose.position.y]])
-        hull = self.hull_points[:, :2]  # type: np.ndarray
-        obstacles = self.obs_points[:, :2]  # type: np.ndarray
 
         from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
         response = GenerateSetPoseResponse()
         response.set_pose = ps
-        response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, obstacles.tolist(),
-                                                                              mode="PP")
-        response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, hull.tolist(), mode="PP")
+        response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.obs_points,  mode="PP")
+        response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.hull_points, mode="PL")
 
         if request.print_evaluation:
-            from EvaluatePoseGenerator import print_tex as print_tex
-            print_tex(self)
+            rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] print_evaluation is deprecated")
 
         return response
 
@@ -419,7 +415,7 @@ class PoseGeneratorRosInterface:
 
         self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
         if len(self.obs_points) == 0:
-            # TODO: There are messages with obstacles but sometihng is strange with obstacles_msg.markers[0] when there are more then one
+            # TODO: There are messages with obstacles but something is strange with obstacles_msg.markers[0] when there are more then one
             return ps
         # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] #Obstacles: %g" % (self.get_name(), len(self.obs_points)))
         # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] Obstacles: %s" % (self.get_name(), str(self.obs_points)))
