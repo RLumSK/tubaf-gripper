@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 # Software License Agreement (BSD License)
 #
@@ -38,12 +38,14 @@ import sys
 try:
     import autonomy.PoseGenerator as pg
     import autonomy.EvaluatePoseGenerator as ev
+    import autonomy.MonteCarloClusterPoseGenerator as mc
 except ImportError as ie:
     sys.path.append("/pkg/python/autonomy")
     import PoseGenerator as pg
     import EvaluatePoseGenerator as ev
+    import MonteCarloClusterPoseGenerator as mc
 
-DF_BAG_PATH = '/home/grehl/bags/obj_cloud_2020-01-22/2020-01-22-13-16-05.bag'
+DF_BAG_PATH = '/in/bag/buero.bag'
 DF_IS = 0
 DF_IE = -DF_IS
 
@@ -75,14 +77,17 @@ if __name__ == '__main__':
     parser.add_argument("-ft", "--floor_topic", default=pg.DF_FLR_TOPIC, help='Topic name of the floor', type=str)
 
     parser.add_argument("-ss", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate', type=float)
-    parser.add_argument("-nb", "--n_bins", default=pg.DF_SUB_SAMPLE, help='[KDE] Number of Bins used ', type=int)
-    parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[MC] Number of x and y line', type=int)
-    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[MC] Weight for obstacle distance',
+    parser.add_argument("-nb", "--n_bins", default=pg.DF_N_BINS, help='[KDE] Number of Bins used ', type=int)
+    parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[Ref] Number of x and y line', type=int)
+    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[Ref] Weight for obstacle distance',
                         type=float)
-    parser.add_argument("-mc_wh", "--mc_weight_hull", default=pg.DF_MC_WH, help='[MC] Weight for hull distance',
-                        type=float)
+    parser.add_argument("-bh", "--histogram_bins", default=ev.DF_N_BINS, help='Number of Bins used in the Histograms '
+                                                                              'during Evaluation', type=int)
+
     parser.add_argument("-is", "--start_index", default=DF_IS, help='Message number to start the analysis', type=int)
     parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis', type=int)
+
+    parser.add_argument("-nc", "--n_cpu", default=mc.DF_N_CPU, help='Number of CPUs used for multiprocessing', type=int)
 
     args = parser.parse_args()
 
@@ -97,12 +102,13 @@ if __name__ == '__main__':
         obstacles_topic = rospy.get_param("~obstacles_topic", pg.DF_OBS_TOPIC)
         sub_sample = rospy.get_param("~sub_sample", pg.DF_SUB_SAMPLE)
         n_bins = rospy.get_param("~n_bins", pg.DF_N_BINS)
-        mc_raster = rospy.get_param("~mc_raster", pg.DF_MC_RASTER)
+        mc_raster = rospy.get_param("~ref_raster", pg.DF_MC_RASTER)
         plot_dir = rospy.get_param("~plot_dir", pg.DF_PLT_SAVE_DIR)
-        mc_weight_hull = rospy.get_param("~mc_wh", pg.DF_MC_WH)
-        mc_weight_obstacle = rospy.get_param("~mc_wo", pg.DF_MC_WO)
+        mc_weight_obstacle = rospy.get_param("~ref_wo", pg.DF_MC_WO)
+        histogram_bins = rospy.get_param("~histogram_bins", ev.DF_N_BINS)
         start_index = rospy.get_param("~start_index", DF_IS)
         end_index = rospy.get_param("~end_index", DF_IE)
+        n_cpu = rospy.get_param("~n_cpu", mc.DF_N_CPU)
     else:
         print("Using args")
         print(args)
@@ -114,22 +120,23 @@ if __name__ == '__main__':
         n_bins = args.n_bins
         mc_raster = args.mc_raster
         plot_dir = args.plot_dir
-        mc_weight_hull = args.mc_weight_hull
         mc_weight_obstacle = args.mc_weight_obstacle
+        histogram_bins = args.histogram_bins
         start_index = args.start_index
         end_index = args.end_index
+        n_cpu = args.n_cpu
 
-        import logging
+        from logging import basicConfig, getLogger, ERROR, INFO
 
-        log = logging.getLogger("not_ros")
-        logging.basicConfig(level=logging.ERROR)
+        log = getLogger("not_ros")
+        basicConfig(level=INFO)
 
 
         class rospy:
             logdebug = log.debug
             loginfo = log.info
-            logwarn = log.warn
-            logerror = log.error
+            logwarn = log.warning
+            logerr = log.error
 
     floor_msg = None
     obstacle_msg = None
@@ -142,12 +149,12 @@ if __name__ == '__main__':
     dln = pg.DelaunayPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros)
     kde = pg.MinimalDensityEstimatePoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros,
                                                  n_bins)
-    mcr = pg.MonteCarloPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
-                                     mc_weight_obstacle, mc_weight_hull)
+    mcr = mc.MonteCarloClusterPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
+                                     mc_weight_obstacle, n_cpu)
     lst_gen = [pca, dln, kde, mcr]
 
-    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir)
-    formats = ['.png', '.tex', '.pdf']
+    evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins, weight=mc_weight_obstacle)
+    formats = ['.png', '.tex']
 
     print("Starting: bag has " + str(n_msg) + " messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
@@ -169,12 +176,12 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        try:
-            ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-            ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-        except IndexError as ie:
-            print("IndexError during view_all")
+        # try:
+        #     # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+        #     ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
+        # except IndexError as ie:
+        #     print("IndexError during view_all")
 
-    evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
-    evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
-    evaluation.evaluate(print_it=True, ff=formats, weight_hull=mc_weight_hull, weight_obs=mc_weight_obstacle)
+    # evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
+    # evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
+    evaluation.evaluate(print_it=True, ff=formats)

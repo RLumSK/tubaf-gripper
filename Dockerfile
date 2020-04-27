@@ -1,23 +1,27 @@
-FROM ros:kinetic-robot
+FROM ros:melodic-robot
 LABEL maintainer="grehl" mail="Steve.Grehl@informatik.tu-freiberg.de" company="TU Bergakademie Freiberg"
 
-## Install python modules
 WORKDIR /tmp
 RUN rm -rf /var/lib/apt/lists/* \
  && apt-get update \
  && apt-get install -y \
  	python3-pip \
- 	ros-kinetic-object-recognition-msgs \
- 	ros-kinetic-visualization-msgs \
- 	ros-kinetic-geometry-msgs \
- 	ros-kinetic-message-filters \
+ 	python3-tk \
+ 	ros-melodic-object-recognition-msgs \
+ 	ros-melodic-visualization-msgs \
+ 	ros-melodic-geometry-msgs \
+ 	ros-melodic-message-filters \
  	texlive-xetex \
  	ghostscript\
- 	 dvipng \
+ 	dvipng \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+## Install python modules
 RUN pip3 install --upgrade pip
-RUN pip3 install scipy sklearn pyyaml rospkg matplotlib pandas matplotlib2tikz tikzplotlib cython numpy-quaternion
+COPY ./docker/requirements.txt /tmp
+RUN pip3 install -r requirements.txt
+RUN pip3 install numpy-quaternion
 # We need latex for matplotlib latex export: https://matplotlib.org/3.1.1/tutorials/text/usetex.html
 
 COPY ./docker/entrypoint.sh /

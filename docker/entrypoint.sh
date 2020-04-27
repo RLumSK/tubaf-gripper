@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # setup ros environment
-source "/opt/ros/kinetic/setup.bash"
+source "/opt/ros/melodic/setup.bash"
 
 # exec /pkg/scripts/evaluate_bag.py -p /in/bag/buero.bag
 # usage: evaluate_bag.py [-h] [-r] [-p PATH] [-pt PUB_TOPIC]

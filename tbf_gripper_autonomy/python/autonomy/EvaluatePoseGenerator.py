@@ -31,14 +31,18 @@
 # author: grehl
 
 import os
+import numpy as np
 from matplotlib.image import NonUniformImage
+import pandas as pd
 
 try:
     from autonomy.PoseGenerator import *
+    from autonomy.MonteCarloClusterPoseGenerator import *
 except ImportError as ie:
     import sys
     sys.path.append("/pkg/python/autonomy")
     from PoseGenerator import *
+    from MonteCarloClusterPoseGenerator import *
 
 
 def view_general(generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=None):
@@ -96,9 +100,10 @@ def view_general(generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
         plt.show()
     if print_it:
         print_plt(file_formats=ff, suffix=u"Szene", save_dir=save_to)
+    plt.close(fig)
 
 
-def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=[-1, 1]):
+def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], save_to="/out/plot", xylim=[-1, 1], index=-1):
     """
     Plot all given generators into one figure
     :param save_to: [optional] directory where the plots are stored
@@ -111,15 +116,17 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
     :type show_it: bool
     :param lst_generator: list of pose generators of type PoseGeneratorRosView
     :type lst_generator: list()
+    :param index: scene index
+    :type index: int
     :return: -
     :rtype:-
     """
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.set_xlabel(xlabel="x [m]")
     ax.set_ylabel(ylabel="y [m]")
     ax.set_xlim(xylim[0], xylim[1])
     ax.set_ylim(*ax.get_xlim())
+
     for generator in lst_generator:  # type: PoseGeneratorRosView
         if len(generator.obs_points) == 0:
             plt.close()
@@ -141,7 +148,7 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
         txt = fig.text(0.15, -0.02, "Teilstichprobe alle " + str(lst_generator[-1].subsample) + " Hindernisse")
     else:
         txt = fig.text(0.15, -0.02,
-                       "Teilstichprobe mit " + str(lst_generator[-1].subsample * 100.0) + "% der Hindernisse")
+                       "Teilstichprobe mit " + str(lst_generator[-1].subsample * 100.0) + "\% der Hindernisse")
 
     def legend_without_duplicate_labels(axis):
         handles, labels = axis.get_legend_handles_labels()
@@ -152,11 +159,11 @@ def view_all(lst_generator, show_it=True, print_it=False, ff=['.tex', '.pdf'], s
                            mode="expand", borderaxespad=0.)
 
     # lgd = legend_without_duplicate_labels(ax)
-
     if show_it:
         plt.show()
     if print_it:
-        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte", save_dir=save_to)
+        print_plt(file_formats=ff, suffix=u"Errechnete Absetzpunkte - Szene "+str(index), save_dir=save_to)
+    plt.close(fig)
 
 
 def print_plt(file_formats=['.pgf', '.pdf'], extras=[], save_dir="/home/grehl/Schreibtisch/PoseGeneratorImages",
@@ -217,12 +224,14 @@ class EvaluatePoseGenerators(object):
     """
 
     C_MAP = u'tab20c_r'
+    DF_N_BINS = 25
+    DF_WEIGHT = 1.0
 
     @staticmethod
     def calc_metric_dict(dct_hull, dct_obs, wo=1.0, wh=1.0):
         """
         Calculate a dictionary with the metric based on the hull and obstacle distance
-        :param wh: [optional] weight for hull distance
+        :param wh: deprecated
         :type wh: float
         :param wo: [optional] weight for obstacle distance
         :type wo: float
@@ -243,14 +252,14 @@ class EvaluatePoseGenerators(object):
             dh = dct_hull[k]
             do = dct_obs[k]
             for i in range(0, min(len(do), len(dh))):
-                dct_metric[k].append(PoseGeneratorRosInterface.metric(do[i], dh[i], wo, wh))
+                dct_metric[k].append(PoseGeneratorRosInterface.metric(do[i], dh[i], wo))
         return dct_metric
 
     @staticmethod
     def get_ident(obj):
         return str(type(obj)).split(".")[-1][:-2]
 
-    def __init__(self, generators, timeit=True, save_dir="/out/plot"):
+    def __init__(self, generators, timeit=True, save_dir="/out/plot", n_bins=DF_N_BINS, weight=DF_WEIGHT):
         """
         Default constructor
         :param generators: pose generators
@@ -259,6 +268,10 @@ class EvaluatePoseGenerators(object):
         :type timeit: bool
         :param save_dir: directory with plots
         :type save_dir: str
+        :param n_bins: number of bins in the histograms
+        :type n_bins: int
+        :param weight: weight for the metric formula
+        :type weight: float
         """
         self._generators = generators
 
@@ -268,9 +281,14 @@ class EvaluatePoseGenerators(object):
         self.dct_count_largest_hull_distance = {}
         self.dct_count_largest_obstacle_distance = {}
         self.dct_timing = {}
+        self.dct_metric = {}
+        self.dct_rel_d_metric = {}  # Hold difference between metric d and its own
 
         self.timeit = timeit
         self.plot_dir = save_dir
+
+        self.n_bins = n_bins
+        self.weight = weight
 
         for g in self._generators:  # type: PoseGeneratorRosInterface
             ident = g.get_name()
@@ -280,6 +298,7 @@ class EvaluatePoseGenerators(object):
             self.dct_count_largest_obstacle_distance[ident] = 0
             self.dct_timing[ident] = []
             self.dct_result[ident] = []
+            self.dct_metric[ident] = []
 
     def perform(self, timeout=1.0, samples=1000):
         """
@@ -351,6 +370,10 @@ class EvaluatePoseGenerators(object):
                 d_obst = obstacle_distance
                 obst_ident = ident
 
+            # Calculate the metric
+            self.dct_metric[ident].append(PoseGeneratorRosInterface.metric(obstacle_distance,
+                                                                           hull_distance, self.weight))
+
         # Sometimes no obstacles are present, resulting in the same position for all generators,
         # we want to filter such cases
         obs_points, hull_points = self._generators[-1].extract_points(obs, flr.tables[0])
@@ -366,12 +389,13 @@ class EvaluatePoseGenerators(object):
                 self.dct_result[ident].pop()
                 self.dct_lst_hull_distance[ident].pop()
                 self.dct_lst_obstacle_distance[ident].pop()
+                self.dct_metric[ident].pop()
             return
 
         self.dct_count_largest_hull_distance[hull_ident] += 1
         self.dct_count_largest_obstacle_distance[obst_ident] += 1
 
-    def evaluate(self, print_it=False, ff=['.tex', '.pdf'], weight_obs=1.0, weight_hull=1.0):
+    def evaluate(self, print_it=False, ff=['.tex', '.pdf']):
         """
         Plot the gathered data
         :return: -
@@ -388,23 +412,84 @@ class EvaluatePoseGenerators(object):
         for k in self.dct_count_largest_obstacle_distance:
             rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_obstacle_distance[k]))
 
-        n_bin = 25
-        alpha = 0.75
-        self.plot_hist(self.dct_lst_hull_distance, bins=n_bin, title=u'Abstand zur konvexen Hülle', alpha=alpha)
+        self.plot_bar(self.dct_lst_hull_distance, title=u'Abstand zur konvexen Hülle')
         if print_it:
-            print_plt(file_formats=ff, suffix="hull_histogram", save_dir=self.plot_dir)
-        self.plot_hist(self.dct_lst_obstacle_distance, bins=n_bin, title=u'Abstand zum nächsten Hindernis', alpha=alpha)
+            print_plt(file_formats=ff, suffix="hull_barplot", save_dir=self.plot_dir)
+
+        self.plot_bar(self.dct_lst_obstacle_distance, title=u'Abstand zum nächsten Hindernis')
         if print_it:
-            print_plt(file_formats=ff, suffix="obstacle_histogram", save_dir=self.plot_dir)
-        dct_metric = EvaluatePoseGenerators.calc_metric_dict(self.dct_lst_hull_distance,
-                                                             self.dct_lst_obstacle_distance,
-                                                             wo=weight_obs, wh=weight_hull)
-        self.plot_hist(dct_metric, bins=n_bin, title=u'Metrik', alpha=alpha)
+            print_plt(file_formats=ff, suffix="obstacle_barplot", save_dir=self.plot_dir)
+
+        self.plot_bar(self.dct_metric, title=u'Metrik')
         if print_it:
-            print_plt(file_formats=ff, suffix="metric_histogram", save_dir=self.plot_dir)
-        self.plot_hist(self.dct_timing, bins=n_bin, title=u'Rechenzeit', alpha=alpha)
+            print_plt(file_formats=ff, suffix="metric_barplot", save_dir=self.plot_dir)
+
+        self.plot_bar(self.dct_timing, title=u'Rechenzeit', y_scale='log')
         if print_it:
             print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
+
+        # dct_relative = EvaluatePoseGenerators.relative_distance("MonteCarloCluster", self.dct_metric)
+        # self.plot_bar(dct_relative, title=u'delta zur Metrik')
+        # if print_it:
+        #     print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+
+        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_metric)
+        self.plot_bar(dct_relative, title=u'delta zur Metrik')
+        if print_it:
+            print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+
+        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_obstacle_distance)
+        self.plot_bar(dct_relative, title=u'delta zur d_o')
+        if print_it:
+            print_plt(file_formats=ff,  suffix="d_o_barplot", save_dir=self.plot_dir)
+
+        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_hull_distance)
+        self.plot_bar(dct_relative, title=u'delta zur d_h')
+        if print_it:
+            print_plt(file_formats=ff,  suffix="d_h_barplot", save_dir=self.plot_dir)
+
+    @staticmethod
+    def relative_to_maximum(dct):
+        """
+        Calculate the difference relative to the maximum for each list entry in the lists stored in this dictionary
+        :param dct: dictionary with key - list entries
+        :type dct: dict
+        :return: dictionary with relative differences
+        :rtype: dict
+        """
+        ret_dct = {}
+        keys = list(dct.keys())
+        max_array = np.ndarray([len(keys), len(dct[keys[0]])])
+        for i, k in enumerate(keys):
+            max_array[i] = dct[k]
+        max_array = max_array - np.max(max_array, 0)
+        for i, k in enumerate(keys):
+            ret_dct[k] = max_array[i]
+        return ret_dct
+
+    @staticmethod
+    def relative_distance(ident_reference, dct_d):
+        """
+        Calculate the difference relative to one entry in a dictionary and return the result
+        :param ident_reference: key of ident in dct_d, used as reference (d0)
+        :param dct_d: dictionary with values
+        :type dct_d: dict
+        :return: dictionary with relative differences, key of ident_reference is not in it
+        :rtype: dict
+        """
+        if ident_reference not in dct_d.keys():
+            rospy.logwarn("[EvaluatePoseGenerators.relative_distance()] %s is not in %s" % (ident_reference, dct_d.keys()))
+            return None
+        ret_dct = {}
+        lst_d0 = np.asarray(dct_d[ident_reference])
+        for k in dct_d.keys():
+            if k in ident_reference:
+                continue
+            try:
+                ret_dct[k] = (np.asarray(dct_d[k]) - lst_d0).tolist()
+            except Exception as e:
+                rospy.logwarn("[EvaluatePoseGenerators.relative_distance()] Exception during key=%s\n%s" % (k, e))
+        return ret_dct
 
     def distance_to(self, lst_results, n_bin=25, alpha=0.75, print_it=False, show_it=False, ff=['.tex', '.pdf']):
         """
@@ -435,9 +520,10 @@ class EvaluatePoseGenerators(object):
         for key in self.dct_result.keys():
             if len(dct_distances[key]) == 0:
                 del dct_distances[key]
-        self.plot_hist(dct_distances, bins=n_bin, title=u'Abstand zur Referenz', alpha=alpha)
+
+        self.plot_bar(dct_distances, title=u'Abstand zur Referenz')
         if print_it:
-            print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Referenzevaluierung")
+            print_plt(file_formats=ff, save_dir=self.plot_dir, suffix="Abstand zur Referenz")
         if show_it:
             plt.show()
 
@@ -504,3 +590,23 @@ class EvaluatePoseGenerators(object):
             my_colors.append(PoseGeneratorRosView.get_color(k))
         plt.hist(dct.values(), color=my_colors, label=dct.keys())
         # pd.DataFrame(data=dct).plot.hist(color=my_colors, **kwargs)
+
+    @staticmethod
+    def plot_bar(dct, title='Barplot', y_scale="linear", x_scale="linear"):
+        """
+        Barplot of the dictionary
+        :param y_scale: linear, log, symlog, logit
+        :type y_scale: str
+        :param x_scale: linear, log, symlog, logit
+        :type x_scale: str
+        :param dct: dictionary to be translated into a pandas DataFrame
+        :type dct: dict
+        :param title: Title of the plot
+        :type title: str
+        :return:
+        """
+        # pd.DataFrame(data=dct).boxplot(column=dct.keys(), title=title, color=my_colors)
+        plt.xscale(x_scale)
+        plt.yscale(y_scale)
+        pd.DataFrame(data=dct).boxplot()
+        plt.gca().set_title(title)

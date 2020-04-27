@@ -51,7 +51,7 @@ from geometry_msgs.msg import PoseStamped, Point
 
 import matplotlib
 
-matplotlib.use('Qt5Agg')
+# matplotlib.use('TKAgg')
 from pylab import *
 import matplotlib.pyplot as plt
 from matplotlib import ticker
@@ -97,13 +97,12 @@ signal.signal(signal.SIGINT, signal_handler)
 DF_OBS_TOPIC = "/ork/tabletop/clusters"
 DF_FLR_TOPIC = "/ork/floor_plane"
 DF_PUB_TOPIC = "/pub_set_pose"
-DF_SUB_SAMPLE = 100
+DF_SUB_SAMPLE = 0.01
 DF_ENABLE_ROS = True
 DF_N_BINS = 10
-DF_MC_RASTER = 20
-DF_MC_WO = 1.0
-DF_MC_WH = 1.0
-DF_PLT_SAVE_DIR = "/home/grehl/Schreibtisch/PoseGeneratorImages"
+DF_MC_RASTER = 32
+DF_MC_WO = 0.5
+DF_PLT_SAVE_DIR = "/out/plots"
 
 
 @add_metaclass(abc.ABCMeta)
@@ -187,14 +186,14 @@ class PoseGeneratorRosInterface:
         rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] len(lst_points) = %s" % len(lst_points))
         rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] lst_points = %s" % lst_points)
         rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] mode = %s" % mode)
-        nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
-            lst_points)  # type: NearestNeighbors
-        tmp = nn.kneighbors([point])
-        distance, i_min = tmp[0][0][0], tmp[1][0][0]
-        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] distance: %s" % distance)
-        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] i_min: %s" % i_min)
-        rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] nn: %s" % lst_points[i_min])
         if "PP" in mode:
+            nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
+                lst_points)  # type: NearestNeighbors
+            tmp = nn.kneighbors([point])
+            distance, i_min = tmp[0][0][0], tmp[1][0][0]
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] distance: %s" % distance)
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] i_min: %s" % i_min)
+            rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance()] nn: %s" % lst_points[i_min])
             return distance, lst_points[i_min]
         elif "PL" in mode:
             min_d = float('inf')
@@ -273,13 +272,11 @@ class PoseGeneratorRosInterface:
         return np.asarray(valid_sample)
 
     @staticmethod
-    def metric(d_obstacles, d_hull, wo=1.0, wh=1.0):
+    def metric(d_obstacles, d_hull, wo=1.0):
         """
         Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
         :param wo: [optional] weight fot the obstacle distance, default: 1.0
         :type wo: float
-        :param wh: [optional] weight fot the hull distance, default 1.0
-        :type wh: float
         :param d_obstacles: distance to the nearest obstacle
         :type d_obstacles: float
         :param d_hull: distance to the convex hull, perpendicular to the nearest line
@@ -287,9 +284,44 @@ class PoseGeneratorRosInterface:
         :return: combined distance
         :rtype: float
         """
-        ret_val = np.power(float(d_obstacles), wo) * np.power(float(d_hull), wh)
+        return PoseGeneratorRosInterface.product_metric(d_obstacles, d_hull, wo)
+
+    @staticmethod
+    def product_metric(d_obstacles, d_hull, wo=1.0):
+        """
+        Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
+        :param wo: [optional] weight fot the obstacle distance, default: 1.0
+        :type wo: float
+        :param d_obstacles: distance to the nearest obstacle
+        :type d_obstacles: float
+        :param d_hull: distance to the convex hull, perpendicular to the nearest line
+        :type d_hull: float
+        :return: combined distance
+        :rtype: float
+        """
+        wh = 1 - wo
+        ret_val = np.power(float(d_obstacles), 1 + wo) * np.power(float(d_hull), 1 + wh)
         rospy.logdebug(
             "[PoseGeneratorRosInterface.metric()] %g^%g *%g^%g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
+        return ret_val
+
+    @staticmethod
+    def sum_metric(d_obstacles, d_hull, wo=0.5):
+        """
+        Given a distance to the obstacle and a distance to the convex hull, the combined distance is calculated
+        :param wo: [optional] weight fot the obstacle distance, default: 0.5 - weight for hull distance is 1-wo
+        :type wo: float
+        :param d_obstacles: distance to the nearest obstacle
+        :type d_obstacles: float
+        :param d_hull: distance to the convex hull, perpendicular to the nearest line
+        :type d_hull: float
+        :return: combined distance
+        :rtype: float
+        """
+        wh = 1 - wo
+        ret_val = float(d_obstacles) * wo + float(d_hull) * wh
+        rospy.logdebug(
+            "[PoseGeneratorRosInterface.sum_metric()] %g*%g +%g* %g = %g" % (d_obstacles, wo, d_hull, wh, ret_val))
         return ret_val
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
@@ -529,11 +561,11 @@ class PoseGeneratorRosInterface:
         # rospy.loginfo("[PoseGeneratorRosInterface.extract_points()] Floor frame: %s" % flr_msg.header.frame_id)
 
         i = 0
+        if self.subsample >= 1.0:
+            ss = self.subsample
+        else:
+            ss = int(n_obstacles * self.subsample)
         for obstacle in obs_msg.markers[start:]:  # type: Marker
-            if self.subsample >= 1.0:
-                ss = self.subsample
-            else:
-                ss = int(n_obstacles * self.subsample)
             if ss == 0:
                 rospy.logwarn("[PoseGeneratorRosInterface.extract_points] Given %g points and a subsampling rate of %g "
                               "we use %g points - impossible, hence useing at least one" %
@@ -615,14 +647,14 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         :rtype: char
         """
         if "stacle" in name or "indernis" in name:
-            return 'C0'
+            return 'gray'
         elif "roundarea" in name or "oden" in name:
             return 'k'
         elif "elaunay" in name:
             return 'C2'
         elif "inimalDensityEstimate" in name:
             return 'blue'
-        elif "onteCarlo" in name:
+        elif "onteCarlo" in name or "eferenz" in name:
             return 'C1'
         elif "ca" in name:
             return 'C4'
@@ -659,15 +691,26 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         :rtype: plt.axes.Axis
         """
         if ax is None:
-            fig = plt.figure()
-            ax = fig.gca()
+            fig, ax = plt.subplots()
+        else:
+            fig = plt.gcf()
         n = self.get_name()
         c = PoseGeneratorRosView.get_color(n)
+        # TODO: Fix matplotlib deprecated warning
         if type(self.result) is list or (len(self.result.shape) == 1 and self.result.shape[0] == 3):
             self.result = np.asarray([self.result])
         for lne in self.lines:
-            ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
-                    label=n + " Hilfslinien")
+            x = [lne[0][0], lne[1][0]]
+            y = [lne[0][1], lne[1][1]]
+            # ax.plot([lne[0][0], lne[1][0]], [lne[0][1], lne[1][1]], ':', color=c, alpha=0.75, zorder=5,
+            ax.plot(x, y, linestyle='dashed', color=c, alpha=0.75, zorder=5, label=n + " Hilfslinien")
+        # try:
+        #     # https://tikzplotlib.readthedocs.io/en/latest/index.html#tikzplotlib.clean_figure
+        #     mpl2tkz.clean_figure(fig)
+        # except AttributeError as ae:
+        #     rospy.logerr("[view_all()] AttributeError at <mpl2tkz.clean_figure(fig)> %s" % ae)
+        # except ValueError as ve:
+        #     rospy.logerr("[view_all()] ValueError at <mpl2tkz.clean_figure(fig)> %s" % ve)
 
         if obstacles:
             n = "Hindernisse"
@@ -700,6 +743,9 @@ class PcaPoseGenerator(PoseGeneratorRosView):
         :type enable_ros: bool
         """
         super(PcaPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
+
+    def get_name(self):
+        return u'PCA'
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -890,10 +936,16 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         """
         super(MinimalDensityEstimatePoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample,
                                                                   enable_ros)
-        self.n_bins = n_bins
+        self.n_bins = int(n_bins)  # type: int
         # self.hlp_xx, self.hlp_yy = np.mgrid[-1:1: self.n_bins * 1j, -1:1: self.n_bins * 1j]
         self.hlp_positions = np.zeros((self.n_bins ** 2, 2))
         self.hlp_f = np.zeros(self.n_bins ** 2)
+
+        # rospy.loginfo("[MinimalDensityEstimatePoseGenerator.__init__()] self.hlp_positions %s" % self.hlp_positions)
+        # rospy.loginfo("[MinimalDensityEstimatePoseGenerator.__init__()]  self.hlp_f %s" % self.hlp_f)
+
+    def get_name(self):
+        return u'KDE'
 
     def _generate(self, lst_obs_points, hull=None):
         """
@@ -917,7 +969,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
         xmin, xmax = min(hull[:, 0]), max(hull[:, 0])
         ymin, ymax = min(hull[:, 1]), max(hull[:, 1])
 
-        # Peform the kernel density estimate
+        # Perform the kernel density estimate
         xx, yy = np.mgrid[xmin:xmax: self.n_bins * 1j, ymin:ymax: self.n_bins * 1j]
         all_positions = np.vstack([xx.ravel(), yy.ravel()]).T
         positions = PoseGeneratorRosInterface.in_hull(Delaunay(hull[:, :2], qhull_options="Pp"), all_positions)
@@ -926,6 +978,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
 
         self.hlp_f = kernel(all_positions.T)
         self.hlp_positions = all_positions
+
         z_i = np.argmin(kernel(positions.T))
         z_x = positions[z_i, 0]
         z_y = positions[z_i, 1]
@@ -970,7 +1023,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
     """
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
-                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER, mc_wo=DF_MC_WO, mc_wh=DF_MC_WH):
+                 enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER, mc_wo=DF_MC_WO):
         """
         Default constructor
         :param pub_topic: Topic where the calculated pose gets published
@@ -987,21 +1040,21 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         :type mc_raster: int
         :param mc_wo: weight for distance to obstacle
         :type mc_wo: float
-        :param mc_wh: weight for distance to hull
-        :type mc_wh: float
         """
         super(MonteCarloPoseGenerator, self).__init__(pub_topic, obs_topic, flr_topic, sub_sample, enable_ros)
         self.n_xlines = mc_raster
         self.n_ylines = self.n_xlines
         self.wo = mc_wo
-        self.wh = mc_wh
+
+    def get_name(self):
+        return "Referenz"
 
     def _generate(self, lst_obs_points, hull=None):
         """
         Algorithm to determine a valid pose given a floor plane and obstacles
         :param lst_obs_points: list with all obstacle points projected on the floor plane
         :type lst_obs_points: np.ndarray
-        :param hull: optional give the linear hull included in lst_points
+        :param hull: convex hull for the dataset
         :type hull: list
         :return: tuple of the position [x, y, z]
         :rtype: np.ndarray
@@ -1012,8 +1065,6 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         hull = np.asarray(hull)
 
         # see: https://stackoverflow.com/questions/30145957/plotting-2d-kernel-density-estimation-with-python
-        x = np.concatenate((lst_obs_points[:, 0], hull[:, 0]))
-        y = np.concatenate((lst_obs_points[:, 1], hull[:, 1]))
         xmin, xmax = min(hull[:, 0]), max(hull[:, 0])
         ymin, ymax = min(hull[:, 1]), max(hull[:, 1])
 
@@ -1026,8 +1077,8 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         # see: https://scikit-learn.org/stable/modules/neighbors.html
         obs_nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
             lst_obs_points)  # type: NearestNeighbors
-        hul_nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
-            hull)  # type: NearestNeighbors
+        # hul_nn = NearestNeighbors(n_neighbors=1, algorithm='auto', metric='euclidean').fit(
+        #     hull)  # type: NearestNeighbors
         distances, indices = obs_nn.kneighbors(positions)
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] distances = %s" % distances)
         rospy.logdebug("[MonteCarloPoseGenerator._generate()] indices = %s" % indices)
@@ -1037,7 +1088,7 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         for i in range(0, len(positions)):
             hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(positions[i], hull.tolist(), mode="PL")
             d, i_dp = obs_nn.kneighbors([positions[i, 0:2]])
-            m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance, wo=self.wo, wh=self.wh)
+            m = PoseGeneratorRosInterface.metric(d_obstacles=d[0], d_hull=hull_distance, wo=self.wo)
             extended_positions[i] = np.append(positions[i], m)
         i_max = np.argmax(extended_positions[:, -1])
         ret_pos = extended_positions[i_max, 0:-1]
