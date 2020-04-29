@@ -58,7 +58,7 @@ if __name__ == '__main__':
     rospy.init_node("test_SetPoseGenerator_client", log_level=rospy.INFO)
     # As client
     # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
-    service_name = rospy.get_param("~service_name", "PcaPoseGenerator")
+    service_name = rospy.get_param("~service_name", "DelaunayPoseGenerator")
     rospy.wait_for_service(service_name + '_service')
     service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
     _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
 
-    pose_pub = rospy.Publisher("set_pose", PoseStamped)
+    pose_pub = rospy.Publisher("set_ssb_pose", PoseStamped, queue_size=10)
 
     while True:
         try:
@@ -86,6 +86,7 @@ if __name__ == '__main__':
             rospy.logdebug("[main] Request:\n%s" % request)
             reply = service(request)
             rospy.loginfo("[main] %s says %s" % (service_name, reply))
+
             pose_pub.publish(reply.set_pose)
 
         except rospy.ServiceException as e:

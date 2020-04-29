@@ -377,6 +377,8 @@ class EvaluatePoseGenerators(object):
         # Sometimes no obstacles are present, resulting in the same position for all generators,
         # we want to filter such cases
         obs_points, hull_points = self._generators[-1].extract_points(obs, flr.tables[0])
+        # Points are projected into the floor plane, since the normal vector is orthogonal to this plane
+        # the z-coordinate for all points within is roughly the same - but not necessary zero
         valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(hull_points[:, :2], qhull_options="Pp"),
                                                          obs_points[:, :2])
         purge_last_evaluation = len(valid_points) == 0

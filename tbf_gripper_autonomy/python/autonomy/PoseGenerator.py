@@ -47,7 +47,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from object_recognition_msgs.msg import TableArray, Table
 from visualization_msgs.msg import MarkerArray, Marker
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped, Point, Pose
 
 import matplotlib
 
@@ -74,12 +74,31 @@ def pose_to_array(pose_msg, dst=None):
     q = pose_msg.orientation
     q = np.quaternion(q.w, q.x, q.y, q.z)
     if dst is None:
-        dst =np.eye(4)
+        dst = np.eye(4)
     dst[:3, :3] = quaternion.as_rotation_matrix(q)
     dst[0, 3] = pose_msg.position.x
     dst[1, 3] = pose_msg.position.y
     dst[2, 3] = pose_msg.position.z
     return dst
+
+
+def array_to_pose(arr):
+    """
+    Convert 4x4 numpy array representing the affine transform to a a pose message
+    :param arr: 4x4 numpy array
+    :return: the geometry_msgs/Pose message object
+    :rtype: Pose
+    """
+    q = quaternion.from_rotation_matrix(arr[:3, :3])
+    pose_msg = Pose()
+    pose_msg.position.x = arr[0, 3]
+    pose_msg.position.y = arr[1, 3]
+    pose_msg.position.z = arr[2, 3]
+    pose_msg.orientation.x = q.x
+    pose_msg.orientation.y = q.y
+    pose_msg.orientation.z = q.z
+    pose_msg.orientation.w = q.w
+    return pose_msg
 
 
 class InterruptError(Exception):
@@ -126,13 +145,37 @@ class PoseGeneratorRosInterface:
         :return: list with points (nx3)
         :rtype: np.ndarray
         """
-        # A = tubaf_tools.help.pose_to_array(floor_msg.pose)
         A = pose_to_array(floor_msg.pose)
         t = np.ones((4, len(pnts)))
         t[:3, :] = np.asarray(pnts).T
         x = np.matmul(np.linalg.inv(A), t)
         x[2, :] = np.zeros(len(pnts))
         return np.matmul(A, x).T[:, :3]
+
+    @staticmethod
+    def transform_points_from_plane(pnts, floor_msg):
+        """
+        Transform a given set of points from a plane to the camera coordinate frame using a affine transformation
+        :param pnts: list of n three-dimensional points (nx3)
+        :type pnts: list of Point
+        :param floor_msg: plane as table
+        :type floor_msg: Table
+        :return: list with points (nx3)
+        :rtype: np.ndarray
+        """
+        if not isinstance(pnts, np.ndarray):
+            pnts = np.asarray(pnts)
+
+        A = pose_to_array(floor_msg.pose)  # from camera to plane
+        N = pnts.shape[0]  # 1
+        M = pnts.shape[1]  # 3
+        t = np.zeros((N, M+1))  # (1, 4)
+        # t[:, :-1] = pnts  # (1, 4-1)
+        t[:, -1]  = np.ones(N).T
+        x = np.matmul(A, t.T).T
+        x[:, :2] = x[:, :2] + pnts[:, :2]
+        rospy.logdebug("[PoseGeneratorRosInterface.transform_points_from_plane()] x: %s" % x)
+        return x[:, :3]
 
     @staticmethod
     def transform_hull_to_camera(hull, floor_msg):
@@ -203,11 +246,7 @@ class PoseGeneratorRosInterface:
             for i in range(0, len(lst_points)):
                 p2 = p3
                 p3 = np.asarray(lst_points[i])[0:2]
-                # d = np.cross(p2 - p1, p1 - p3) / np.linalg.norm(p2 - p1)
                 f = PoseGeneratorRosInterface.calc_perpendicular_point(p1, np.asarray([p2, p3]))
-                # rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] distance: %s" % d)
-                # rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] f: %s" % f)
-                # rospy.logdebug("[PoseGeneratorRosInterface.calc_min_distance(PL)] |pf|: %s" % np.linalg.norm(f-p1))
                 d = np.linalg.norm(f - p1)
 
                 if d < min_d:
@@ -220,32 +259,41 @@ class PoseGeneratorRosInterface:
             return float('NaN')
 
     @staticmethod
-    def _as_pose_stamped(lst_pos, floor_msg):
+    def _as_pose_stamped(position, floor_msg):
         # type: (np.ndarray, Table) -> PoseStamped
         """
         Generate the target pose for the given position by using the orientation of the plane
-        :param lst_pos: position [x, y, z]
-        :type lst_pos: np.ndarray
+        :param position: position [x, y, z]
+        :type position: np.ndarray
         :param floor_msg: floor plane
         :type floor_msg: Table
         :return: target pose
         :rtype: PoseStamped
         """
-        if isinstance(lst_pos, np.ndarray):
-            lst_pos = lst_pos.tolist()
-        if len(lst_pos) == 0:
-            lst_pos.append(floor_msg.pose.position.x)
-        if len(lst_pos) == 1:
-            lst_pos.append(floor_msg.pose.position.y)
-        if len(lst_pos) == 2:
-            lst_pos.append(floor_msg.pose.position.z)
+        rospy.logdebug("[PoseGeneratorRosInterface._as_pose_stamped()] given position: %s" % position)
+        if not isinstance(position, np.ndarray):
+            position = np.asarray(position)
+        hull_pnts = []
+        for p in floor_msg.convex_hull:
+            hull_pnts.append([p.x, p.y, p.z])
+        hull_in_floor = PoseGeneratorRosInterface.transform_points_to_plane(hull_pnts, floor_msg)
+        assumed_position = position
+        if position.shape[0] == 0:
+            assumed_position = np.asarray([np.mean(hull_in_floor[:, 0]), 0, 0])
+        if position.shape[0] == 1:
+            assumed_position = assumed_position + np.hstack([0, np.mean(hull_in_floor[:, 1], 0)])
+        if position.shape[0] == 2:
+            assumed_position = assumed_position + np.hstack([0, 0, np.mean(hull_in_floor[:, 2])])
+        rospy.logdebug("[PoseGeneratorRosInterface._as_pose_stamped()] assumed position: %s" % assumed_position)
+
+        Xt = PoseGeneratorRosInterface.transform_points_from_plane([assumed_position], floor_msg)[0]
+        X = pose_to_array(floor_msg.pose)
+        X[:3, 3] = Xt
+        # rospy.loginfo("[PoseGeneratorRosInterface._as_pose_stamped()] X:\n%s" % X)
         ps = PoseStamped()
         ps.header = floor_msg.header
-        ps.pose.position.x = lst_pos[0]
-        ps.pose.position.y = lst_pos[1]
-        ps.pose.position.z = lst_pos[2]
-        ps.pose.orientation = floor_msg.pose.orientation
-        # rospy.logdebug("[PcaPoseGenerator._generate()] ps.pose: %s" % ps.pose)
+        ps.pose = array_to_pose(X)
+        # rospy.loginfo("[PoseGeneratorRosInterface._as_pose_stamped()] ps.pose: %s" % ps)
         return ps
 
     @staticmethod
@@ -370,13 +418,12 @@ class PoseGeneratorRosInterface:
         if not self.check_messages(request.obstacles, request.floor):
             rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] Messages seem to be faulty")
 
-        ps = self.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
-
         from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
         response = GenerateSetPoseResponse()
-        response.set_pose = ps
-        response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.obs_points,  mode="PP")
-        response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.hull_points, mode="PL")
+        response.set_pose = self.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
+        response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.obs_points, mode="PP")
+        response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.hull_points,
+                                                                                mode="PL")
 
         if request.print_evaluation:
             rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] print_evaluation is deprecated")
@@ -430,14 +477,16 @@ class PoseGeneratorRosInterface:
         """
         t = current_time
         ps = PoseStamped()
-        if self.ros:
+        if self.ros and (obstacles_msg is None or floor_msg is None):
             while t is None:
                 t = self._obstacle_cache.getLatestTime()
-            while obstacles_msg is None:
-                obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
-            while floor_msg is None:
-                floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
-            ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg.tables[0])
+            if obstacles_msg is None:
+                while obstacles_msg is None:
+                    obstacles_msg = self._obstacle_cache.getElemBeforeTime(t)  # type: MarkerArray
+            if floor_msg is None:
+                while floor_msg is None:
+                    floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
+                ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg.tables[0])
             ps.header.stamp = t
 
         if not self.check_messages(obstacles_msg, floor_msg):
@@ -446,12 +495,12 @@ class PoseGeneratorRosInterface:
             return ps
 
         self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
+        # Points are projected into the floor plane, since the normal vector is orthogonal to this plane
+        # the z-coordinate for all points within is roughly the same - but not necessary zero
         if len(self.obs_points) == 0:
             # TODO: There are messages with obstacles but something is strange with obstacles_msg.markers[0] when there are more then one
             return ps
-        # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] #Obstacles: %g" % (self.get_name(), len(self.obs_points)))
-        # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] Obstacles: %s" % (self.get_name(), str(self.obs_points)))
-        # rospy.loginfo("[PoseGeneratorRosInterface.once(%s)] Obstacles: %s" % (self.get_name(), str(obstacles_msg)))
+
         valid_points = PoseGeneratorRosInterface.in_hull(Delaunay(self.hull_points[:, :2], qhull_options="Pp"),
                                                          self.obs_points[:, :2])  # type: np.ndarray
         if len(valid_points) == 0:
@@ -459,18 +508,28 @@ class PoseGeneratorRosInterface:
             # rospy.sleep(0.1)  # next iteration most likely also without obstacles
             self.result = None
         else:
-            self.result = self._generate(valid_points, hull=self.hull_points[:, :2])  # type: np.ndarray
+            def calculate_Z(xy, pnts):
+                """
+                Given an x and y coordinate calculate a z coordinate to lie within a plane defined by a point-set
+                :param xy: 2d vector
+                :type xy: np.ndarray
+                :param pnts: nx3 matrix holding n points, rank should be 2
+                :type pnts: np.ndarray
+                :return: 3d vector
+                :rtype: np.ndarray
+                """
+                return np.hstack([xy, np.median(pnts[:, 2])])
+
+            self.result = calculate_Z(
+                self._generate(valid_points, hull=self.hull_points[:, :2]), self.hull_points)
 
         if self.result is None:
-            self.result = []  # np.asarray([floor_msg.tables[0].pose.position.x, floor_msg.tables[0].pose.position.y])
+            ps.header = floor_msg.tables[0].header
+            ps.pose = floor_msg.tables[0].pose
+        else:
+            # result is given in plane coordinates, the transformation in camera coordinates is part of _as_pose_stamped
+            ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
 
-        ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
-        if len(self.result) == 0:
-            self.result = np.hstack([self.result, ps.pose.position.x])
-        if len(self.result) == 1:
-            self.result = np.hstack([self.result, ps.pose.position.y])
-        if len(self.result) == 2:
-            self.result = np.hstack([self.result, ps.pose.position.z])
         return ps
 
     def publish_default(self, floor_message):
@@ -578,6 +637,10 @@ class PoseGeneratorRosInterface:
                 if i % ss == 0:
                     obstacles.append([point.x, point.y, point.z])
         prj_obstacles = PoseGeneratorRosInterface.transform_points_to_plane(obstacles, flr_msg)
+        obs_array = np.asarray(obstacles)
+        rospy.logdebug("[PoseGeneratorRosInterface.extract_points()] obstacles z coordinate after into plane "
+                       "transformation:\n%s\nmean=%g var=%g median=%g" %
+                       (obs_array[:, 2], np.mean(obs_array[:, 2]), np.var(obs_array[:, 2]), np.median(obs_array[:, 2])))
         dbg_pnts.extend(prj_obstacles)
 
         rospy.logdebug(
@@ -822,6 +885,7 @@ class PcaPoseGenerator(PoseGeneratorRosView):
         y0 = obs2d_pca.inverse_transform([0, min(pca_y)])
         y1 = obs2d_pca.inverse_transform([0, max(pca_y)])
         self.lines = [[x0, x1], [y0, y1]]
+        rospy.loginfo("[PcaPoseGenerator._generate()] p: %s  " % p)
         return np.asarray(p)
 
 
