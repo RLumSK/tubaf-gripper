@@ -60,6 +60,59 @@ def continue_by_topic(topic=None):
     return cache.getLast().data
 
 
+def sense():
+    """
+    Sense for a suitable pose in a set of clusters in a plane
+    :return: determined pose
+    :rtype: PoseStamped
+    """
+    from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
+    from std_msgs.msg import Header
+    from message_filters import Subscriber, Cache
+    from object_recognition_msgs.msg import TableArray
+    from visualization_msgs.msg import MarkerArray
+
+    # As client
+    # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
+    service_name = rospy.get_param("~sense_service_name", "DelaunayPoseGenerator")
+    rospy.wait_for_service(service_name + '_service')
+    service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
+
+    request = GenerateSetPoseRequest()
+    request.header = Header()
+    request.header.stamp = rospy.Time.now()
+    request.print_evaluation = False
+    request.policy = "hl"
+
+    _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
+    _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
+
+    _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
+    _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
+
+    pose_pub = rospy.Publisher("set_ssb_pose", PoseStamped, queue_size=10)
+    ps = None
+
+    while ps is None:
+        try:
+            request.floor = _floor_cache.getLast()
+            request.obstacles = _obstacle_cache.getLast()
+            if request.floor is None or request.obstacles is None:
+                rospy.sleep(1.0)
+                continue
+            rospy.logdebug("[main] Request:\n%s" % request)
+            reply = service(request)
+            rospy.loginfo("[main] %s says %s" % (service_name, reply))
+
+            pose_pub.publish(reply.set_pose)
+            ps = reply.set_pose
+
+        except rospy.ServiceException as e:
+            rospy.logerr("[main] Service %s call failed\n%s" % (service_name, e.message))
+            ps = None
+    return ps
+
+
 class EquipmentTask(GraspTask):
     """
     Handle equipment using the gripper unit of Julius
@@ -159,14 +212,17 @@ class EquipmentTask(GraspTask):
             self.hand_controller.closeHand()
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
             # Sense for target_pose
-            sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
-            sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
-            rospy.sleep(5.0)
-            query_pose = sense_pose_cache.getLast()
+            target_on_floor = sense()
+            # sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
+            # sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
+            # rospy.sleep(5.0)
+            # query_pose = sense_pose_cache.getLast()
+            # del sense_pose_cache
+            # del sense_pose_subscriber
+            query_pose = target_on_floor
             rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % query_pose)
             self.selected_equipment.place_ps = query_pose
-            del sense_pose_cache
-            del sense_pose_subscriber
+
 
         # 2. Pick Up Equipment
         if 2 in stages:

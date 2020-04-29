@@ -115,12 +115,12 @@ signal.signal(signal.SIGINT, signal_handler)
 
 DF_OBS_TOPIC = "/ork/tabletop/clusters"
 DF_FLR_TOPIC = "/ork/floor_plane"
-DF_PUB_TOPIC = "/pub_set_pose"
+DF_PUB_TOPIC = "/generator_output_pose"
 DF_SUB_SAMPLE = 0.01
 DF_ENABLE_ROS = True
 DF_N_BINS = 10
 DF_MC_RASTER = 32
-DF_MC_WO = 0.5
+DF_MC_WO = 0.7
 DF_PLT_SAVE_DIR = "/out/plots"
 
 
