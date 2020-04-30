@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     pca = pg.PcaPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, True)
     dln = pg.DelaunayPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, True)
-    kde = pg.MinimalDensityEstimatePoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample,True, n_bins)
+    kde = pg.MinimalDensityEstimatePoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, True, n_bins)
     mcr = pg.MonteCarloPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, True, mc_raster, mc_weight)
 
     rospy.spin()

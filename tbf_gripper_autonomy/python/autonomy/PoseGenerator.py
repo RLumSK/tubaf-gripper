@@ -153,29 +153,39 @@ class PoseGeneratorRosInterface:
         return np.matmul(A, x).T[:, :3]
 
     @staticmethod
-    def transform_points_from_plane(pnts, floor_msg):
+    def transform_point_from_plane(pnt, floor_msg):
         """
-        Transform a given set of points from a plane to the camera coordinate frame using a affine transformation
-        :param pnts: list of n three-dimensional points (nx3)
-        :type pnts: list of Point
+        Transform a given point from a plane to the camera coordinate frame using a affine transformation
+        :param pnts: three-dimensional point
+        :type pnts: np.ndarray
         :param floor_msg: plane as table
         :type floor_msg: Table
-        :return: list with points (nx3)
+        :return: affine transformation as 4x4 matrix
         :rtype: np.ndarray
         """
-        if not isinstance(pnts, np.ndarray):
-            pnts = np.asarray(pnts)
+        if not isinstance(pnt, np.ndarray):
+            pnt = np.asarray(pnt)
+        rospy.loginfo("[PoseGeneratorRosInterface.transform_point_from_plane()] pnt: %s" % pnt)
+        t = np.hstack([pnt, 1])
 
-        A = pose_to_array(floor_msg.pose)  # from camera to plane
-        N = pnts.shape[0]  # 1
-        M = pnts.shape[1]  # 3
-        t = np.zeros((N, M+1))  # (1, 4)
-        # t[:, :-1] = pnts  # (1, 4-1)
-        t[:, -1]  = np.ones(N).T
-        x = np.matmul(A, t.T).T
-        x[:, :2] = x[:, :2] + pnts[:, :2]
-        rospy.logdebug("[PoseGeneratorRosInterface.transform_points_from_plane()] x: %s" % x)
-        return x[:, :3]
+        M = pose_to_array(floor_msg.pose)  # from camera to plane, z is up (normal to plane)
+        # We need the inverse of this,
+        # see: http://negativeprobability.blogspot.com/2011/11/affine-transformations-and-their.html
+        # and: https://math.stackexchange.com/questions/152462/inverse-of-transformation-matrix
+        Pi = np.linalg.inv(M[:3, :3])
+        v = pnt + np.matmul(M[:3, 3], np.asarray([1, 1, 0])) # ???M[:3, 3] +
+        # T[2] = 0 # set z=0
+        Mi = np.eye(4)
+        Mi[:3, :3] = Pi
+        Mi[:3, 3] = np.matmul(-Pi, v.T)
+        u = np.matmul(Mi, np.hstack([v, 1]).T).T
+
+        print v
+        print u
+        rospy.loginfo("[PoseGeneratorRosInterface.transform_point_from_plane()] returning %s" % u)
+
+        # Ai[:3, 3] = Ai[:3, 3] + x[:3]
+        return u
 
     @staticmethod
     def transform_hull_to_camera(hull, floor_msg):
@@ -286,10 +296,10 @@ class PoseGeneratorRosInterface:
             assumed_position = assumed_position + np.hstack([0, 0, np.mean(hull_in_floor[:, 2])])
         rospy.logdebug("[PoseGeneratorRosInterface._as_pose_stamped()] assumed position: %s" % assumed_position)
 
-        Xt = PoseGeneratorRosInterface.transform_points_from_plane([assumed_position], floor_msg)[0]
+        # Xt = PoseGeneratorRosInterface.transform_point_from_plane(assumed_position, floor_msg)
         X = pose_to_array(floor_msg.pose)
-        X[:3, 3] = Xt
-        # rospy.loginfo("[PoseGeneratorRosInterface._as_pose_stamped()] X:\n%s" % X)
+        X[:3, 3] = assumed_position
+        rospy.loginfo("[PoseGeneratorRosInterface._as_pose_stamped()] X:\n%s" % X)
         ps = PoseStamped()
         ps.header = floor_msg.header
         ps.pose = array_to_pose(X)
@@ -518,7 +528,21 @@ class PoseGeneratorRosInterface:
                 :return: 3d vector
                 :rtype: np.ndarray
                 """
-                return np.hstack([xy, np.median(pnts[:, 2])])
+                p = pnts[0]
+                q = pnts[1]
+                l = pnts[2]
+                a1 = q[0] - p[0]
+                b1 = q[1] - p[1]
+                c1 = q[2] - p[2]
+                a2 = l[0] - p[0]
+                b2 = l[1] - p[1]
+                c2 = l[2] - p[2]
+                a = b1 * c2 - b2 * c1
+                b = a2 * c1 - a1 * c2
+                c = a1 * b2 - b1 * a2
+                d = (- a * p[0] - b * p[1] - c * p[2])
+                z = -1*(a*xy[0]+b*xy[1]+d)/c
+                return np.hstack([xy, z])
 
             self.result = calculate_Z(
                 self._generate(valid_points, hull=self.hull_points[:, :2]), self.hull_points)
