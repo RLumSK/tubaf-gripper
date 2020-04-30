@@ -74,7 +74,7 @@ def sense():
 
     # As client
     # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
-    service_name = rospy.get_param("~sense_service_name", "DelaunayPoseGenerator")
+    service_name = rospy.get_param("~sense_service_name", "PcaPoseGenerator")
     rospy.wait_for_service(service_name + '_service')
     service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
 
@@ -90,7 +90,6 @@ def sense():
     _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
     _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
 
-    pose_pub = rospy.Publisher("set_ssb_pose", PoseStamped, queue_size=10)
     ps = None
 
     while ps is None:
@@ -100,11 +99,10 @@ def sense():
             if request.floor is None or request.obstacles is None:
                 rospy.sleep(1.0)
                 continue
-            rospy.logdebug("[main] Request:\n%s" % request)
+            rospy.logdebug("[sense()] Request:\n%s" % request)
             reply = service(request)
-            rospy.loginfo("[main] %s says %s" % (service_name, reply))
+            rospy.loginfo("[sense()] %s suggests %s" % (service_name, reply))
 
-            pose_pub.publish(reply.set_pose)
             ps = reply.set_pose
 
         except rospy.ServiceException as e:
@@ -198,6 +196,7 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         stages = frozenset(stages)
+        debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         query_pose = None
         # 0. Open hand, in case smart equipment is still stuck
         if 0 in stages:
@@ -212,14 +211,17 @@ class EquipmentTask(GraspTask):
             self.hand_controller.closeHand()
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
             # Sense for target_pose
-            target_on_floor = sense()
+            target_on_floor = sense()  # type: PoseStamped
+            # Assume that the base_link doesn't move, so we can save the pose relative to it
+            target_in_bl = self.tf_listener.transformPose(target_frame="base_link", ps=target_on_floor)
+            debug_pose_pub.publish(target_in_bl)
             # sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
             # sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
             # rospy.sleep(5.0)
             # query_pose = sense_pose_cache.getLast()
             # del sense_pose_cache
             # del sense_pose_subscriber
-            query_pose = target_on_floor
+            query_pose = target_in_bl
             rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % query_pose)
             self.selected_equipment.place_ps = query_pose
 
@@ -239,7 +241,6 @@ class EquipmentTask(GraspTask):
             # Grasp station
             self.hand_controller.closeHand()
 
-        debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         # 3. Update Planning Scene - Attach collision object to end effector
         if 3 in stages:
             rospy.loginfo("STAGE 3: Update scene, Attach object")
@@ -339,7 +340,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.perform([1, 5, 6, 7, 8, 9])
+        # self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
 
 
 if __name__ == '__main__':

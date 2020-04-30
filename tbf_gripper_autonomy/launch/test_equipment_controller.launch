@@ -1,5 +1,5 @@
 <launch>
-    <node name="set_pose_generator" pkg="tbf_gripper_autonomy" type="run_set_pose_generator.py" respawn="true" output="screen">
+    <node name="set_pose_generator" pkg="tbf_gripper_autonomy" type="run_set_pose_generators.py" respawn="true" output="screen">
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_generator.yaml"/>
     </node>

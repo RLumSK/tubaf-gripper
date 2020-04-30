@@ -58,7 +58,7 @@ if __name__ == '__main__':
     rospy.init_node("test_SetPoseGenerator_client", log_level=rospy.INFO)
     # As client
     # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
-    service_name = rospy.get_param("~service_name", "DelaunayPoseGenerator")
+    service_name = rospy.get_param("~service_name", "PcaPoseGenerator")
     rospy.wait_for_service(service_name + '_service')
     service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
 
