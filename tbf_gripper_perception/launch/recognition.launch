@@ -3,15 +3,18 @@
     <arg name="ns" default="/ork" />
 
     <!--ORK Table detection-->
-    <node pkg="object_recognition_core" ns="$(arg ns)" type="detection" name="tabletop_detection" args="-c $(find tbf_gripper_perception)/config/detection.tabletop.ros.ork" output="screen" />
+    <node pkg="object_recognition_core" ns="$(arg ns)" type="detection" name="tabletop_detection"
+          args="-c $(find tbf_gripper_perception)/config/detection.tabletop.ros.ork" output="screen" />
 
     <node pkg="tbf_gripper_perception" ns="$(arg ns)" name="tbf_floor_detection" output="screen" type="floor_filter.py">
       <rosparam file="$(find tbf_gripper_perception)/config/floor_filter.yaml" command="load"/>
     </node>
-    <!--<node pkg="tbf_gripper_perception" ns="/ork" name="tbf_object_detection" output="screen" type="object_filter.py">-->
-      <!--<rosparam file="$(find tbf_gripper_perception)/config/object_filter.yaml" command="load"/>-->
-      <!--<rosparam file="$(find tbf_gripper_tools)/config/meshes.yaml" command="load"  />-->
-    <!--</node>-->
+<!--    <node pkg="tbf_gripper_perception" ns="/ork" name="tbf_object_detection" output="screen" type="object_filter.py">-->
+<!--      <rosparam file="$(find tbf_gripper_perception)/config/object_filter.yaml" command="load"/>-->
+<!--      <rosparam file="$(find tbf_gripper_tools)/config/meshes.yaml" command="load"  />-->
+<!--    </node>-->
+<!--    <node pkg="tbf_gripper_autonomy" ns="/ork" name="tbf_set_pose_generation" output="screen" type="PoseGenerator.py">-->
+<!--    </node>-->
     <!--<node pkg="tbf_gripper_tools" ns="/ork" name="marker_array_converter" output="screen" type="markerarray_to_pointcloud.py">-->
       <!--<rosparam file="$(find tbf_gripper_perception)/config/object_filter.yaml" command="load"/>-->
     <!--</node>-->

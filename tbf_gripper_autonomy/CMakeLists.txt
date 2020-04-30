@@ -14,12 +14,27 @@ find_package(catkin REQUIRED COMPONENTS
     cmake_modules
     geometric_shapes
     moveit_msgs
+    message_generation
 )
 
 find_package(Boost REQUIRED system)
 
+find_package(Eigen3 REQUIRED)
+
 catkin_python_setup()
-# generate_messages(DEPENDENCIES geometry_msgs sensor_msgs moveit_msgs)
+
+add_service_files(
+  FILES
+  GenerateSetPose.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  object_recognition_msgs
+  visualization_msgs
+  geometry_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -41,7 +56,8 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
-find_package(Eigen REQUIRED)
+
+
 add_compile_options(-std=c++11)
 include_directories(include ${catkin_INCLUDE_DIRS})
 #add_library(planningwrapper src/planningwrapper.cpp)
