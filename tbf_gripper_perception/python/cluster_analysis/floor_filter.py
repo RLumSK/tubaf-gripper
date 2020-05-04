@@ -141,6 +141,9 @@ class FloorFilter(object):
         :return: floor plane
         :rtype: object_recognition_msgs.msgs.Table
         """
+        if tables is None:
+            rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] tables is None")
+            return None
         ret_plane = None  # type: object_recognition_msgs.msgs.Table
         lst_ret_planes = []
         # Determine planes with a parallel normal vector
@@ -161,14 +164,18 @@ class FloorFilter(object):
             z = pose.position.z
             if z < 0 and abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
                 v = pose.position.z + self.floor_frame_offset
-                rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] %g = %g + %g" % (
+                rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] %g = %g + %g" % (
                         v, pose.position.z, self.floor_frame_offset
                 ))
                 if min_z > v:
                     ret_plane = plane
                     min_z = v
-                    rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] min_z = " + str(min_z))
-        ret_plane.header = tables.header
+                    rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] min_z = " + str(min_z))
+
+        if ret_plane is None:
+            rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] ret_plane is None")
+        else:
+            ret_plane.header = tables.header
         return ret_plane
 
 

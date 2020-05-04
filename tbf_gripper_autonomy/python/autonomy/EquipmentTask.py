@@ -40,6 +40,7 @@ import std_msgs.msg
 from autonomy.Task import GraspTask
 from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
+from tubaf_tools import rotate_pose
 import tbf_gripper_rviz.ssb_marker as marker
 
 
@@ -214,6 +215,8 @@ class EquipmentTask(GraspTask):
             target_on_floor = sense()  # type: PoseStamped
             # Assume that the base_link doesn't move, so we can save the pose relative to it
             target_in_bl = self.tf_listener.transformPose(target_frame="base_link", ps=target_on_floor)
+            # Try it with other z-rotation
+            target_in_bl.pose = rotate_pose(target_in_bl.pose)
             debug_pose_pub.publish(target_in_bl)
             # sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
             # sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
@@ -340,8 +343,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([1, 5, 6, 7, 8, 9])
-        # self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # self.perform([1, 5, 6, 7, 8, 9])
+        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
 
 
 if __name__ == '__main__':
