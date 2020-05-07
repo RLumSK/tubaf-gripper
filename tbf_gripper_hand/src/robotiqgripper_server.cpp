@@ -394,7 +394,7 @@ protected:
 
 public:
 
-  RobotiqGripperActionServer(std::string name) :
+  RobotiqGripperActionServer(std::string name, int mode = 0) :
     p_nh("~"), /* init private node handle*/
 	as_(nh_, name, boost::bind(&RobotiqGripperActionServer::executeCB, this, _1), false),
     action_name_(name)
@@ -428,7 +428,7 @@ public:
     ros::Duration nap(0.5);
     nap.sleep();
     this->msg_from_gripper = robotiq_s_model_control::SModel_robot_inputConstPtr(new robotiq_s_model_control::SModel_robot_input());
-	this->msg_to_gripper = RobotiqGripperActionServer::initGripper();
+	this->msg_to_gripper = RobotiqGripperActionServer::initGripper(mode);
     ROS_INFO("RobotiqGripperAction: Action server started.");
   }
 
@@ -506,6 +506,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "robotiqgripper_action_server");
 
   RobotiqGripperActionServer action_server(ros::this_node::getName());
+  RobotiqGripperActionServer scissor_server("scissor_"+ros::this_node::getName(), 3);
   ros::spin();
 
   return 0;
