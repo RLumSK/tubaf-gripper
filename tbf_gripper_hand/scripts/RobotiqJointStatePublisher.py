@@ -30,7 +30,7 @@
 import rospy
 import math
 from sensor_msgs.msg import JointState
-import robotiq_s_model_control.msg as hand_msg
+import robotiq_3f_gripper_articulated_msgs.msg as hand_msg
 
 """@package RobotiqJointStatePublisher
 This module aims to pipe the joint state information provided by Robotiq into the tf by publishing it to the joint_state_publisher
@@ -56,7 +56,7 @@ class RobotiqJointStatePublisher(object):
         joint_topic = rospy.get_param('~pub_topic', default='joint_states_hand')
         # rospy.loginfo("[RobotiqJointStatePublisher.__init__()] prefix: %s" % prefix)
 
-        rospy.Subscriber(name=input_topic, data_class=hand_msg.SModel_robot_input,
+        rospy.Subscriber(name=input_topic, data_class=hand_msg.Robotiq3FGripperRobotInput,
                          callback=self.onSModelInputMessage)
         self.publisher = rospy.Publisher(name=joint_topic, data_class=JointState, queue_size=10)
         self.names = ['finger_middle_joint_1', 'finger_1_joint_1', 'finger_2_joint_1','finger_middle_joint_2',
@@ -74,10 +74,10 @@ class RobotiqJointStatePublisher(object):
         The function adjusts the given finger positions (0-255) for 3 fingers and the 'scissor' angle to the joint_angles
         in the model by calculating a angular. The offset values are estimated. The increment values are measured in a
         technical drawing.
-        @param data: message of the type robotiq_s_model_control.msg.SModel_robot_input (see refering message definition at the robotiq package for further information)
+        @param data: message of the type robotiq_3f_gripper_articulated_msgs.msg.Robotiq3FGripperRobotInput (see refering message definition at the robotiq package for further information)
         @return: None
         """
-        # msg = hand_msg.SModel_robot_input(data)
+        # msg = hand_msg.Robotiq3FGripperRobotInput(data)
         if (data.gACT == 0):
             return
 

@@ -6,33 +6,20 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>537</width>
-    <height>292</height>
+    <width>538</width>
+    <height>307</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Robotiq Main Control</string>
   </property>
-  <widget class="Line" name="line">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>130</y>
-     <width>521</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-  </widget>
   <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>531</width>
-     <height>291</height>
+     <width>528</width>
+     <height>302</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -52,8 +39,8 @@
         <rect>
          <x>0</x>
          <y>20</y>
-         <width>526</width>
-         <height>105</height>
+         <width>536</width>
+         <height>127</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout">
@@ -149,16 +136,16 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
-           <widget class="QPushButton" name="btn_rATR">
+          <item row="1" column="2">
+           <widget class="QCheckBox" name="chk_rICS">
             <property name="enabled">
              <bool>false</bool>
             </property>
-            <property name="text">
-             <string>Automatic Release Routine</string>
+            <property name="contextMenuPolicy">
+             <enum>Qt::NoContextMenu</enum>
             </property>
-            <property name="flat">
-             <bool>false</bool>
+            <property name="text">
+             <string>Individual Scissor Control</string>
             </property>
            </widget>
           </item>
@@ -182,19 +169,6 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="chk_rICS">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="contextMenuPolicy">
-             <enum>Qt::NoContextMenu</enum>
-            </property>
-            <property name="text">
-             <string>Individual Scissor Control</string>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="1">
            <widget class="QCheckBox" name="chk_rGTO">
             <property name="enabled">
@@ -202,6 +176,19 @@
             </property>
             <property name="text">
              <string>Go To</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QPushButton" name="btn_rATR">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Automatic Release Routine</string>
+            </property>
+            <property name="flat">
+             <bool>false</bool>
             </property>
            </widget>
           </item>
@@ -227,7 +214,7 @@
         <rect>
          <x>0</x>
          <y>20</y>
-         <width>255</width>
+         <width>259</width>
          <height>75</height>
         </rect>
        </property>

@@ -48,7 +48,7 @@
   <run_depend>geometry_msgs</run_depend>
   <run_depend>tf</run_depend>
   <run_depend>python_qt_binding</run_depend>
-  <run_depend>robotiq_s_model_control</run_depend>
+  <run_depend>robotiq_3f_gripper_control</run_depend>
   <run_depend>control_msgs</run_depend>
   <run_depend>actionlib</run_depend>
 

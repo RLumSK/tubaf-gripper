@@ -1,25 +1,40 @@
 <?xml version="1.0"?>
 <!--
 	author: sgrehl
-	proj: MiningRoX
-	date: 31.07.2015
-	desc: start the hand and transform the robotiq commands to joint_state commands
+        proj: ARIDuA
+        date: 18.10.2019
+        desc: test the hand action server and client
 -->
 <launch>
-	<arg name="hand_ip" default="192.168.1.111" />
-	<arg name="prefix" default="" />
- 	
-	<!-- Bringup Robotiq Hand - listening @SModelRobotOutput-topic -->
-	<node name="hand_tcp" pkg="robotiq_s_model_control" type="SModelTcpNode.py" args="$(arg hand_ip)" respawn="false"/>
-	<node name="hand_controller" pkg="robotiq_s_model_control" type="SModelSimpleController.py" respawn="false"/>
-	<node name="hand_listener" pkg="robotiq_s_model_control" type="SModelStatusListener.py" respawn="false"/>
+  <arg name="hand_ip" default="192.168.1.111"/>
+  <arg name="prefix" default="gripper_robotiq_"/>
 
-	<!-- Setup Joint State Publisher to monitor the hand in rviz -->
-	<include file="$(find tbf_gripper_launch)/launch/hand_description.launch"/>
+  <arg name="group_name" default="hand" />
+  <arg name="gripper_name" default="Robotiq3FGripperRobot" />
+  <arg name="gripper_action_name" default="gripper_action" />
 
-	<!-- translate the states from robotiq to ROS -->
-	<node name="joint_states_translate_hand" pkg="tbf_gripper_hand" type="RobotiqJointStatePublisher.py">
-		<param name="pub_topic" value="$(arg prefix)hand_joint_states" />
-		<param name="prefix" value="$(arg prefix)" />
-	</node>
+
+  <group ns="$(arg group_name)">
+    <!-- Bringup Robotiq Hand - listening @Robotiq3FGripperRobotOutput-topic -->
+    <node name="$(arg gripper_action_name)_tcp" pkg="robotiq_3f_gripper_control" type="Robotiq3FGripperTcpNode.py" args="$(arg hand_ip)" respawn="true" output="screen"/>
+
+    <!-- translate the states from robotiq to ROS -->
+    <node name="joint_states_translate_hand" pkg="tbf_gripper_hand" type="RobotiqJointStatePublisher.py">
+      <param name="sub_topic" value="$(arg gripper_name)Input"/>
+      <param name="pub_topic" value="joint_states"/>
+      <param name="prefix" value="$(arg prefix)"/>
+    </node>
+
+    <!-- start action server (own implementation) -->
+    <node name="$(arg gripper_action_name)_server" pkg="tbf_gripper_hand" type="robotiqgripper_server" respawn="false"
+          output="screen">
+      <rosparam command="load" file="$(find julius_base)/config/hand_params.yaml"/>
+    </node>
+
+    <!-- start action client (own implementation) -->
+    <node name="$(arg gripper_action_name)_client" pkg="tbf_gripper_hand" type="robotiqgripper_client" respawn="false"
+          output="screen">
+      <rosparam command="load" file="$(find julius_base)/config/hand_params.yaml"/>
+    </node>
+  </group>
 </launch>

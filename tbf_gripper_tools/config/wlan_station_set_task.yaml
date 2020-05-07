@@ -35,10 +35,7 @@ joint_speed: 10
 joint_acceleration: 5
 joint_states_topic: "/ur5/joint_states"
 # Hand/Gripper
-publisher_name: "/hand/SModelRobotOutput"
-subscriber_name: "/hand/SModelRobotInput"
-hand_server_name: "/hand/gripper_action"
-eef_link: "gripper_robotiq_palm_planning"
+# via julius_base/config/hand_params.yaml
 #Wlan Station - Pose Stamped - link: base_footprint
 ssb_default_pose:
     position:

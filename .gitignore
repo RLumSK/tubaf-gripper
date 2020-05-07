@@ -12,3 +12,6 @@ tbf_gripper_perception/meshes/wlan_point_normals.ply
 tbf_gripper_perception/meshes/wlan_blender2.stl
 tbf_gripper_perception/output/
 tbf_gripper_perception/visp-models/
+*.bag
+*.DS_Store
+plots/

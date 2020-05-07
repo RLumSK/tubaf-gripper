@@ -1,22 +1,35 @@
 <muxify>
   <!--
-    script to start the ROS nodes for communication with a virtual machine of the UR5
-
+  Set-up for the WLAN Set Task Evaluation
+  See: https://kanban.xsitepool.tu-freiberg.de/x2VrXqDxQMOFX25v787TOQ
   -->
-  <session name="Nodes" mode="o" size="240x60"/>
-  <window name="Nodes" directory="~">
+  <session name="WLANsetTask_evaluation" mode="o" size="240x60"/>
+  <window name="Basics" directory="~">
     <layout>
-      abee
-      cdee
-      ffgg
-      ffgg
+      ab
+      cd
     </layout>
     <cmd pane="a">roscore</cmd>
     <cmd pane="b">roslaunch --wait julius_base description_planning.launch</cmd>
-    <cmd pane="c">sleep 2;roslaunch julius_base joint_state_pub.launch</cmd>
-    <cmd pane="e">sleep 4;roslaunch julius_base simulation_ur5_driver.launch</cmd>
-    <cmd pane="f">roslaunch --wait julius_base robotiq_hand.launch</cmd>
-    <cmd pane="g">sleep 10;roslaunch --wait tbf_gripper_tools wlan_set_demo.launch</cmd>
-
+    <cmd pane="c">sleep 1;roslaunch julius_base joint_state_pub.launch</cmd>
+  </window>
+  <window name="Devices" directory="~">
+    <layout>
+      ef
+    </layout>
+    <cmd pane="e">roslaunch --wait julius_base simulation_ur5_driver.launch robot_ip:=192.168.1.199</cmd>
+    <cmd pane="f">roslaunch --wait julius_base robotiq_hand.launch simulate:=true</cmd>
+  </window>
+  <window name="Middleware" directory="~">
+    <layout>
+      gh
+    </layout>
+    <cmd pane="g">sleep 5;roslaunch --wait julius_moveit moveit.launch</cmd>
+  </window>
+  <window name="Experiment" directory="~">
+    <layout>
+      i
+    </layout>
+    <cmd pane="i">sleep 10;roslaunch tbf_gripper_autonomy test_equipment_controller.launch</cmd>
   </window>
 </muxify>

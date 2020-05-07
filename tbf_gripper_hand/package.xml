@@ -16,7 +16,8 @@
   <license>BSD</license>
 
   <depend>actionlib_msgs</depend>
-  <depend>robotiq_s_model_control</depend>
+  <depend>robotiq_3f_gripper_control</depend>
+  <depend>control_msgs</depend>
   <depend>tbf_gripper_viz</depend>
   <buildtool_depend>catkin</buildtool_depend>
 

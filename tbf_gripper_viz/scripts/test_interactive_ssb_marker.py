@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Software License Agreement (MIT License)
 #
-# Copyright (c) 2018, TU Bergakademie Freiberg
+# Copyright (c) 2019, TU Bergakademie Freiberg
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,14 +27,31 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+# author: grehl
 
 import rospy
-import tbf_gripper_rviz.ssb_marker as viz
+from tf import TransformListener
+from tbf_gripper_rviz.ssb_marker import SSBMarker
+from tbf_gripper_tools.SmartEquipment import SmartEquipment
+from autonomy.MoveitInterface import MoveitInterface
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     rospy.init_node("SSB_marker", log_level=rospy.DEBUG)
-    lst = []
-    for i in range(0, 1):
-        ns = "/"+str(i)+"/"
-        lst.append(viz.SSBGraspMarker(viz.SSBMarker(ns), ns))
+    tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
+    mvit = MoveitInterface(tf_listener=tf_listener)  # type: MoveitInterface
+    lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
+    lst_marker = []  # type: list
+    for se in lst_equipment:  # type: SmartEquipment
+        se.calculate_grasp_offset(attached_frame="gripper_robotiq_palm_planning", tf_listener=tf_listener)
+        rospy.loginfo(se.grasp_offset)
+        v_marker = SSBMarker.from_SmartEquipment(se, tf_listener)
+        mvit.clear_octomap_on_marker(v_marker)
+        lst_marker.append(v_marker)
+    while True:
+        for marker in lst_marker:  # type: SSBMarker
+            marker.enable_marker()
+            rospy.sleep(5.0)
+            marker.disable_marker()
+
     rospy.spin()

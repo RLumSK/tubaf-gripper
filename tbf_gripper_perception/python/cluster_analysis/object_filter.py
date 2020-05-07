@@ -350,7 +350,8 @@ class ObjectFilter(object):
             lst.append([point.x, point.y, point.z])
         return pc_2.create_cloud_xyz32(header=cluster.header, points=lst)
 
+
 if __name__ == '__main__':
-    rospy.init_node("object_filter", log_level=rospy.INFO)
+    rospy.init_node("object_filter", log_level=rospy.ERROR)
     obj = ObjectFilter()
     rospy.spin()

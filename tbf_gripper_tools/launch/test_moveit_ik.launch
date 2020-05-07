@@ -1,0 +1,8 @@
+<launch>
+    <node name="test_moveit_scene_interaction" pkg="tbf_gripper_tools" type="test_compute_ik_service.py" respawn="false" output="screen">
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
+    </node>
+</launch>

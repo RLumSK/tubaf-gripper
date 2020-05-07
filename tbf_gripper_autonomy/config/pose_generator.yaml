@@ -1,0 +1,6 @@
+pub_topic: "/generator_output_pose"
+sub_sample:  0.01
+n_bins: 10
+mc_raster: 32
+plot_dir: "~/.ros/log"
+ref_wo: 0.7

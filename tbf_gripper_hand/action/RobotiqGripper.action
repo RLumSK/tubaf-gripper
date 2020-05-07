@@ -5,8 +5,8 @@ int32 speed
 int32 force
 ---
 #result definition
-robotiq_s_model_control/SModel_robot_input hand_status
+robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput hand_status
 string hand_info
 ---
 #feedback
-robotiq_s_model_control/SModel_robot_input hand_status
+robotiq_3f_gripper_articulated_msgs/Robotiq3FGripperRobotInput hand_status

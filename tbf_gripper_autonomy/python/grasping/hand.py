@@ -53,11 +53,10 @@ class HandController(object):
         Default constructor that loads parameters from the parameter server and waits for the action server to start.
         It starts with the hand "rested", meaning closed in basic mode.
         """
-        server_name = rospy.get_param("~hand_server_name", "robotiqgripper_action_server")
+        server_name = rospy.get_param("gripper_action_server_name", "/hand/Robotiq3FGripperServer")
         rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
         self.ac = actionlib.SimpleActionClient(server_name, control_msgs.msg.GripperCommandAction)
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
-        self.hand_mode = rospy.get_param("~hand_mode", "basic")
         self.ac.wait_for_server()
         rospy.loginfo("HandController() %s  started", server_name)
         self.action_pending = False
@@ -78,8 +77,8 @@ class HandController(object):
         # float64 position
         # float64 max_effort
 
-        goal.command.position = 1.22
-        goal.command.max_effort = 100
+        goal.command.position = 0.0
+        goal.command.max_effort = 120
 
         self.action_pending = True
         #  goal, done_cb = None, active_cb = None, feedback_cb = None):
@@ -87,6 +86,7 @@ class HandController(object):
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
         self.action_pending = False
+        rospy.sleep(3.0)
 
     def openHand(self):
         """
@@ -103,15 +103,16 @@ class HandController(object):
         # float64 position
         # float64 max_effort
 
-        goal.command.position = 0.05
-        goal.command.max_effort = 100
+        goal.command.position = 0.16
+        goal.command.max_effort = 60
 
         self.action_pending = True
-        #  goal, done_cb = None, active_cb = None, feedback_cb = None):
+        # goal, done_cb = None, active_cb = None, feedback_cb = None):
         # self.ac.send_goal(goal, done_cb=self.done_cb, active_cb= self.active_cb, feedback_cb=self.feedback_cb)
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
         self.action_pending = False
+        rospy.sleep(1.0)
 
     def restHand(self):
         """
@@ -127,7 +128,7 @@ class HandController(object):
         # float64 position
         # float64 max_effort
 
-        goal.command.position = 0.6
+        goal.command.position = 0.08
         goal.command.max_effort = 60
 
         self.action_pending = True
