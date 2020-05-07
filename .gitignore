@@ -1,3 +1,5 @@
+*.Rapp.*
+*.DS_Store
 *.idea
 *.pyc
 CMakeLists.txt.user
