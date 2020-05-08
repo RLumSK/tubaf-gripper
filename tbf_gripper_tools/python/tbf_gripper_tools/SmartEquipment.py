@@ -151,10 +151,10 @@ class SmartEquipment:
         bare_gripper_pose = PoseStamped()
         bare_gripper_pose.header.frame_id = attached_frame
         bare_gripper_pose.header.stamp = rospy.Time.now()
-        gripper_pose = None
-        while gripper_pose is None:
+        self.gripper_pose = None
+        while self.gripper_pose is None:
             try:
-                gripper_pose = tf_listener.transformPose(target_frame=self.ps.header.frame_id, ps=bare_gripper_pose)
+                self.gripper_pose = tf_listener.transformPose(target_frame=self.ps.header.frame_id, ps=bare_gripper_pose)
                 if self.grasp_offset is None:
                     rospy.sleep(2.0)
             except Exception as ex:
@@ -169,10 +169,10 @@ class SmartEquipment:
                                      self.ps.pose.orientation.w])
         E = np.dot(E_T, E_R)
 
-        G_T = tft.translation_matrix([gripper_pose.pose.position.x, gripper_pose.pose.position.y,
-                                      gripper_pose.pose.position.z])
-        G_R = tft.quaternion_matrix([gripper_pose.pose.orientation.x, gripper_pose.pose.orientation.y,
-                                     gripper_pose.pose.orientation.z, gripper_pose.pose.orientation.w])
+        G_T = tft.translation_matrix([self.gripper_pose.pose.position.x, self.gripper_pose.pose.position.y,
+                                      self.gripper_pose.pose.position.z])
+        G_R = tft.quaternion_matrix([self.gripper_pose.pose.orientation.x, self.gripper_pose.pose.orientation.y,
+                                     self.gripper_pose.pose.orientation.z, self.gripper_pose.pose.orientation.w])
         G = np.dot(G_T, G_R)
 
         O = np.dot(np.linalg.inv(E), G)

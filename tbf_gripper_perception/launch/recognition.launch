@@ -4,9 +4,9 @@
 
     <!--ORK Table detection-->
     <node pkg="object_recognition_core" ns="$(arg ns)" type="detection" name="tabletop_detection"
-          args="-c $(find tbf_gripper_perception)/config/detection.tabletop.ros.ork" output="screen" />
+          args="-c $(find tbf_gripper_perception)/config/detection.tabletop.ros.ork" output="log" />
 
-    <node pkg="tbf_gripper_perception" ns="$(arg ns)" name="tbf_floor_detection" output="screen" type="floor_filter.py">
+    <node pkg="tbf_gripper_perception" ns="$(arg ns)" name="tbf_floor_detection" output="log" type="floor_filter.py">
       <rosparam file="$(find tbf_gripper_perception)/config/floor_filter.yaml" command="load"/>
     </node>
 <!--    <node pkg="tbf_gripper_perception" ns="/ork" name="tbf_object_detection" output="screen" type="object_filter.py">-->

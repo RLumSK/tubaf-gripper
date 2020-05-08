@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf-8
 # Software License Agreement (MIT License)
 #
 # Copyright (c) 2018, TU Bergakademie Freiberg
@@ -50,10 +51,10 @@ class DummyGripperAction(object):
         prefix = rospy.get_param('~prefix', default='default')
         joint_topic = rospy.get_param('~js_pub_topic', default='joint_states')
         self.publisher = rospy.Publisher(name=joint_topic, data_class=JointState, queue_size=10)
-        self.names = ['finger_middle_joint_1', 'finger_1_joint_1', 'finger_2_joint_1','finger_middle_joint_2',
+        self.names = ['finger_middle_joint_1', 'finger_1_joint_1', 'finger_2_joint_1', 'finger_middle_joint_2',
                       'finger_1_joint_2', 'finger_2_joint_2', 'finger_middle_joint_3', 'finger_1_joint_3',
                       'finger_2_joint_3', 'palm_finger_1_joint', 'palm_finger_2_joint']
-        self.names = [prefix+name for name in self.names]
+        self.names = [prefix + name for name in self.names]
         self.position = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
         self._current_position = 0.0
         self._as.start()
@@ -79,7 +80,7 @@ class DummyGripperAction(object):
         while abs(self._current_position - position) > 0.000001:
             if rospy.is_shutdown():
                 break
-            rospy.logdebug("[DummyGripperAction.execute_cb()] current: %s, target: %s, inc: %s bool: %s"%
+            rospy.logdebug("[DummyGripperAction.execute_cb()] current: %s, target: %s, inc: %s bool: %s" %
                            (self._current_position, position, inc, (self._current_position != position)))
             self._animate_joint_states(self._current_position)
             self._current_position += inc
@@ -132,8 +133,8 @@ class DummyGripperAction(object):
         scissor_angle = math.radians(23.0)
         sc_increment = scissor_angle / 255.0
         # 137 = basic
-        self.position[9] = scissor_angle / 2.0 - 137 * sc_increment   # actual angle of the "scissor" [0-255] ->
-                                                                            # [-0.2793-0.2793] rad
+        self.position[9] = scissor_angle / 2.0 - 137 * sc_increment  # actual angle of the "scissor" [0-255] ->
+        # [-0.2793-0.2793] rad
         self.position[10] = -self.position[9]
 
         joint_msg = JointState()
@@ -141,6 +142,55 @@ class DummyGripperAction(object):
         joint_msg.position = self.position
         self.publisher.publish(joint_msg)
         rospy.logdebug("[DummyGripperAction._animate_joint_states()] joint states published")
+
+
+class ScissorGripperAction(DummyGripperAction):
+    """
+    see: https://robotiq.com/support/3-finger-adaptive-robot-gripper/online/documents-instruction-manual-instruction-manual
+    scissor range: 32°
+    32 = 255
+    0 = 0
+    """
+
+    def __init__(self):
+        super(DummyGripperAction, self).__init__()
+
+        self._current_scissor =
+
+    def scissor_cb(self, goal):
+        """
+        Manipulate the scissor angle between the two adjacent fingers
+        :param goal: target position of the scissor angle
+        :return:
+        """
+        scissor = goal.command.position
+        rg = True
+        if position > 1.2:
+            position = 1.
+            rg = False
+        if position < 0.0:
+            position = 0.0
+            rg = False
+
+        steps = 10.0
+        inc = (position - self._current_position) / steps
+        while abs(self._current_position - position) > 0.000001:
+            if rospy.is_shutdown():
+                break
+            rospy.logdebug("[DummyGripperAction.execute_cb()] current: %s, target: %s, inc: %s bool: %s" %
+                           (self._current_position, position, inc, (self._current_position != position)))
+            self._animate_joint_states(self._current_position)
+            self._current_position += inc
+            rospy.sleep(0.1)
+
+        result = control_msgs.msg.GripperCommandResult()
+
+        result.position = position
+        result.effort = goal.command.max_effort
+        result.stalled = False
+        result.reached_goal = rg
+
+        self._as.set_succeeded(result)
 
 
 if __name__ == '__main__':

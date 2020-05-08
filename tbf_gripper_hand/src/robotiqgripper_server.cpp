@@ -541,7 +541,10 @@ int main(int argc, char** argv)
   std::string as_name;
   nh.param<std::string>("gripper_action_server_name", as_name, "Robotiq3FGripperServer");
   RobotiqGripperActionServer action_server(as_name);
-  RobotiqGripperActionServer scissor_server("scissor_"+as_name, 3);
+  RobotiqGripperActionServer basic_as_server(as_name+"_basic", 0);
+  RobotiqGripperActionServer pinch_as_server(as_name+"_pinch", 1);
+  RobotiqGripperActionServer wide_as_server(as_name+"_wide", 2);
+  RobotiqGripperActionServer scissor_server(as_name+"_scissor", 3);
   ros::spin();
 
   return 0;

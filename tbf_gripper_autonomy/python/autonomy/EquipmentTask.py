@@ -33,6 +33,7 @@ import copy
 import rospy
 import tf
 import message_filters
+import numpy as np
 
 from geometry_msgs.msg import PoseStamped
 import std_msgs.msg
@@ -199,6 +200,7 @@ class EquipmentTask(GraspTask):
         stages = frozenset(stages)
         debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         query_pose = None
+        int_marker = None
         # 0. Open hand, in case smart equipment is still stuck
         if 0 in stages:
             rospy.loginfo("STAGE 0: Open Hand")
@@ -216,7 +218,7 @@ class EquipmentTask(GraspTask):
             # Assume that the base_link doesn't move, so we can save the pose relative to it
             target_in_bl = self.tf_listener.transformPose(target_frame="base_link", ps=target_on_floor)
             # Try it with other z-rotation
-            target_in_bl.pose = rotate_pose(target_in_bl.pose)
+            target_in_bl.pose = rotate_pose(target_in_bl.pose, angle=[0, 0, np.pi])
             debug_pose_pub.publish(target_in_bl)
             # sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
             # sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
@@ -251,12 +253,19 @@ class EquipmentTask(GraspTask):
             self.moveit.attach_equipment(self.selected_equipment)
             self.selected_equipment.calculate_grasp_offset(attached_frame="gripper_robotiq_palm_planning",
                                                            tf_listener=self.tf_listener)  # we use the source frame of the mesh here
+            if int_marker is not None:
+                int_marker.disable_marker()
+                del int_marker
+            int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
+            int_marker.enable_marker()
+                        
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
 
         set_successfully = False
-        int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
+        if int_marker is None:
+            int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
         intermediate_pose = None
         while not set_successfully:
             target_pose = None
