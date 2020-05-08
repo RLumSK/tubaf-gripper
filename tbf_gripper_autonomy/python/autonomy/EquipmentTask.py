@@ -333,6 +333,7 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("EquipmentTask.perform([8]): Release Equipment")
             self.hand_controller.openHand()
             self.moveit.detach_equipment()
+            self.hand_controller.closeHand(mode="scissor")
 
         if 9 in stages:
             rospy.loginfo("STAGE 9: Return to home pose")
