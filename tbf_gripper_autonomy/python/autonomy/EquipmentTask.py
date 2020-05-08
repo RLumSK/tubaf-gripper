@@ -41,7 +41,7 @@ import std_msgs.msg
 from autonomy.Task import GraspTask
 from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
-from tubaf_tools import rotate_pose
+from tubaf_tools import rotate_pose, array_from_xyzrpy, array_to_pose
 import tbf_gripper_rviz.ssb_marker as marker
 
 
@@ -230,15 +230,17 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % query_pose)
             self.selected_equipment.place_ps = query_pose
 
-
         # 2. Pick Up Equipment
         if 2 in stages:
             rospy.loginfo("STAGE 2: Pickup Equipment")
             # TODO: Select Equipment
-            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"], info="PreGrasp"):
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"],
+                                                 info="PreGrasp"):
                 rospy.loginfo("EquipmentTask.perform([2]): Try to plan pre-grasping again")
             # rospy.logdebug("EquipmentTask.perform(): Opening hand ...")
             self.hand_controller.openHand()
+            rospy.sleep(2.01)
+            self.hand_controller.closeHand("scissor")
 
             while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp"):
                 rospy.loginfo("EquipmentTask.perform([2]): Try to plan grasping again")
@@ -258,12 +260,12 @@ class EquipmentTask(GraspTask):
                 del int_marker
             int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
             int_marker.enable_marker()
-                        
+
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
 
-        set_successfully = False
+        set_successfully = 4 not in stages or 5 not in stages
         if int_marker is None:
             int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
         intermediate_pose = None
@@ -333,12 +335,25 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("EquipmentTask.perform([8]): Release Equipment")
             self.hand_controller.openHand()
             self.moveit.detach_equipment()
-            self.hand_controller.closeHand(mode="scissor")
 
         if 9 in stages:
             rospy.loginfo("STAGE 9: Return to home pose")
             # Plan back to home station
             if self.selected_equipment.hold_on_set == 0.0:
+                # Now release the station in a manner that it stays on the floor
+                # moving eef
+                rospy.sleep(2.0)
+                self.hand_controller.closeHand(mode="scissor")
+                rospy.sleep(2.0)
+                release_pose = PoseStamped()
+                release_pose.header.frame_id = self.moveit.eef_link
+                release_pose.pose = array_to_pose(array_from_xyzrpy([-0.1, 0, -0.075], np.deg2rad([0, -45.0, 0])))
+                self.moveit.move_to_target(release_pose, "relative")
+                while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE"):
+                    rospy.loginfo("EquipmentTask.perform([9]): Release Pose not reached - Trying again")
+                self.hand_controller.closeHand()
+                if intermediate_pose is None:
+                    intermediate_pose = release_pose
                 while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE"):
                     rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
 
@@ -354,7 +369,8 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         # self.perform([1, 5, 6, 7, 8, 9])
-        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.perform([9])
 
 
 if __name__ == '__main__':

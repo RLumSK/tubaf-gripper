@@ -64,7 +64,7 @@ if __name__ == '__main__':
     rospy.init_node("test_release", log_level=rospy.DEBUG)
 
     start_joint_values = [-16.91, -15.0, 110.09, -93.54, 43.17, -135.99]
-    home_joint_values = [-180, -90, 0.0, -90, 0.00, 0.0]
+    home_joint_values = [180, -90, 0.0, -90, 0.00, 0.0]
     hand = AdvancedHandController()
 
     tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     hand.closeHand(mode="scissor")
     relative_pose = PoseStamped()
     relative_pose.header.frame_id = moveit.eef_link
-    relative_pose.pose = tbf.array_to_pose(tbf.array_from_xyzrpy([-0.1, 0, 0], [0, 0, 0]))
+    relative_pose.pose = tbf.array_to_pose(tbf.array_from_xyzrpy([-0.1, 0, -0.05],  np.deg2rad([0, -30.0, 0])))
     while not moveit.move_to_target(relative_pose, "relative"):
         rospy.sleep(1.0)
     hand.closeHand()
