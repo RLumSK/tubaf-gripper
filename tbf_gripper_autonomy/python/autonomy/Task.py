@@ -278,7 +278,8 @@ class GraspTask(MoveTask):
         """
         super(GraspTask, self).__init__(js_t, bu_pos, ltcp_s, ltcp_a, j_s, j_a)
         # ROS Anbindung
-        self.hand_controller = grasping.hand.AdvancedHandController()
+        self.hand_controller = grasping.hand.ObservativeHandController(
+            image_service=rospy.get_param("~toggle_depth_image_service_name", grasping.hand.AdvancedHandController())) # grasping.hand.AdvancedHandController()
         rospy.loginfo("Task.py: GraspTask(): initilized hand")
 
         # rospy.sleep(0.5)

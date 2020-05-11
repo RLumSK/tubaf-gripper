@@ -137,6 +137,7 @@ class EquipmentTask(GraspTask):
         self.backup_joint_values = rospy.get_param("~arm/backup_joint_values", [-180, -90, 0.0, -90, 0.00, 0.0])
         self.home_joint_values = rospy.get_param("~arm/home_joint_values", [-180, -90, 0.0, -90, 0.00, 0.0])
         self.watch_joint_values = rospy.get_param("~arm/watch_joint_values", [-180, -90, 0.0, -90, 0.00, 0.0])
+        self.env_sense_joints_poses = rospy.get_param("~arm/env_scan_joint_poses", [])
 
         # @All parameters were imported@
         super(EquipmentTask, self).__init__(js_t=rospy.get_param("~arm/joint_states_topic"),
@@ -145,7 +146,6 @@ class EquipmentTask(GraspTask):
                                             ltcp_a=rospy.get_param("~arm/linear_tcp_acceleration"),
                                             j_s=rospy.get_param("~arm/joint_speed"),
                                             j_a=rospy.get_param("~arm/joint_acceleration"))
-
         rospy.loginfo("EquipmentTask.__init__(): initialized")
 
     def select_equipment(self, name="Smart_Sensor_Box"):
@@ -212,6 +212,9 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 1: Scan Env")
             rospy.loginfo("EquipmentTask.perform([1]): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand()
+            # Scan env
+            for joint_target in self.env_sense_joints_poses:
+                self.moveit.move_to_target(joint_target, info="ENV_SCAN")
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
             # Sense for target_pose
             target_on_floor = sense()  # type: PoseStamped
@@ -369,8 +372,8 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         # self.perform([1, 5, 6, 7, 8, 9])
-        # self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-        self.perform([9])
+        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # self.perform([9])
 
 
 if __name__ == '__main__':

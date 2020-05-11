@@ -31,6 +31,7 @@
 import rospy
 import actionlib
 import control_msgs.msg
+import std_srvs.srv
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -225,6 +226,58 @@ class AdvancedHandController(object):
         self.action_pending = True
         self.dct_controller[mode].restHand()
         self.action_pending = False
+
+
+class ObservativeHandController(object):
+    """
+    Adds the toggeling of an image service to the hand.
+    If the hand gets closed the image stream should start.
+    If the hand gets opened the image stream should stop.
+    see also: rospkg tubaf_tools toggle_topic_by_service.py
+    """
+
+    def __init__(self, image_service=None, hand_controller=None):
+        """
+        Default constructor
+        :param image_service: toggle this service to start/stop image stream
+        :param hand_controller: (HandController, AdvancedHandController, DummyHandController)
+        """
+        if image_service is None:
+            image_service = rospy.get_param("~toggle_depth_image_service_name", "")
+        if hand_controller is None:
+            self.hand = AdvancedHandController()
+        elif isinstance(hand_controller, (HandController, AdvancedHandController, DummyHandController)):
+            self.hand = hand_controller
+        else:
+            rospy.logerr("[ObservativeHandController.__init__()] hand_controller of unsupported type %s" % type(hand_controller))
+
+        rospy.wait_for_service(image_service)
+        self.service = rospy.ServiceProxy(image_service, std_srvs.srv.SetBool)
+
+    def _setImageService(self, flag=True):
+        """
+        Set the image toggler to the given value
+        :param flag: true = pass iamges
+        :return: success
+        """
+        try:
+            response = self.service(flag)
+            rospy.logdebug("[ObservativeHandController._setImageService(%s)] Service says: %s" % (flag, response))
+        except rospy.ServiceException as exc:
+            rospy.logwarn("[ObservativeHandController._setImageService(%s)] Service did not process request: " +
+                          str(exc))
+
+    def openHand(self, mode="basic"):
+        self._setImageService(False)
+        if "scissor" in mode:
+            return
+        self.hand.openHand(mode)
+
+    def closeHand(self, mode="basic"):
+        self.hand.closeHand(mode)
+        if "scissor" in mode:
+            return
+        self._setImageService(True)
 
 
 class DummyHandController(object):
