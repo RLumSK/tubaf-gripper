@@ -57,6 +57,7 @@ import os
 # https://www.tutorialspoint.com/python_design_patterns/python_design_patterns_singleton.htm
 class MarkerServerSingleton:
     __instance = None
+
     @staticmethod
     def get_instance():
         """ Static access method. """
@@ -78,7 +79,7 @@ class SSBMarker(InteractiveMarker):
     Class for the smart sensor box interactive marker
     """
 
-    def __init__(self, name="~", pose=None, mesh=None, gripper_pose=None):
+    def __init__(self, name="~", pose=None, mesh=None, controls="xyr"):
         """
         Default constructor
         @:param name: name of this marker
@@ -92,14 +93,14 @@ class SSBMarker(InteractiveMarker):
         self.pose_topic = "/ssb_pose"
         self._pub_pose_stamped = rospy.Publisher(name=self.pose_topic, data_class=geometry_msgs.msg.PoseStamped,
                                                  queue_size=5)
-        self._normal_cache = Cache(Subscriber( "/ork/floor_normal", QuaternionStamped), 10, allow_headerless=False)
+        self._normal_cache = Cache(Subscriber("/ork/floor_normal", QuaternionStamped), 10, allow_headerless=False)
         self.tf_listener = TransformListener()
         rospy.sleep(0.2)
         # Marker
         self._reference_frame = None
 
         self.name = name
-        self.description = "["+self.name+"] Marker"
+        self.description = "[" + self.name + "] Marker"
         self.scale = rospy.get_param(name + "scale", 0.5)
 
         if pose is None:
@@ -130,56 +131,50 @@ class SSBMarker(InteractiveMarker):
         self._mesh_cntrl.interaction_mode = InteractiveMarkerControl.MENU
         self.controls.append(self._mesh_cntrl)
 
-        self._move_x_cntrl = InteractiveMarkerControl()
-        self._move_x_cntrl.name = "move_x"
-        self._move_x_cntrl.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
-        self.controls.append(self._move_x_cntrl)
-
-        self._move_y_cntrl = InteractiveMarkerControl()
-        self._move_y_cntrl.name = "move_y"
-        self._move_y_cntrl.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
-        # see: https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
-        self._move_y_cntrl.orientation.w = 0.5
-        self._move_y_cntrl.orientation.x = -0.5
-        self._move_y_cntrl.orientation.y = -0.5
-        self._move_y_cntrl.orientation.z = 0.5
-        self.controls.append(self._move_y_cntrl)
-
-        self._rot_cntrl = InteractiveMarkerControl()
-        self._rot_cntrl.name = "rotate"
-        self._rot_cntrl.interaction_mode = InteractiveMarkerControl.MOVE_ROTATE
-        # see: https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
-        self._rot_cntrl.orientation.w = 0.7071
-        self._rot_cntrl.orientation.x = 0
-        self._rot_cntrl.orientation.y = 0.7071
-        self._rot_cntrl.orientation.z = 0
-        self.controls.append(self._rot_cntrl)
+        if "x" in controls:
+            self._move_x_cntrl = InteractiveMarkerControl()
+            self._move_x_cntrl.name = "move_x"
+            self._move_x_cntrl.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
+            self.controls.append(self._move_x_cntrl)
+        if "y" in controls:
+            self._move_y_cntrl = InteractiveMarkerControl()
+            self._move_y_cntrl.name = "move_y"
+            self._move_y_cntrl.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
+            # see: https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
+            self._move_y_cntrl.orientation.w = 0.5
+            self._move_y_cntrl.orientation.x = -0.5
+            self._move_y_cntrl.orientation.y = -0.5
+            self._move_y_cntrl.orientation.z = 0.5
+            self.controls.append(self._move_y_cntrl)
+        if "r" in controls:
+            self._rot_cntrl = InteractiveMarkerControl()
+            self._rot_cntrl.name = "rotate"
+            self._rot_cntrl.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS  # MOVE_ROTATE
+            # see: https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
+            self._rot_cntrl.orientation.w = 0.7071
+            self._rot_cntrl.orientation.x = 0
+            self._rot_cntrl.orientation.y = 0.7071
+            self._rot_cntrl.orientation.z = 0
+            self.controls.append(self._rot_cntrl)
 
         # https://github.com/RobotnikAutomation/robotnik_purepursuit_planner/blob/master/robotnik_pp_planner/scripts/robotnik_pp_planner/path_marker.py
         self._menu_handler = MenuHandler()
         self._menu_handler.insert("Update Normal", callback=self.onUpdateNormal)
         self._menu_handler.insert("Publish Pose", callback=self.onPublishPose)
 
-        self.gripper_pose = gripper_pose
-        self.gripper = None
         # rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
         # rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
         # rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
         # rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
 
     @classmethod
-    def from_SmartEquipment(cls, se, tf_listener=None):
+    def from_SmartEquipment(cls, se):
         """
         Constructor using Smart Equipment
         :param se: equipment
         :type se: SmartEquipment
         """
-        # rospy.logdebug("%s", se)
-        if tf_listener is None:
-            tf_listener = TransformListener()
-            rospy.sleep(2.0)
-        return cls(name=se.name, pose=se.place_ps, mesh=os.path.join("package://"+se.mesh_pkg, se.mesh_rel_path),
-                   gripper_pose=se.get_grasp_pose(se.place_ps, tf_listener=tf_listener))
+        return cls(name=se.name, pose=se.place_ps, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path))
 
     def getMeshResourcePath(self):
         """
@@ -327,14 +322,10 @@ class SSBMarker(InteractiveMarker):
         :return: -
         :rtype: -
         """
-        MarkerServerSingleton.get_instance().insert(self, self.onFeedback, feedback_type=InteractiveMarkerServer.DEFAULT_FEEDBACK_CB)
+        MarkerServerSingleton.get_instance().insert(self, self.onFeedback,
+                                                    feedback_type=InteractiveMarkerServer.DEFAULT_FEEDBACK_CB)
         # MarkerServerSingleton.get_instance().insert(self, self.onUpdateNormal)
         self._menu_handler.apply(MarkerServerSingleton.get_instance(), self.name)
-        if self.gripper_pose is not None:
-            self.gripper = self._generate_gripper(self.gripper_pose)
-            self._mesh_cntrl.markers.append(self.gripper)
-        else:
-            self.gripper = None
         MarkerServerSingleton.get_instance().applyChanges()
 
     def disable_marker(self):
@@ -347,11 +338,67 @@ class SSBMarker(InteractiveMarker):
         MarkerServerSingleton.get_instance().applyChanges()
 
 
+class SSBGraspedMarker(SSBMarker):
+    """
+    Add a Hand to the Station to visualize a grasped SSB
+    """
+
+    def __init__(self, name="~", pose=None, mesh=None, gripper_pose=None, ns="~", controls="xyr"):
+        super(SSBGraspedMarker, self).__init__(name=name, pose=pose, mesh=mesh, controls=controls)
+
+        gripper_marker = Marker()
+        gripper_marker.type = Marker.MESH_RESOURCE
+        gripper_marker.mesh_resource = rospy.get_param(ns + "gripper_mesh_resource",
+                   'package://robotiq_3f_gripper_visualization/meshes/robotiq-3f-gripper/visual/GRIPPER_CLOSED.stl')
+        gripper_marker.scale = self._mesh_marker.scale
+        if gripper_pose is None:
+            gripper_marker.pose = self._mesh_marker.pose
+        else:
+            gripper_marker.pose = gripper_pose.pose
+            gripper_marker.header = gripper_pose.header
+        rospy.loginfo("SSBGraspedMarker.__init__() gripper_maker.pose %s" % gripper_marker.pose)
+
+        gripper_marker.color.r = 0.0
+        gripper_marker.color.g = 1.0
+        gripper_marker.color.b = 0.0
+        gripper_marker.color.a = 1.0
+
+        # Create an empty control
+        gripper_control = InteractiveMarkerControl()
+        gripper_control.always_visible = True
+        # gripper_control.name = self.name + "_gripper"
+        # gripper_control.interaction_mode = InteractiveMarkerControl.NONE
+        # gripper_control.orientation_mode = InteractiveMarkerControl.FIXED
+        gripper_control.markers.append(gripper_marker)
+
+        self.controls.append(gripper_control)
+
+    @classmethod
+    def from_SmartEquipment(cls, se, tf_listener=None, save_relation=False, use_relation=False):
+        """
+        Constructor using Smart Equipment
+        :param use_relation: use the ssb-gripper relation
+        :param save_relation: save the ssb-gripper relation
+        :param tf_listener: Transform listener should only run once per application
+        :param se: equipment
+        :type se: SmartEquipment
+        """
+        # rospy.logdebug("%s", se)
+        if tf_listener is None:
+            tf_listener = TransformListener()
+            rospy.sleep(2.0)
+        rospy.loginfo(se.name)
+        return cls(name=se.name, pose=se.place_ps, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
+                   gripper_pose=se.get_grasp_pose(se.place_ps, tf_listener=tf_listener, save_relation=save_relation,
+                                                  use_relation=use_relation), ns="~", controls="r")
+
+
 class SSBGraspMarker(object):
     """
     Define the Grasp Point on the SSB
     """
-    def __init__(self, ssb_marker,  ns="~"):
+
+    def __init__(self, ssb_marker, ns="~"):
         """
         Default constructor
         @:param ssb_marker: parent marker
@@ -402,7 +449,7 @@ class SSBGraspMarker(object):
         grasp_pose.header.frame_id = feedback.header.frame_id
         grasp_pose.pose = self.pose
         # Quaternions ix+jy+kz+w are represented as [x, y, z, w].
-        rot_z_90 = transformations.quaternion_about_axis(pi/2.0, [0, 0, 1])
+        rot_z_90 = transformations.quaternion_about_axis(pi / 2.0, [0, 0, 1])
         q = (self.pose.orientation.x, self.pose.orientation.y, self.pose.orientation.z, self.pose.orientation.w)
         res = transformations.quaternion_multiply(q, rot_z_90)
         grasp_pose.pose.orientation.w = res[3]
@@ -441,12 +488,12 @@ class SSBGraspMarker(object):
         int_marker.scale = factor * self.ssb_marker.scale
         int_marker.name = self.ssb_marker.name + "_gripper"
         int_marker.header = self.ssb_marker.header
-        int_marker.description = "["+ns+"] Grasp Marker"
+        int_marker.description = "[" + ns + "] Grasp Marker"
 
         # Generate hand as marker and add it to the interactive marker as control
         marker = Marker()
         marker.type = Marker.MESH_RESOURCE
-        marker.mesh_resource = rospy.get_param(ns+"ssb_mesh_resource",
+        marker.mesh_resource = rospy.get_param(ns + "ssb_mesh_resource",
                                                'package://robotiq_s_model_visualization/meshes/s-model_articulated/visual/full_hand.stl')
         # marker.scale = factor * self.ssb_marker.scale
         marker.pose.position.y = self.gripper_offset
@@ -490,6 +537,7 @@ class SSBGraspMarker(object):
 
 if __name__ == '__main__':
     rospy.init_node("SSBGraspMarker", log_level=rospy.INFO)
-    sm = SSBMarker()
-    gm = SSBGraspMarker(sm)
+    # sm = SSBGraspedMarker()
+    # gm = SSBGraspMarker(sm)
+    SSBGraspedMarker()
     rospy.spin()

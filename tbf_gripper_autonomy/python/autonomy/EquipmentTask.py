@@ -256,8 +256,8 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
             self.moveit.attach_equipment(self.selected_equipment)
-            self.selected_equipment.calculate_grasp_offset(attached_frame="gripper_robotiq_palm_planning",
-                                                           tf_listener=self.tf_listener)  # we use the source frame of the mesh here
+            self.selected_equipment.calculate_transformations(attached_frame="gripper_robotiq_palm_planning",
+                                                              tf_listener=self.tf_listener)  # we use the source frame of the mesh here
             if int_marker is not None:
                 int_marker.disable_marker()
                 del int_marker
@@ -302,6 +302,9 @@ class EquipmentTask(GraspTask):
                 # Formulate Planning Problem
                 if int_marker is not None:
                     self.moveit.clear_octomap_on_marker(int_marker)
+                else:
+                    rospy.logwarn("EquipmentTask.perform([5]): in_marker is None -> octomap was not cleared on "
+                                  "query_pose")
                 try:
                     target_pose = self.moveit.attached_equipment.get_grasp_pose(query_pose)
                 except AttributeError:

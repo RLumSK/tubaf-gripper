@@ -109,7 +109,7 @@ smart_equipment:
 #        z: -0.7071
 #        w: 0.7071
 #    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
-
+#
 #  - name:
 #      "Kugel_SSB"
 #    pose:
