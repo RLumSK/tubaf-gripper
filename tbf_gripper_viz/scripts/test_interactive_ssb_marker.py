@@ -64,5 +64,7 @@ if __name__ == "__main__":
             # rospy.Publisher(se.name + "/go_ps", PoseStamped).publish(se.go_ps)
             rospy.sleep(5.0)
             # marker.disable_marker()
+        # mvit.plan(gripper_pose_will, info="gripper_pose_will")
+        # mvit.plan(se.place_ps, info="se.place_ps")
 
     rospy.spin()

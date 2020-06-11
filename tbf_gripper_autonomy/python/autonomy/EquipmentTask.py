@@ -202,19 +202,22 @@ class EquipmentTask(GraspTask):
         query_pose = None
         int_marker = None
         # 0. Open hand, in case smart equipment is still stuck
-        if 0 in stages:
-            rospy.loginfo("STAGE 0: Open Hand")
+        if -1 in stages:
+            rospy.loginfo("STAGE -1: Open Hand")
             rospy.loginfo("EquipmentTask.perform([0]): Equipment handling started - Robot starting at HOME position")
             self.hand_controller.openHand()
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
-        # 1. Scan Environment
-        if 1 in stages:
-            rospy.loginfo("STAGE 1: Scan Env")
-            rospy.loginfo("EquipmentTask.perform([1]): Closing hand and scan the environment by given watch pose")
+        # 0. Scan Environment
+        if 0 in stages:
+            rospy.loginfo("STAGE 0: Scan Env")
+            rospy.loginfo("EquipmentTask.perform([0]): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand()
             # Scan env
             for joint_target in self.env_sense_joints_poses:
                 self.moveit.move_to_target(joint_target, info="ENV_SCAN")
+
+        if 1 in stages:
+            rospy.loginfo("STAGE 1: Sense for target pose")
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
             # Sense for target_pose
             target_on_floor = sense()  # type: PoseStamped
@@ -223,6 +226,7 @@ class EquipmentTask(GraspTask):
             # Try it with other z-rotation
             target_in_bl.pose = rotate_pose(target_in_bl.pose, angle=[0, 0, np.pi])
             debug_pose_pub.publish(target_in_bl)
+            self.selected_equipment.place_ps = target_in_bl
             # sense_pose_subscriber = message_filters.Subscriber(rospy.get_param("~sensed_pose_topic", "/ork/floor_pose"), PoseStamped)
             # sense_pose_cache = message_filters.Cache(sense_pose_subscriber, 5)
             # rospy.sleep(5.0)
@@ -256,13 +260,20 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
             self.moveit.attach_equipment(self.selected_equipment)
-            self.selected_equipment.calculate_transformations(attached_frame="gripper_robotiq_palm_planning",
-                                                              tf_listener=self.tf_listener)  # we use the source frame of the mesh here
             if int_marker is not None:
                 int_marker.disable_marker()
                 del int_marker
-            int_marker = marker.SSBMarker.from_SmartEquipment(self.selected_equipment)
+            # self.selected_equipment.place_ps was set earlier
+            int_marker = marker.SSBGraspedMarker.from_SmartEquipment(self.selected_equipment,
+                                                                     marker_pose=self.selected_equipment.place_ps,
+                                                                     tf_listener=self.tf_listener,
+                                                                     save_relation=True, use_relation=False)
             int_marker.enable_marker()
+            # Now we can already check if their will be a solution for our IK
+            rospy.loginfo("EquipmentTask.perform([3]): Testing if we can plan straight to target pose")
+            self.moveit.clear_octomap_on_marker(int_marker)
+            self.moveit.plan(int_marker.gripper_pose, info="Testing_after_grasp")
+            rospy.loginfo("EquipmentTask.perform([3]): Done")
 
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
@@ -374,8 +385,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        # self.perform([1, 5, 6, 7, 8, 9])
-        self.perform([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.perform([1, 2, 3])
+        # self.perform([-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # self.perform([9])
 
 

@@ -216,13 +216,17 @@ class SmartEquipment:
         else:
             object_pose_stamped = self.ps
         base_T_gripper_new = np.dot(base_T_ssb, ssb_T_gripper)
-        ret_rot = tft.quaternion_from_matrix(base_T_gripper_new)
-        ret_trans = tft.translation_from_matrix(base_T_gripper_new)
-
+        rospy.logdebug("SmartEquipment.get_grasp_pose() base_T_ssb = \n %s" % base_T_ssb)
+        rospy.logdebug("SmartEquipment.get_grasp_pose() ssb_T_gripper = \n %s" % ssb_T_gripper)
+        rospy.logdebug("SmartEquipment.get_grasp_pose() base_T_gripper_new = \n %s" % base_T_gripper_new)
+        rospy.logdebug("SmartEquipment.get_grasp_pose() base_T_gripper = \n %s" % base_T_gripper)
+        rospy.logdebug("SmartEquipment.get_grasp_pose() d_base_T_gripper = \n %s" % np.dot(np.linalg.inv(base_T_gripper_new), base_T_gripper))
         ps = PoseStamped()
         ps.header.frame_id = object_pose_stamped.header.frame_id
-        ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = ret_trans
-        ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = ret_rot
+        ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = \
+            tft.translation_from_matrix(base_T_gripper_new)
+        ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = \
+            tft.quaternion_from_matrix(base_T_gripper_new)
         # rospy.logdebug("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", ps)
         return ps
 

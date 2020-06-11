@@ -168,13 +168,15 @@ class SSBMarker(InteractiveMarker):
         # rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
 
     @classmethod
-    def from_SmartEquipment(cls, se):
+    def from_SmartEquipment(cls, se, marker_pose):
         """
         Constructor using Smart Equipment
+        :param marker_pose: pose where the marker should appear
+        :type marker_pose: PoseStamped
         :param se: equipment
         :type se: SmartEquipment
         """
-        return cls(name=se.name, pose=se.place_ps, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path))
+        return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path))
 
     def getMeshResourcePath(self):
         """
@@ -268,7 +270,7 @@ class SSBMarker(InteractiveMarker):
 
     def _added_menu_entry_before(self, menu_entry, parent):
         """
-        Cheks if the menu_entry under parent exists already
+        Checks if the menu_entry under parent exists already
         :param menu_entry:
         :type menu_entry: str
         :param parent: handle of the parent in the menu_handler
@@ -289,32 +291,6 @@ class SSBMarker(InteractiveMarker):
         :rtype: str
         """
         return self.pose_topic
-
-    @staticmethod
-    def _generate_gripper(gripper_pose):
-        """
-        Spawn a gripper marker on the determined position to query the orientation
-        :param gripper_pose: pose of the gripper
-        :type gripper_pose: PoseStamped
-        :return: interactive gripper marker
-        :rtype: InteractiveMarker
-        """
-        factor = 0.75
-
-        # Generate hand as marker and add it to the  marker as visual
-        marker = Marker()
-        marker.type = Marker.MESH_RESOURCE
-        marker.mesh_resource = rospy.get_param("gripper_mesh_resource",
-                                               'package://robotiq_s_model_visualization/meshes/s-model_articulated/'
-                                               'visual/full_hand.stl')
-        marker.header = gripper_pose.header
-        marker.pose = gripper_pose.pose
-        marker.color.r = 0
-        marker.color.g = 1
-        marker.color.b = 0
-        marker.color.a = factor
-
-        return marker
 
     def enable_marker(self):
         """
@@ -353,6 +329,8 @@ class SSBGraspedMarker(SSBMarker):
         gripper_marker.scale = self._mesh_marker.scale
         if gripper_pose is None:
             gripper_marker.pose = self._mesh_marker.pose
+            rospy.logwarn("SSBGraspedMarker.__init__() No gripper_pose given setting it to the equipment pose - "
+                          "to use equipment withoput gripper please use SSBMarker instead")
         else:
             gripper_marker.pose = gripper_pose.pose
             gripper_marker.header = gripper_pose.header
@@ -372,11 +350,14 @@ class SSBGraspedMarker(SSBMarker):
         gripper_control.markers.append(gripper_marker)
 
         self.controls.append(gripper_control)
+        self.gripper_pose = gripper_pose
 
     @classmethod
-    def from_SmartEquipment(cls, se, tf_listener=None, save_relation=False, use_relation=False):
+    def from_SmartEquipment(cls, se, marker_pose, tf_listener=None, save_relation=False, use_relation=False):
         """
         Constructor using Smart Equipment
+        :param marker_pose: pose where the marker should appear
+        :type marker_pose: PoseStamped
         :param use_relation: use the ssb-gripper relation
         :param save_relation: save the ssb-gripper relation
         :param tf_listener: Transform listener should only run once per application
@@ -388,9 +369,10 @@ class SSBGraspedMarker(SSBMarker):
             tf_listener = TransformListener()
             rospy.sleep(2.0)
         rospy.loginfo(se.name)
-        return cls(name=se.name, pose=se.place_ps, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
-                   gripper_pose=se.get_grasp_pose(se.place_ps, tf_listener=tf_listener, save_relation=save_relation,
-                                                  use_relation=use_relation), ns="~", controls="r")
+        return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
+                   gripper_pose=se.get_grasp_pose(object_pose_stamped=marker_pose,tf_listener=tf_listener,
+                                                  save_relation=save_relation, use_relation=use_relation),
+                   ns="~", controls="")
 
 
 class SSBGraspMarker(object):
