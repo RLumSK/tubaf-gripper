@@ -41,7 +41,7 @@ import std_msgs.msg
 from autonomy.Task import GraspTask
 from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
-from tubaf_tools import rotate_pose, array_from_xyzrpy, array_to_pose
+from tubaf_tools import rotate_pose, array_from_xyzrpy, array_to_pose, pose_to_array
 import tbf_gripper_rviz.ssb_marker as marker
 
 
@@ -113,6 +113,101 @@ def sense():
     return ps
 
 
+def adjust_z_rotation(ps_object):
+    """
+    Adjust the z-Rotation of the given pose in order to be easier to reach for the robot
+    :param ps_object: pose to adjust
+    :type ps_object: PoseStamped
+    :return: adjusted pose
+    :rtype: PoseStamped
+    """
+    ret_ps = PoseStamped()
+    ret_ps.header = ps_object.header
+
+    from scipy.spatial.transform import Rotation
+    rotation = Rotation.from_dcm(pose_to_array(ps_object.pose)[:3, :3])  # type: R
+    old = rotation.as_euler('XYZ')
+    new = np.copy(old)
+    rospy.logdebug("adjust_z_rotation(): alpha %s" % old[0])
+    rospy.logdebug("adjust_z_rotation(): beta %s" % old[1])
+    rospy.logdebug("adjust_z_rotation(): gamma %s" % old[2])
+
+    # Formula
+    #frac = (2+np.cos(beta))/(1+np.cos(beta))
+    #rospy.loginfo("adjust_z_rotation(): arccos(%s)" % frac)
+    #new[2] = old[0] #new[2] - np.pi/2.0
+
+    # Compute change
+    d = new - old
+    for i in range(0, 2):
+        if d[i] > np.pi:
+            d[i] -= 2*np.pi
+        if d[i] < -np.pi:
+            d[i] += 2*np.pi
+
+    ret_ps.pose = rotate_pose(ps_object.pose, d)
+    rospy.logdebug("adjust_z_rotation(): dalpha %s" % d[0])
+    rospy.logdebug("adjust_z_rotation(): dbeta %s" % d[1])
+    rospy.logdebug("adjust_z_rotation(): dgamma %s" % d[2])
+    return ret_ps
+
+
+def optimize_ssb_z_rotation(oTs, sTg):
+    """
+    Calculate the full transformation from gripper to O, given the transformation from O->S and S->G
+    O ... base coordinate frame, eg. base_link
+    S ... SSb coordinate frame
+    G ... gripper coordinate frame
+    The rotation among the z-axis for oTs is variable.
+    Therefore we want to minimize otg, this yields to:
+    ots = -oRs*stg
+    t ... translation
+    R ... rotation matrix
+    This concludes in an over-determined system of equations.
+    :param oTs: transformation from O->S as affine transformation
+    :type oTs: numpy.ndarray (4x4)
+    :param sTg: transformation from S->G as affine transformation
+    :type sTg: numpy.ndarray (4x4)
+    :return: transformation from O->S
+    :rtype: numpy.ndarray (4x4)
+    """
+    # Setup variables
+    ots = oTs[:3, 3]
+    stg = sTg[:3, 3]
+    # oRs = Rz*Ry*Rx
+    from scipy.spatial.transform import Rotation
+    R = Rotation.from_dcm(oTs[:3, :3])
+    alpha, beta, gamma = R.as_euler('XYZ')
+    Rx = np.asarray([[np.cos(alpha), np.sin(alpha), 0], [-np.sin(alpha), np.cos(alpha), 0], [0, 0, 1]])
+    Ry = np.asarray([[1, 0, 0], [0, np.cos(beta), np.sin(beta)], [0, -np.sin(beta), np.cos(beta), 0]])
+
+    # 1st compute the right side (known values)
+    # Rx, Ry are orthogonal -> R'=R^-1
+    Rxy_ = np.matmul(np.linalg.inv(Rx), np.linalg.inv(Ry))
+    B = np.matmul(-ots*np.linalg.inv(stg), Rxy_)
+    b = np.asarray([B[0, 0], B[0, 1], B[1, 0], B[1, 1]])
+
+    # 2nd solve linear system of equations
+    D = np.asarray([1, 0], [0, 1], [0, -1], [1, 0])
+    s = np.linalg.lstsq(D, b)
+    s_gamma = np.asarray([np.arccos(s[0]), np.arcsin(s[1])])
+    rospy.loginfo("[ssb_rotation()] gamma = %s" % gamma)
+    rospy.loginfo("[ssb_rotation()] s_gamma = %s" % s_gamma)
+    rospy.loginfo("[ssb_rotation()] ngamma = %s" % np.mean(s_gamma))
+
+    D = np.asarray([1, 1, 1, 0])
+    b = np.arccos(np.asarray([B[0, 0], np.sqrt(B[0, 1]-1), -np.sqrt(B[1, 0]-1), B[1, 1]]))
+    ngamma = np.linalg.lstsq(D, b)
+    rospy.loginfo("[ssb_rotation()] gamma = " % gamma)
+    rospy.loginfo("[ssb_rotation()] ngamma = " % ngamma)
+
+    # 4th result
+    Rz = np.asarray([[np.cos(ngamma), np.sin(ngamma), 0], [-np.sin(ngamma), np.cos(ngamma), 0], [0, 0, 1]])
+    nR = np.matmul(Rz, np.matmul(Rx, Ry))
+    oTs[:3, :3] = nR
+    return oTs
+
+
 class EquipmentTask(GraspTask):
     """
     Handle equipment using the gripper unit of Julius
@@ -181,11 +276,12 @@ class EquipmentTask(GraspTask):
         rospy.loginfo("EquipmentTask.generate_goal():  goal_pose: \n %s", ret_pose)
         return ret_pose
 
-    def perform(self, stages=range(9)):
+    def perform(self, stages=None):
         """
         Equipment Handle Task:
-            0. Open Hand
-            1. Scan Environment (HOME, Watch Pose)
+            -1. Open Hand
+            0. Scan Environment for obstacles
+            1. Sense for target pose
             2. Pick Up Equipment (PreGrasp, Grasp)
             3. Update Planning Scene (PostGrasp)
             4. Query Set Pose
@@ -197,6 +293,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
+        if stages is None:
+            stages = range(9)
         stages = frozenset(stages)
         debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         query_pose = None
@@ -209,7 +307,7 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
         # 0. Scan Environment
         if 0 in stages:
-            rospy.loginfo("STAGE 0: Scan Env")
+            rospy.loginfo("STAGE 0: Scan Environment for obstacles")
             rospy.loginfo("EquipmentTask.perform([0]): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand()
             # Scan env
@@ -259,6 +357,12 @@ class EquipmentTask(GraspTask):
         if 3 in stages:
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
+            # Adjust SSB rotation
+            self.selected_equipment.place_ps.pose = array_to_pose(optimize_ssb_z_rotation(
+                oTs=pose_to_array(self.selected_equipment.place_ps.pose), sTg=pose_to_array(
+                    self.selected_equipment.get_grasp_pose(save_relation=True, use_relation=False)
+                )
+            ))
             self.moveit.attach_equipment(self.selected_equipment)
             if int_marker is not None:
                 int_marker.disable_marker()
@@ -385,18 +489,37 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([1, 2, 3])
+        self.perform([1])
         # self.perform([-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # self.perform([9])
+
+
+def marker_at_ps(ps_marker):
+    """
+    visualize a interactive marker at the given ps
+    :param ps_marker:
+    :return:
+    """
+    int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="r")
+    int_marker.enable_marker()
 
 
 if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
-    obj.hand_controller.openHand()
-    rospy.sleep(1.0)
-    obj.hand_controller.closeHand()
-    for i in range(0, len(obj.lst_equipment)):
-        eq = obj.lst_equipment[i]  # type: SmartEquipment
-        if obj.select_equipment(eq.name):
-            obj.start()
+    # obj.hand_controller.closeHand()
+    pub = rospy.Publisher("debug_pose", PoseStamped, queue_size=10)
+    joints = None
+    while not rospy.is_shutdown() and joints is None:
+        ps = sense()
+        marker_at_ps(ps)
+        pub.publish(ps)
+        joints = obj.moveit.get_ik(ps)
+        rospy.sleep(2.0)
+    # obj.hand_controller.openHand()
+    # rospy.sleep(1.0)
+    # obj.hand_controller.closeHand()
+    # for i in range(0, len(obj.lst_equipment)):
+    #     eq = obj.lst_equipment[i]  # type: SmartEquipment
+    #     if obj.select_equipment(eq.name):
+    #         obj.start()
