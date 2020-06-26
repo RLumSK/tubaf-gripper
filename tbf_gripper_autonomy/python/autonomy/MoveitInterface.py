@@ -472,6 +472,23 @@ class MoveitInterface(object):
         self._remove_world_object(name="tmp_marker")
         return
 
+    def clear_octomap_via_box_marker(self):
+        """
+        Clear the octomap above the bos station using a marker
+        :return: None
+        """
+        rospy.logdebug("MoveitInterface.clear_octomap_via_box_marker():")
+        ps = PoseStamped()
+        ps.header.frame_id = "controlbox_structure_top_front_link"
+        ps.header.stamp = rospy.Time.now()
+        size = (0.4, 0.6, 0.4)
+        ps.pose.position.x = size[0]/2.0
+        ps.pose.position.y = size[1]/2.0
+        ps.pose.position.z = size[2]/2.0
+        self.scene.add_box(name="rubber", pose=ps, size=size)
+        rospy.sleep(2.0)
+        self.scene.remove_world_object(name="rubber")
+
     def get_object_pose(self, name):
         """
         Get current pose of the object

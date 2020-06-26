@@ -29,11 +29,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 import os
 
+import copy
 import rospy
 import rospkg
 from geometry_msgs.msg import PoseStamped, TransformStamped
 from tf import TransformListener, transformations as tft
 import numpy as np
+from tubaf_tools.help import array_to_pose, pose_to_array
 
 
 def pose_to_tf(pose, frame_name, parent_frame, time=None):
@@ -149,7 +151,7 @@ class SmartEquipment:
                                      time=rospy.Time(0), timeout=rospy.Duration.from_sec(2.0))
         bare_gripper_pose = PoseStamped()
         bare_gripper_pose.header.frame_id = gripper_frame
-        bare_gripper_pose.header.stamp = rospy.Time(0)  #rospy.Time.now()
+        bare_gripper_pose.header.stamp = rospy.Time(0)  # rospy.Time.now()
         ps_base_to_gripper = None
         while ps_base_to_gripper is None:
             try:
@@ -180,7 +182,7 @@ class SmartEquipment:
         # base_T_ssb * ssb_T_gripper = base_T_gripper -> ssb_T_greifer = base_T_ssb^-1 * base_T_gripper
 
         ssb_T_gripper = np.dot(np.linalg.inv(base_T_ssb), base_T_gripper)
-        rospy.logwarn("SmartEquipment.calculate_transformations(): ssb_T_gripper=?\n%s" % ssb_T_gripper)
+        rospy.logdebug("SmartEquipment.calculate_transformations(): ssb_T_gripper=?\n%s" % ssb_T_gripper)
         return [base_T_ssb, ssb_T_gripper, base_T_gripper]
 
     def get_grasp_pose(self, object_pose_stamped=None, tf_listener=None, gripper_frame="gripper_robotiq_palm_planning",
@@ -206,30 +208,20 @@ class SmartEquipment:
             self.ssb_T_gripper = ssb_T_gripper
 
         if object_pose_stamped is not None:
-            base_Tt_ssb = tft.translation_matrix([object_pose_stamped.pose.position.x,
-                                                  object_pose_stamped.pose.position.y,
-                                                  object_pose_stamped.pose.position.z])
-            base_Tr_ssb = tft.quaternion_matrix([object_pose_stamped.pose.orientation.x,
-                                                 object_pose_stamped.pose.orientation.y,
-                                                 object_pose_stamped.pose.orientation.z,
-                                                 object_pose_stamped.pose.orientation.w])
-            base_T_ssb = np.dot(base_Tt_ssb, base_Tr_ssb)
+            if tf_listener is None:
+                tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
+            tf_listener.waitForTransform(self.ps.header.frame_id,
+                                         object_pose_stamped.header.frame_id,
+                                         object_pose_stamped.header.stamp,
+                                         rospy.Duration(4))
+            object_pose_stamped = tf_listener.transformPose(self.ps.header.frame_id, object_pose_stamped)
         else:
             object_pose_stamped = self.ps
-        base_T_gripper_new = np.dot(base_T_ssb, ssb_T_gripper)
-        rospy.logdebug("SmartEquipment.get_grasp_pose() base_T_ssb = \n %s" % base_T_ssb)
-        rospy.logdebug("SmartEquipment.get_grasp_pose() ssb_T_gripper = \n %s" % ssb_T_gripper)
-        rospy.logdebug("SmartEquipment.get_grasp_pose() base_T_gripper_new = \n %s" % base_T_gripper_new)
-        rospy.logdebug("SmartEquipment.get_grasp_pose() base_T_gripper = \n %s" % base_T_gripper)
-        rospy.logdebug("SmartEquipment.get_grasp_pose() d_base_T_gripper = \n %s" % np.dot(np.linalg.inv(base_T_gripper_new), base_T_gripper))
-        ps = PoseStamped()
-        ps.header.frame_id = object_pose_stamped.header.frame_id
-        ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = \
-            tft.translation_from_matrix(base_T_gripper_new)
-        ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = \
-            tft.quaternion_from_matrix(base_T_gripper_new)
-        rospy.logwarn("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", ps)
-        return ps
+        gp = copy.deepcopy(object_pose_stamped)
+        gp.header.frame_id = self.name
+        gp.pose = array_to_pose(ssb_T_gripper)
+        rospy.logdebug("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", gp)
+        return gp
 
 
 if __name__ == '__main__':
