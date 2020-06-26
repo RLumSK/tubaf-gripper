@@ -322,6 +322,7 @@ class MoveitInterface(object):
         """
         plan = False
         success = False
+        iplanner = 0
         try:
             while not plan:
                 plan = self.plan(target, info)
@@ -329,10 +330,21 @@ class MoveitInterface(object):
                     success = self.execute(plan)
                 if not endless or success:
                     return success
+                if not success and endless:
+                    new_planner = self.lst_planner[iplanner]
+                    rospy.loginfo("[MoveitInterface.move_to_target] Changing planner to Nr. %s %s" % (iplanner,
+                                                                                                      new_planner))
+                    iplanner += 1
+                    if iplanner >= len(self.lst_planner):
+                        iplanner = 0
+                    self.group.set_planner_id(new_planner)
+
                 rospy.loginfo("[MoveitInterface.move_to_target] Trying again ...")
                 plan = success
         except Exception as ex:
             rospy.logerr("[MoveitInterface.move_to_target] Exception %s", ex)
+        finally:
+            self.group.set_planner_id(self.parameter["planner_id"])
         return False
 
     def add_equipment(self, equipment, pose=None):
