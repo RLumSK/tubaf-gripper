@@ -323,10 +323,13 @@ class SSBGraspedMarker(SSBMarker):
         super(SSBGraspedMarker, self).__init__(name=name, pose=pose, mesh=mesh, controls=controls)
 
         gripper_marker = Marker()
-        gripper_marker.type = Marker.MESH_RESOURCE
-        gripper_marker.mesh_resource = rospy.get_param(ns + "gripper_mesh_resource",
-                   'package://robotiq_3f_gripper_visualization/meshes/robotiq-3f-gripper/visual/GRIPPER_CLOSED.stl')
-        gripper_marker.scale = self._mesh_marker.scale
+        # gripper_marker.type = Marker.MESH_RESOURCE
+        # gripper_marker.mesh_resource = rospy.get_param(ns + "gripper_mesh_resource",
+        #            'package://robotiq_3f_gripper_visualization/meshes/robotiq-3f-gripper/visual/GRIPPER_CLOSED.stl')
+        gripper_marker.type = Marker.ARROW
+        gripper_marker.scale.x = 0.1
+        gripper_marker.scale.y = 0.01
+        gripper_marker.scale.z = 0.05
         if gripper_pose is None:
             gripper_marker.pose = self._mesh_marker.pose
             rospy.logwarn("SSBGraspedMarker.__init__() No gripper_pose given setting it to the equipment pose - "
@@ -340,13 +343,14 @@ class SSBGraspedMarker(SSBMarker):
         gripper_marker.color.g = 1.0
         gripper_marker.color.b = 0.0
         gripper_marker.color.a = 1.0
+        rospy.logdebug("SSBGraspedMarker.__init__() gripper_maker.pose %s" % gripper_marker.pose)
 
         # Create an empty control
         gripper_control = InteractiveMarkerControl()
         gripper_control.always_visible = True
         # gripper_control.name = self.name + "_gripper"
         # gripper_control.interaction_mode = InteractiveMarkerControl.NONE
-        # gripper_control.orientation_mode = InteractiveMarkerControl.FIXED
+        gripper_control.orientation_mode = InteractiveMarkerControl.INHERIT
         gripper_control.markers.append(gripper_marker)
 
         self.controls.append(gripper_control)
@@ -370,7 +374,7 @@ class SSBGraspedMarker(SSBMarker):
             rospy.sleep(2.0)
         rospy.loginfo(se.name)
         return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
-                   gripper_pose=se.get_grasp_pose(object_pose_stamped=marker_pose,tf_listener=tf_listener,
+                   gripper_pose=se.get_grasp_pose(object_pose_stamped=marker_pose, tf_listener=tf_listener,
                                                   save_relation=save_relation, use_relation=use_relation),
                    ns="~", controls="")
 

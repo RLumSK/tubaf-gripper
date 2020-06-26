@@ -49,10 +49,12 @@ if __name__ == "__main__":
         gripper_pose_will = se.get_grasp_pose(tf_listener=tf_listener, object_pose_stamped=se.place_ps,
                                               save_relation=False, use_relation=True)
         # se.calculate_grasp_offset(attached_frame="gripper_robotiq_palm", tf_listener=tf_listener)  # attached_frame="gripper_robotiq_palm_planning"
-        v_marker = SSBGraspedMarker.from_SmartEquipment(se, tf_listener=tf_listener,
+        v_marker = SSBGraspedMarker.from_SmartEquipment(se, marker_pose=se.place_ps, tf_listener=tf_listener,
                                                         save_relation=False, use_relation=True)
         mvit.clear_octomap_on_marker(v_marker)
         lst_marker.append(v_marker)
+        lst_marker.append(SSBGraspedMarker.from_SmartEquipment(se, marker_pose=se.ps, tf_listener=tf_listener,
+                                                        save_relation=False, use_relation=True))
     while not rospy.is_shutdown():
         for marker in lst_marker:  # type: SSBMarker
             marker.enable_marker()
