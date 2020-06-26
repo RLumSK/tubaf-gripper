@@ -156,7 +156,7 @@ class SmartEquipment:
                 ps_base_to_gripper = tf_listener.transformPose(target_frame=self.ps.header.frame_id,
                                                                ps=bare_gripper_pose)
             except Exception as ex:
-                rospy.logwarn("SmartEquipment.get_grasp_pose(): %s", ex)
+                rospy.logwarn("SmartEquipment.calculate_transformations(): %s", ex)
 
         # Transform it into affine transformation
         base_Tt_gripper = tft.translation_matrix([ps_base_to_gripper.pose.position.x,
@@ -180,6 +180,7 @@ class SmartEquipment:
         # base_T_ssb * ssb_T_gripper = base_T_gripper -> ssb_T_greifer = base_T_ssb^-1 * base_T_gripper
 
         ssb_T_gripper = np.dot(np.linalg.inv(base_T_ssb), base_T_gripper)
+        rospy.logwarn("SmartEquipment.calculate_transformations(): ssb_T_gripper=?\n%s" % ssb_T_gripper)
         return [base_T_ssb, ssb_T_gripper, base_T_gripper]
 
     def get_grasp_pose(self, object_pose_stamped=None, tf_listener=None, gripper_frame="gripper_robotiq_palm_planning",
@@ -227,7 +228,7 @@ class SmartEquipment:
             tft.translation_from_matrix(base_T_gripper_new)
         ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = \
             tft.quaternion_from_matrix(base_T_gripper_new)
-        # rospy.logdebug("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", ps)
+        rospy.logwarn("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", ps)
         return ps
 
 

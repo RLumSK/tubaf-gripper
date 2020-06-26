@@ -43,6 +43,7 @@ from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
 from tubaf_tools import rotate_pose, array_from_xyzrpy, array_to_pose, pose_to_array
 import tbf_gripper_rviz.ssb_marker as marker
+from tf import TransformListener
 
 
 def continue_by_topic(topic=None):
@@ -62,7 +63,7 @@ def continue_by_topic(topic=None):
     return cache.getLast().data
 
 
-def sense():
+def sense(tf_listener=None):
     """
     Sense for a suitable pose in a set of clusters in a plane
     :return: determined pose
@@ -110,7 +111,15 @@ def sense():
         except rospy.ServiceException as e:
             rospy.logerr("[main] Service %s call failed\n%s" % (service_name, e.message))
             ps = None
-    return ps
+
+    # Adjust z-coordinate to fit to ground
+    if tf_listener is None:
+        tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
+    bf = "base_footprint"
+    tf_listener.waitForTransform(bf, ps.header.frame_id, rospy.Time(0), rospy.Duration.from_sec(15.0))
+    ret_ps = tf_listener.transformPose(bf, ps)
+    ret_ps.pose.position.z = 0
+    return ret_ps
 
 
 def adjust_z_rotation(ps_object):
@@ -196,8 +205,8 @@ def optimize_ssb_z_rotation(oTs, sTg):
 
     rospy.logdebug("[optimize_ssb_z_rotation()] B \n%s\ndet(B)=%s\tgamma=%s" % (B, np.linalg.det(B), Rotation.from_dcm(B).as_euler('xyz')[2]))
     rospy.logdebug("[optimize_ssb_z_rotation()] Rz \n%s\ndet(Rz)=%s\tgamma=%s" % (Rz, np.linalg.det(Rz), Rotation.from_dcm(Rz).as_euler('xyz')[2]))
-    # oTs[:3, :3] = np.matmul(Rz, np.matmul(Rx, Ry))
-    oTs[:3, :3] = np.matmul(B, np.matmul(Rx, Ry))
+    oTs[:3, :3] = np.matmul(Rz, np.matmul(Rx, Ry))
+    # oTs[:3, :3] = np.matmul(B, np.matmul(Rx, Ry))
     rospy.logdebug("[optimize_ssb_z_rotation()] new oTs\n%s" % oTs)
     return oTs
 
@@ -491,18 +500,23 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.perform([3])
+        # self.perform([1, 2, 3, 4, 5, 6, 7, 8, 9])
         # self.perform([-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
         # self.perform([9])
 
 
-def marker_at_ps(ps_marker):
+def marker_at_ps(ps_marker, gripper_pose=None):
     """
     visualize a interactive marker at the given ps
     :param ps_marker:
     :return:
     """
-    int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="r")
+    if gripper_pose is None:
+        int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="r")
+    else:
+        int_marker = marker.SSBGraspedMarker(name="debug_grasped_marker", pose=ps_marker, gripper_pose=gripper_pose,
+                                             controls="")
     int_marker.enable_marker()
 
 
