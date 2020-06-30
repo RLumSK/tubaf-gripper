@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding=utf-8
 # Software License Agreement (MIT License)
 #
 # Copyright (c) 2018, TU Bergakademie Freiberg
@@ -199,6 +200,10 @@ def optimize_ssb_z_rotation(oTs, sTg):
 
     # 2nd extract gamma from B and calculate Rz
     b_alpha, b_beta, b_gamma = Rotation.from_dcm(B).as_euler('xyz')
+    if b_gamma > 0:
+        b_gamma -= np.pi
+    else:
+        b_gamma += np.pi
     Rz = np.asarray([[np.cos(b_gamma), np.sin(b_gamma), 0],
                      [-np.sin(b_gamma), np.cos(b_gamma), 0],
                      [0, 0, 1]])
@@ -210,6 +215,146 @@ def optimize_ssb_z_rotation(oTs, sTg):
     oTs[:3, :3] = np.matmul(Rz, np.matmul(Rx, Ry))
     # oTs[:3, :3] = np.matmul(B, np.matmul(Rx, Ry))
     rospy.logdebug("[optimize_ssb_z_rotation()] new oTs\n%s" % oTs)
+    return oTs
+
+
+def optimize_ssb_z_rotation2(oTs, sTg):
+    """
+    Calculate the missing z-Rotation of transformation T from O->S, given the transformation and S->G
+    O ... base coordinate frame, eg. base_link
+    S ... SSB coordinate frame
+    G ... gripper coordinate frame
+    The rotation among the z-axis for oTs is variable.
+    Therefore we want to minimize otg, this yields to:
+    ots = -oRs*stg
+    t ... translation
+    R ... rotation matrix
+    :param oTs: transformation from O->S as affine transformation
+    :type oTs: numpy.ndarray (4x4)
+    :param sTg: transformation from S->G as affine transformation
+    :type sTg: numpy.ndarray (4x4)
+    :return: transformation from O->S
+    :rtype: numpy.ndarray (4x4)
+    """
+    # Setup variables
+    from scipy.spatial.transform import Rotation
+    R = Rotation.from_dcm(oTs[:3, :3])
+    alpha, beta, gamma = R.as_euler('xyz')
+    sa = np.sin(alpha)
+    ca = np.cos(alpha)
+    cb = np.cos(beta)
+
+    a_s = -sa * (1 + cb)
+    a_c = ca * (1 - cb)
+
+    gamma = np.arccos((1 - cb) / np.sqrt(a_s ** 2 + a_c ** 2)) - np.arctan(-a_s / a_c)
+    rospy.logdebug("[optimize_ssb_z_rotation()] gamma = %s°" % np.rad2deg(gamma))
+    n_wRs = Rotation.from_euler('XYZ', [alpha, beta, gamma], degrees=False)
+    oTs[:3, :3] = n_wRs.as_dcm()
+    return oTs
+
+
+def optimize_ssb_z_rotation3(oTs, sTg):
+    """
+    Calculate the missing z-Rotation of transformation T from O->S, given the transformation and S->G
+    O ... base coordinate frame, eg. base_link
+    S ... SSB coordinate frame
+    G ... gripper coordinate frame
+    The rotation among the z-axis for oTs is variable.
+    Therefore we want to minimize otg, this yields to:
+    ots = -oRs*stg
+    t ... translation
+    R ... rotation matrix
+    :param oTs: transformation from O->S as affine transformation
+    :type oTs: numpy.ndarray (4x4)
+    :param sTg: transformation from S->G as affine transformation
+    :type sTg: numpy.ndarray (4x4)
+    :return: transformation from O->S
+    :rtype: numpy.ndarray (4x4)
+    """
+    # Setup variables
+    from scipy.spatial.transform import Rotation
+    R = Rotation.from_dcm(oTs[:3, :3])
+    alpha, beta, gamma = R.as_euler('xyz')
+
+    # Newton Verfahren
+    # stg_x * sin(gamma) + stg_y * cos(gamma) = 0, gesucht gamma
+    def f_df_ddf(a, b, g, sph, aps):
+        assert (len(sph) == 3)
+        assert (len(aps) == 3)
+        sa = np.sin(a)
+        ca = np.cos(a)
+        sb = np.sin(b)
+        cb = np.cos(b)
+        sg = np.sin(g)
+        cg = np.cos(g)
+
+        px = sph[0]
+        py = sph[1]
+        pz = sph[2]
+
+        qx = aps[0]
+        qy = aps[1]
+        qz = aps[2]
+
+        r00 = ca * cg - sa * cb * sg
+        r01 = -ca * sg - sa * cb * cg
+        r02 = sa * sb
+        r10 = sa * cg + ca * cb * sg
+        r11 = -sa * sg + ca * cb * cg
+        r12 = -ca * sb
+        r20 = sb * sg
+        r21 = sb * cg
+        r22 = cb
+
+        dr00 = -ca * sg - sa * cb * cg
+        dr01 = -ca * cg + sa * cb * sg
+        dr10 = -sa * sg + ca * cb * cg
+        dr11 = -sa * cg - ca * cb * sg
+        dr20 = sb * cg
+        dr21 = -sb * sg
+
+        ddr00 = -ca * cg - sa * cb * sg
+        ddr01 = ca * sg + sa * cb * cg
+        ddr10 = -sa * cg - ca * cb * sg
+        ddr11 = sa * sg - ca * cb * cg
+        ddr20 = -sb * sg
+        ddr21 = -sb * cg
+
+        x = r00 * px + r01 * py + r02 * pz + qx
+        dx = dr00 * px + dr01 * py
+        ddx = ddr00 * px + ddr01 * py
+
+        y = r10 * px + r11 * py + r12 * pz + qy
+        dy = dr10 * px + dr11 * py
+        ddy = ddr10 * px + ddr11 * py
+
+        z = r20 * px + r21 * py + r22 * pz + qz
+        dz = dr20 * px + dr21 * py
+        ddz = ddr20 * px + ddr21 * py
+
+        f = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+        df = (x * dx + y * dy + z * dz) / f
+        ddf = ((dx ** 2 + x * ddx + dy ** 2 + y * ddy + dz ** 2 + z * ddz) - df ** 2) / (f)
+
+        return [f, df, ddf]
+
+    def _newton(a, b, g, sph, aps, e):
+        x = g
+        lx = 2 * (x + e)
+        ddf = -1
+        while np.abs(x - lx) > e:
+            [f, df, ddf] = f_df_ddf(a, b, x, sph, aps)
+            lx = x
+            x = x - (df / ddf)
+        if ddf <= 0:
+            return _newton(a, b, g+np.pi*0.3, sph, aps, e)
+        return x % (2 * np.pi)
+
+    gamma = _newton(alpha, beta, gamma, sTg[:3, 3], oTs[:3, 3], 1e-7)
+    rospy.logdebug("optimize_ssb_z_rotation3() gamma = %s°" % np.rad2deg(gamma))
+    n_wRs = Rotation.from_euler('XYZ', [alpha, beta, gamma], degrees=False)
+    oTs[:3, :3] = n_wRs.as_dcm()
     return oTs
 
 
@@ -327,7 +472,8 @@ class EquipmentTask(GraspTask):
             # Assume that the base_link doesn't move, so we can save the pose relative to it
             self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=target_on_floor.header.frame_id,
                                               time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
-            self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=arm_frame, ps=target_on_floor)
+            self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=arm_frame,
+                                                                              ps=target_on_floor)
             rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % self.selected_equipment.place_ps)
 
         # 2. Pick Up Equipment
@@ -351,8 +497,8 @@ class EquipmentTask(GraspTask):
         # 3. Update Planning Scene - Attach collision object to end effector
         if 3 in stages:
             rospy.loginfo("STAGE 3: Update scene, Attach object")
-            rospy.loginfo("EquipmentTask.perform(): Attach equipment to end effector")
-            #Transform all coordinates relevant in <arm_frame>
+            rospy.loginfo("EquipmentTask.perform(3): Attach equipment to end effector")
+            # Transform all coordinates relevant in <arm_frame>
             self.tf_listener.waitForTransform(arm_frame, self.selected_equipment.ps.header.frame_id,
                                               rospy.Time(0),
                                               rospy.Duration(4))
@@ -362,21 +508,25 @@ class EquipmentTask(GraspTask):
                                               rospy.Time(0),
                                               rospy.Duration(4))
             self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=arm_frame,
-                                                                        ps=self.selected_equipment.place_ps)
+                                                                              ps=self.selected_equipment.place_ps)
 
             # Adjust SSB rotation
             aTs = pose_to_array(self.selected_equipment.place_ps.pose)  # in Arm coordinates, ie relative to <arm_frame>
             sTg = pose_to_array(self.selected_equipment.get_grasp_pose(object_pose_stamped=self.selected_equipment.ps,
                                                                        tf_listener=self.tf_listener, save_relation=True,
                                                                        use_relation=False).pose)
-            n_aTs = optimize_ssb_z_rotation(oTs=aTs, sTg=sTg)
+            n_aTs = optimize_ssb_z_rotation3(oTs=aTs, sTg=sTg)
+            # rospy.logdebug("EquipmentTask.perform(3): Calculating gripper Rotation")
+            # rospy.logdebug("EquipmentTask.perform(3): aTs\n%s" % aTs)
+            # rospy.logdebug("EquipmentTask.perform(3): sTg\n%s" % sTg)
+            # rospy.logdebug("EquipmentTask.perform(3): n_aTs\n%s" % n_aTs)
             self.selected_equipment.place_ps.header.frame_id = arm_frame
             self.selected_equipment.place_ps.pose = array_to_pose(n_aTs)
             self.moveit.attach_equipment(self.selected_equipment)
 
             # self.selected_equipment.place_ps was set earlier
             gp = copy.deepcopy(self.selected_equipment.place_ps)
-            gp.pose = array_to_pose(np.matmul(n_aTs, sTg))
+            gp.pose = array_to_pose(np.matmul(pose_to_array(self.selected_equipment.place_ps.pose), sTg))
             marker_at_ps(self.selected_equipment.place_ps, gripper_pose=gp)
             query_pose = gp
             # Now we can already check if their will be a solution for our IK
@@ -421,13 +571,14 @@ class EquipmentTask(GraspTask):
                 rospy.loginfo("STAGE 5: Calculate Target Pose")
                 rospy.loginfo("EquipmentTask.perform([5]): Set equipment ...")
                 # Formulate Planning Problem
-                self.moveit.clear_octomap_on_marker(marker_at_ps(query_pose))
-                try:
-                    target_pose = self.moveit.attached_equipment.get_grasp_pose(query_pose, self.tf_listener,
-                                                                                save_relation=False, use_relation=True)
-                except AttributeError:
-                    target_pose = query_pose
-                    rospy.logwarn("EquipmentTask.perform([5]): No attached equipment and therefore no gripper pose")
+                self.moveit.clear_octomap_on_marker(marker_at_ps(self.selected_equipment.place_ps))
+                target_pose = query_pose
+                # try:
+                #     target_pose = self.moveit.attached_equipment.get_grasp_pose(query_pose, self.tf_listener,
+                #                                                                 save_relation=False, use_relation=True)
+                # except AttributeError:
+                #     target_pose = query_pose
+                #     rospy.logwarn("EquipmentTask.perform([5]): No attached equipment and therefore no gripper pose")
                 # rospy.logdebug("EquipmentTask.perform([5]): Target Pose from Marker is:\n%s", target_pose)
                 if target_pose is None:
                     rospy.loginfo("EquipmentTask.perform([5]): No Target Pose")
