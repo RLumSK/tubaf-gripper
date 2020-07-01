@@ -3,9 +3,9 @@ moveit:
   eef_link: "gripper_robotiq_palm_planning"
   planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
   planner:
-    - SBLkConfigDefault
+#    - SBLkConfigDefault
     - ESTkConfigDefault
-    - LBKPIECEkConfigDefault
+#    - LBKPIECEkConfigDefault
     - BKPIECEkConfigDefault
     - KPIECEkConfigDefault
     - RRTkConfigDefault
