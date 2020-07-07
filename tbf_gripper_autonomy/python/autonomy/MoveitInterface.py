@@ -322,6 +322,7 @@ class MoveitInterface(object):
         """
         plan = False
         success = False
+        iplanner = 0
         try:
             while not plan:
                 plan = self.plan(target, info)
@@ -329,10 +330,21 @@ class MoveitInterface(object):
                     success = self.execute(plan)
                 if not endless or success:
                     return success
+                if not success and endless:
+                    new_planner = self.lst_planner[iplanner]
+                    rospy.loginfo("[MoveitInterface.move_to_target] Changing planner to Nr. %s %s" % (iplanner,
+                                                                                                      new_planner))
+                    iplanner += 1
+                    if iplanner >= len(self.lst_planner):
+                        iplanner = 0
+                    self.group.set_planner_id(new_planner)
+
                 rospy.loginfo("[MoveitInterface.move_to_target] Trying again ...")
                 plan = success
         except Exception as ex:
             rospy.logerr("[MoveitInterface.move_to_target] Exception %s", ex)
+        finally:
+            self.group.set_planner_id(self.parameter["planner_id"])
         return False
 
     def add_equipment(self, equipment, pose=None):
@@ -453,12 +465,29 @@ class MoveitInterface(object):
         rospy.logdebug("MoveitInterface._clear_octomap_on_marker(): MeshPath %s", p)
         ps = PoseStamped(header=equipment.header, pose=equipment.pose)
         ps.header.stamp = rospy.Time.now()
-        self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=equipment.getMeshScale())
-        # rospy.sleep(2.0)
+        self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=tuple(1.1*x for x in equipment.getMeshScale()))
+        rospy.sleep(rospy.Duration(2.0))
         # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
         self._remove_world_object(name="tmp_marker")
         return
+
+    def clear_octomap_via_box_marker(self):
+        """
+        Clear the octomap above the bos station using a marker
+        :return: None
+        """
+        rospy.logdebug("MoveitInterface.clear_octomap_via_box_marker():")
+        ps = PoseStamped()
+        ps.header.frame_id = "controlbox_structure_top_front_link"
+        ps.header.stamp = rospy.Time.now()
+        size = (0.4, 0.6, 0.4)
+        ps.pose.position.x = size[0]/2.0
+        ps.pose.position.y = size[1]/2.0
+        ps.pose.position.z = size[2]/2.0
+        self.scene.add_box(name="rubber", pose=ps, size=size)
+        rospy.sleep(2.0)
+        self.scene.remove_world_object(name="rubber")
 
     def get_object_pose(self, name):
         """

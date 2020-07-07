@@ -31,9 +31,10 @@
 
 import rospy
 from tf import TransformListener
-from tbf_gripper_rviz.ssb_marker import SSBMarker
+from tbf_gripper_rviz.ssb_marker import SSBMarker, SSBGraspedMarker
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
 from autonomy.MoveitInterface import MoveitInterface
+from geometry_msgs.msg import PoseStamped, Pose
 
 
 if __name__ == "__main__":
@@ -43,15 +44,29 @@ if __name__ == "__main__":
     lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
     lst_marker = []  # type: list
     for se in lst_equipment:  # type: SmartEquipment
-        se.calculate_grasp_offset(attached_frame="gripper_robotiq_palm_planning", tf_listener=tf_listener)
-        rospy.loginfo(se.grasp_offset)
-        v_marker = SSBMarker.from_SmartEquipment(se, tf_listener)
+        mvit.add_equipment(se)
+        gripper_pose_is = se.get_grasp_pose(tf_listener=tf_listener, save_relation=True, use_relation=False)
+        gripper_pose_will = se.get_grasp_pose(tf_listener=tf_listener, object_pose_stamped=se.place_ps,
+                                              save_relation=False, use_relation=True)
+        # se.calculate_grasp_offset(attached_frame="gripper_robotiq_palm", tf_listener=tf_listener)  # attached_frame="gripper_robotiq_palm_planning"
+        v_marker = SSBGraspedMarker.from_SmartEquipment(se, marker_pose=se.place_ps, tf_listener=tf_listener,
+                                                        save_relation=False, use_relation=True)
         mvit.clear_octomap_on_marker(v_marker)
         lst_marker.append(v_marker)
-    while True:
+        lst_marker.append(SSBGraspedMarker.from_SmartEquipment(se, marker_pose=se.ps, tf_listener=tf_listener,
+                                                        save_relation=False, use_relation=True))
+    while not rospy.is_shutdown():
         for marker in lst_marker:  # type: SSBMarker
             marker.enable_marker()
+            rospy.Publisher(se.name + "/v_marker", Pose).publish(v_marker.pose)
+            rospy.Publisher(se.name + "/gripper_pose_is", PoseStamped).publish(gripper_pose_is)
+            rospy.Publisher(se.name + "/gripper_pose_will", PoseStamped).publish(gripper_pose_will)
+            rospy.Publisher(se.name + "/place_ps", PoseStamped).publish(se.place_ps)
+            rospy.Publisher(se.name + "/ps", PoseStamped).publish(se.ps)
+            # rospy.Publisher(se.name + "/go_ps", PoseStamped).publish(se.go_ps)
             rospy.sleep(5.0)
-            marker.disable_marker()
+            # marker.disable_marker()
+        # mvit.plan(gripper_pose_will, info="gripper_pose_will")
+        # mvit.plan(se.place_ps, info="se.place_ps")
 
     rospy.spin()

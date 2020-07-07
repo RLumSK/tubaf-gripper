@@ -99,7 +99,7 @@ class FloorFilter(object):
                 ps_msg.pose = floor_plane.pose
                 self._pose_publisher.publish(ps_msg)
             else:
-                rospy.logwarn("[cluster_analysis::FloorFilter.perform] No floor plane found")
+                rospy.logdebug("[cluster_analysis::FloorFilter.perform] No floor plane found")
 
     def transform(self, frame_from, frame_to, pose):
         """
@@ -142,7 +142,7 @@ class FloorFilter(object):
         :rtype: object_recognition_msgs.msgs.Table
         """
         if tables is None:
-            rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] tables is None")
+            rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor] tables is None")
             return None
         ret_plane = None  # type: object_recognition_msgs.msgs.Table
         lst_ret_planes = []
@@ -153,27 +153,27 @@ class FloorFilter(object):
             pose = self.transform(plane.header.frame_id, self.floor_frame, plane.pose)
             if pose is None:
                 continue
-            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] plane-frame_id = %s, z=%g" % (plane.header.frame_id, plane.pose.position.z))
-            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] trans-frame_id = %s, z=%g" % (pose.header.frame_id, pose.pose.position.z))
-            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] floor-frame_id = " + self.floor_frame)
+            # rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor] plane-frame_id = %s, z=%g" % (plane.header.frame_id, plane.pose.position.z))
+            # rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor] trans-frame_id = %s, z=%g" % (pose.header.frame_id, pose.pose.position.z))
+            # rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor] floor-frame_id = " + self.floor_frame)
             pose = pose.pose
-            # rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor]  its quaternion = (" +
+            # rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor]  its quaternion = (" +
             #                str(pose.orientation.x) + "," + str(pose.orientation.y) + "," +
             #                str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
             # TODO: Check criteria
             z = pose.position.z
             if z < 0 and abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
                 v = pose.position.z + self.floor_frame_offset
-                rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] %g = %g + %g" % (
+                rospy.logdebug("[cluster_analysis::FloorFilter.identify_floor] %g = %g + %g" % (
                         v, pose.position.z, self.floor_frame_offset
                 ))
                 if min_z > v:
                     ret_plane = plane
                     min_z = v
-                    rospy.logdebug("[cluster_analysis::ObjectFilter.identify_floor] min_z = " + str(min_z))
+                    rospy.logdebug("[cluster_analysis::FloorFilter.identify_floor] min_z = " + str(min_z))
 
         if ret_plane is None:
-            rospy.loginfo("[cluster_analysis::ObjectFilter.identify_floor] ret_plane is None")
+            rospy.logdebug("[cluster_analysis::FloorFilter.identify_floor] ret_plane is None")
         else:
             ret_plane.header = tables.header
         return ret_plane

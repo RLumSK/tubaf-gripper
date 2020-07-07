@@ -1,0 +1,14 @@
+<launch>
+    <node name="test_release" pkg="tbf_gripper_autonomy" type="test_release.py" respawn="false" output="screen">
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
+    </node>
+
+    <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_plan_marker" output="screen">
+        <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_move_planning.yaml"/>
+        <param name="service_ns" value="test_release/confirm_plan"/>
+    </node>
+</launch>

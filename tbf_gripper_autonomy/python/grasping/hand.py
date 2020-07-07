@@ -31,7 +31,7 @@
 import rospy
 import actionlib
 import control_msgs.msg
-
+import std_srvs.srv
 
 """@package grasping
 This package gives is made to handle a grasping task. Assuming the object of interest is within vision of a defined
@@ -46,14 +46,16 @@ class HandController(object):
     The HandController manages the communication with a robotiq 3 finger gripper (s-model) via an action server on a
     basic level. The complexity of the hand interface itself is shadowed in this server, so that this client can provide
     basic, straight forward functions and commands.
-    Further functionality may be added in the future if needed.
+    For further functionality see AdvancedHandController.
     """
-    def __init__(self):
+
+    def __init__(self, server_name=None):
         """
         Default constructor that loads parameters from the parameter server and waits for the action server to start.
         It starts with the hand "rested", meaning closed in basic mode.
         """
-        server_name = rospy.get_param("gripper_action_server_name", "/hand/Robotiq3FGripperServer")
+        if server_name is None:
+            server_name = rospy.get_param("gripper_action_server_name", "/hand/Robotiq3FGripperServer")
         rospy.loginfo("hand.py@HandController(): server_name = %s", server_name)
         self.ac = actionlib.SimpleActionClient(server_name, control_msgs.msg.GripperCommandAction)
         rospy.loginfo("HandController() waiting for action server: %s  to start", server_name)
@@ -86,7 +88,7 @@ class HandController(object):
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
         self.action_pending = False
-        rospy.sleep(3.0)
+        rospy.sleep(rospy.Duration(3.0))
 
     def openHand(self):
         """
@@ -103,7 +105,7 @@ class HandController(object):
         # float64 position
         # float64 max_effort
 
-        goal.command.position = 0.16
+        goal.command.position = 0.16  # 0.16
         goal.command.max_effort = 60
 
         self.action_pending = True
@@ -112,7 +114,7 @@ class HandController(object):
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
         self.action_pending = False
-        rospy.sleep(1.0)
+        rospy.sleep(rospy.Duration(3.0))
 
     def restHand(self):
         """
@@ -151,10 +153,138 @@ class HandController(object):
         pass
 
 
+class AdvancedHandController(object):
+    """
+    The AdvancedHandController adds different modes via an action server. The complexity of the hand interface itself
+    is shadowed in this server, so that this client can provide straight forward functions and commands.
+    """
+
+    def __init__(self, server_name=None):
+        """
+        Default constructor
+        :param server_name: Basis name of the server which will be appended by '_'mode, ie _basic
+        :type server_name: str
+        """
+        if server_name is None:
+            server_name = rospy.get_param("gripper_action_server_name", "/hand/Robotiq3FGripperServer")
+        self.modes = ["basic", "wide", "pinch", "scissor"]
+        self.dct_controller = {}
+        for s in self.modes:
+            self.dct_controller[s] = HandController(server_name=server_name + "_" + s)
+        self.action_pending = False
+
+    def openHand(self, mode="basic"):
+        """
+        open the hand in the given mode
+        :param mode: basic, wide, pinch, scissor
+        :type mode: str
+        :return: -
+        """
+        if mode not in self.dct_controller.keys():
+            rospy.logwarn("AdvancedHandController.openHand(): mode %s not find candidates are: %s" % (
+            mode, self.dct_controller.keys()))
+            return
+        if self.action_pending:
+            rospy.logwarn("AdvancedHandController.openHand(): Action pending")
+            return
+        self.action_pending = True
+        self.dct_controller[mode].openHand()
+        self.action_pending = False
+
+    def closeHand(self, mode="basic"):
+        """
+        close the hand in the given mode
+        :param mode: basic, wide, pinch, scissor
+        :type mode: str
+        :return: -
+        """
+        if mode not in self.dct_controller.keys():
+            rospy.logwarn("AdvancedHandController.closeHand(): mode %s not find candidates are: %s" % (
+            mode, self.dct_controller.keys()))
+            return
+        if self.action_pending:
+            rospy.logwarn("AdvancedHandController.closeHand(): Action pending")
+            return
+        self.action_pending = True
+        self.dct_controller[mode].closeHand()
+        self.action_pending = False
+
+    def restHand(self, mode="basic"):
+        """
+        rest the hand in the given mode
+        :param mode: basic, wide, pinch, scissor
+        :type mode: str
+        :return: -
+        """
+        if mode not in self.dct_controller.keys():
+            rospy.logwarn("AdvancedHandController.restHand(): mode %s not find candidates are: %s" % (
+            mode, self.dct_controller.keys()))
+            return
+        if self.action_pending:
+            rospy.logwarn("AdvancedHandController.restHand(): Action pending")
+            return
+        self.action_pending = True
+        self.dct_controller[mode].restHand()
+        self.action_pending = False
+
+
+class ObservativeHandController(object):
+    """
+    Adds the toggeling of an image service to the hand.
+    If the hand gets closed the image stream should start.
+    If the hand gets opened the image stream should stop.
+    see also: rospkg tubaf_tools toggle_topic_by_service.py
+    """
+
+    def __init__(self, image_service=None, hand_controller=None):
+        """
+        Default constructor
+        :param image_service: toggle this service to start/stop image stream
+        :param hand_controller: (HandController, AdvancedHandController, DummyHandController)
+        """
+        if image_service is None:
+            image_service = rospy.get_param("~toggle_depth_image_service_name", "")
+        if hand_controller is None:
+            self.hand = AdvancedHandController()
+        elif isinstance(hand_controller, (HandController, AdvancedHandController, DummyHandController)):
+            self.hand = hand_controller
+        else:
+            rospy.logerr("[ObservativeHandController.__init__()] hand_controller of unsupported type %s" % type(hand_controller))
+
+        rospy.wait_for_service(image_service)
+        self.service = rospy.ServiceProxy(image_service, std_srvs.srv.SetBool)
+
+    def _setImageService(self, flag=True):
+        """
+        Set the image toggler to the given value
+        :param flag: true = pass iamges
+        :return: success
+        """
+        try:
+            response = self.service(flag)
+            rospy.logdebug("[ObservativeHandController._setImageService(%s)] Service says: %s" % (flag, response))
+        except rospy.ServiceException as exc:
+            rospy.logwarn("[ObservativeHandController._setImageService(%s)] Service did not process request: " +
+                          str(exc))
+
+    def openHand(self, mode="basic"):
+        self._setImageService(False)
+        if "scissor" in mode:
+            return
+        self.hand.openHand(mode)
+
+    def closeHand(self, mode="basic"):
+        self.hand.closeHand(mode)
+        if "scissor" in mode:
+            return
+        self._setImageService(True)
+
+
 class DummyHandController(object):
     """
     This Dummy implementation is empty, no hand is present.
     """
+
     def __init__(self):
         pass
 
@@ -165,7 +295,7 @@ class DummyHandController(object):
         pass
 
     def restHand(self):
-       pass
+        pass
 
     # action server callbacks
 

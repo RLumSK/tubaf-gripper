@@ -49,18 +49,20 @@ from object_recognition_msgs.msg import TableArray, Table
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import PoseStamped, Point, Pose
 
-import matplotlib
 
-# matplotlib.use('TKAgg')
-from pylab import *
-import matplotlib.pyplot as plt
-from matplotlib import ticker
-
-if sys.version_info.major < 3:
-    # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
-    import matplotlib2tikz as mpl2tkz
-else:
-    import tikzplotlib as mpl2tkz
+# import matplotlib
+#
+# # matplotlib.use('TKAgg')
+# from pylab import *
+# import matplotlib.pyplot as plt
+# from matplotlib import ticker
+#
+# if sys.version_info.major < 3:
+#     # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
+#     import matplotlib2tikz as mpl2tkz
+# else:
+#     import tikzplotlib as mpl2tkz
+#
 
 
 def pose_to_array(pose_msg, dst=None):
@@ -173,7 +175,7 @@ class PoseGeneratorRosInterface:
         # see: http://negativeprobability.blogspot.com/2011/11/affine-transformations-and-their.html
         # and: https://math.stackexchange.com/questions/152462/inverse-of-transformation-matrix
         Pi = np.linalg.inv(M[:3, :3])
-        v = pnt + np.matmul(M[:3, 3], np.asarray([1, 1, 0])) # ???M[:3, 3] +
+        v = pnt + np.matmul(M[:3, 3], np.asarray([1, 1, 0]))  # ???M[:3, 3] +
         # T[2] = 0 # set z=0
         Mi = np.eye(4)
         Mi[:3, :3] = Pi
@@ -541,7 +543,7 @@ class PoseGeneratorRosInterface:
                 b = a2 * c1 - a1 * c2
                 c = a1 * b2 - b1 * a2
                 d = (- a * p[0] - b * p[1] - c * p[2])
-                z = -1*(a*xy[0]+b*xy[1]+d)/c
+                z = -1 * (a * xy[0] + b * xy[1] + d) / c
                 return np.hstack([xy, z])
 
             self.result = calculate_Z(
@@ -777,6 +779,19 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         :return: data point axis
         :rtype: plt.axes.Axis
         """
+        import matplotlib
+
+        # matplotlib.use('TKAgg')
+        from pylab import *
+        import matplotlib.pyplot as plt
+        from matplotlib import ticker
+
+        if sys.version_info.major < 3:
+            # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
+            import matplotlib2tikz as mpl2tkz
+        else:
+            import tikzplotlib as mpl2tkz
+
         if ax is None:
             fig, ax = plt.subplots()
         else:
@@ -812,7 +827,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         return ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=100, color=c, label=n)
 
 
-class PcaPoseGenerator(PoseGeneratorRosView):
+class PcaPoseGenerator(PoseGeneratorRosInterface):
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
                  enable_ros=DF_ENABLE_ROS):
@@ -913,7 +928,7 @@ class PcaPoseGenerator(PoseGeneratorRosView):
         return np.asarray(p)
 
 
-class DelaunayPoseGenerator(PoseGeneratorRosView):
+class DelaunayPoseGenerator(PoseGeneratorRosInterface):
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
                  enable_ros=DF_ENABLE_ROS):
@@ -1000,7 +1015,7 @@ class DelaunayPoseGenerator(PoseGeneratorRosView):
                                             _delaunay.points[max_idx[2]]]))
 
 
-class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
+class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
     """
     Determine the Pose using KDE and discretization
     """
@@ -1073,39 +1088,39 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
 
         return np.asarray([z_x, z_y])
 
-    def plot(self, ax, hull=True, obstacles=True):
-        """
-        Plot the information of this PoseGenerator into an outside existing matplotlib figure
-        :param hull: plot the hull
-        :type hull: bool
-        :param obstacles: plot the obstacles
-        :type obstacles: bool
-        :param ax: axis handle
-        :type ax: plt.axes.Axis
-        :return: data point axis
-        :rtype: plt.axes.Axis
-        """
-        ret_ax = super(MinimalDensityEstimatePoseGenerator, self).plot(ax, hull, obstacles)
-        l = int(np.sqrt(len(self.hlp_f)))
-        xmin, xmax = min(self.hlp_positions[:, 0]), max(self.hlp_positions[:, 0])
-        ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
-        if xmin == xmax or ymin == ymax:
-            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] xmin: %s" % xmin)
-            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] xmax: %s" % xmax)
-            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] ymin: %s" % ymin)
-            rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] ymax: %s" % ymax)
-            return
-        xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
-        f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
-        cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1, locator=ticker.LogLocator())
-        plt.gcf().colorbar(cs)
-        cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2, zorder=2)
-        ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f')  # , zorder=3
+    # def plot(self, ax, hull=True, obstacles=True):
+    #     """
+    #     Plot the information of this PoseGenerator into an outside existing matplotlib figure
+    #     :param hull: plot the hull
+    #     :type hull: bool
+    #     :param obstacles: plot the obstacles
+    #     :type obstacles: bool
+    #     :param ax: axis handle
+    #     :type ax: plt.axes.Axis
+    #     :return: data point axis
+    #     :rtype: plt.axes.Axis
+    #     """
+    #     ret_ax = super(MinimalDensityEstimatePoseGenerator, self).plot(ax, hull, obstacles)
+    #     l = int(np.sqrt(len(self.hlp_f)))
+    #     xmin, xmax = min(self.hlp_positions[:, 0]), max(self.hlp_positions[:, 0])
+    #     ymin, ymax = min(self.hlp_positions[:, 1]), max(self.hlp_positions[:, 1])
+    #     if xmin == xmax or ymin == ymax:
+    #         rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] xmin: %s" % xmin)
+    #         rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] xmax: %s" % xmax)
+    #         rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] ymin: %s" % ymin)
+    #         rospy.logdebug("[MinimalDensityEstimatePoseGenerator.plot()] ymax: %s" % ymax)
+    #         return
+    #     xx, yy = np.mgrid[xmin:xmax:l * 1j, ymin:ymax:l * 1j]
+    #     f = np.reshape(self.hlp_f[:l ** 2].T, xx.shape)
+    #     cs = ax.contourf(xx, yy, f, cmap='Blues', alpha=0.5, zorder=1, locator=ticker.LogLocator())
+    #     plt.gcf().colorbar(cs)
+    #     cset = ax.contour(xx, yy, f, colors=PoseGeneratorRosView.get_color(self.get_name()), alpha=0.2, zorder=2)
+    #     ax.clabel(cset, inline=True, fontsize=10, fmt='%1.2f')  # , zorder=3
+    #
+    #     return ret_ax
 
-        return ret_ax
 
-
-class MonteCarloPoseGenerator(PoseGeneratorRosView):
+class MonteCarloPoseGenerator(PoseGeneratorRosInterface):
     """
     Discretion of the search area and run nn approach for hull and obstacles
     """
