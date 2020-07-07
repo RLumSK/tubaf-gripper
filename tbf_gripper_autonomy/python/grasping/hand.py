@@ -88,7 +88,7 @@ class HandController(object):
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
         self.action_pending = False
-        rospy.sleep(3.0)
+        rospy.sleep(rospy.Duration(3.0))
 
     def openHand(self):
         """
@@ -114,7 +114,7 @@ class HandController(object):
         self.ac.send_goal(goal)
         self.ac.wait_for_result()
         self.action_pending = False
-        rospy.sleep(1.0)
+        rospy.sleep(rospy.Duration(3.0))
 
     def restHand(self):
         """

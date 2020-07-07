@@ -1,6 +1,10 @@
 <launch>
     <include file="$(find tbf_gripper_perception)/launch/recognition.launch" />
 
+
+    <arg name="service_name"       default="locate_ssb_in_cloud"/>
+    <arg name="cloud_topic"        default="/gripper_d435/depth_registered/points"/>
+
     <node name="set_pose_generator" pkg="tbf_gripper_autonomy" type="run_set_pose_generators.py" respawn="true" output="screen">
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_generator.yaml"/>
@@ -12,10 +16,25 @@
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
+        <param name="service_name" value="$(arg service_name)"/>
+        <param name="cloud_topic" value="$(arg cloud_topic)"/>
     </node>
 
     <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_plan_marker" output="screen">
         <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_move_planning.yaml"/>
         <param name="service_ns" value="equipment_handler/confirm_plan"/>
+    </node>
+
+    <node pkg="object_detector" type="detector_as_service.py" name="detector_service" output="log">
+        <param name="config_path" value="$(find object_detector)/config/"/>
+        <param name="detection_model" value="resnet101_100_31790.pb"/>
+        <param name="depth_width" value="640" />
+        <param name="depth_height" value="80" />
+        <param name="visualize_image" value="False"/>
+        <param name="visualize_pointcloud" value="False"/>
+        <param name="test" value="False"/>
+        <param name="min_detection_score" value="0.5"/>
+        <param name="service_name" value="$(arg service_name)"/>
+        <param name="cloud_topic" value="$(arg cloud_topic)"/>
     </node>
 </launch>

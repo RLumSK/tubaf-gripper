@@ -46,6 +46,9 @@ from tubaf_tools import rotate_pose, array_from_xyzrpy, array_to_pose, pose_to_a
 import tbf_gripper_rviz.ssb_marker as marker
 from tf import TransformListener
 
+from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
+from std_msgs.msg import Float32
+
 
 def continue_by_topic(topic=None):
     """
@@ -166,25 +169,25 @@ def optimize_ssb_z_rotation(oTs, sTg):
         qy = aps[1]
         qz = aps[2]
 
-        x = (ca*cg-sa*cb*sg)*px+(-ca*sg-sa*cb*cg)*py+sa*sb*pz+qx
-        y = (sa*cg+ca*cb*sg)*px+(-sa*sg+ca*cb*cg)*py-ca*sb*pz+qy
-        z = sb*sg*px-sb*cg*py+cb*pz+qz
+        x = (ca * cg - sa * cb * sg) * px + (-ca * sg - sa * cb * cg) * py + sa * sb * pz + qx
+        y = (sa * cg + ca * cb * sg) * px + (-sa * sg + ca * cb * cg) * py - ca * sb * pz + qy
+        z = sb * sg * px - sb * cg * py + cb * pz + qz
 
-        dx = (-ca*sg-sa*cb*cg)*px+(-ca*cg+sa*cb*sg)*py
-        dy = (-sa*sg+ca*cb*cg)*px+(-sa*cg-ca*cb*sg)*py
-        dz = sb*cg*px+sb*sg*py
+        dx = (-ca * sg - sa * cb * cg) * px + (-ca * cg + sa * cb * sg) * py
+        dy = (-sa * sg + ca * cb * cg) * px + (-sa * cg - ca * cb * sg) * py
+        dz = sb * cg * px + sb * sg * py
 
-        ddx = (-ca*cg+sa*cb*sg)*px+(ca*sg-sa*cb*cg)*py
-        ddy = (-sa*cg-ca*cb*sg)*px+(sa*sg-ca*cb*cg)*py
-        ddz = -sb*sg*px+sb*cg*py
+        ddx = (-ca * cg + sa * cb * sg) * px + (ca * sg - sa * cb * cg) * py
+        ddy = (-sa * cg - ca * cb * sg) * px + (sa * sg - ca * cb * cg) * py
+        ddz = -sb * sg * px + sb * cg * py
 
-        v = x**2+y**2+z**2
-        dv = 2*(x*dx+y*dy+z*dz)
-        ddv = 2*(dx**2+x*ddx+dy**2+y*ddy+dz**2+z*ddz)
+        v = x ** 2 + y ** 2 + z ** 2
+        dv = 2 * (x * dx + y * dy + z * dz)
+        ddv = 2 * (dx ** 2 + x * ddx + dy ** 2 + y * ddy + dz ** 2 + z * ddz)
 
         f = np.sqrt(v)
-        df = dv/(2.*f)
-        ddf = ((ddv/2.)-df**2)/f
+        df = dv / (2. * f)
+        ddf = ((ddv / 2.) - df ** 2) / f
 
         return [f, df, ddf]
 
@@ -197,7 +200,7 @@ def optimize_ssb_z_rotation(oTs, sTg):
             lx = x
             x = x - (df / ddf)
         if ddf <= 0:
-            return _newton(a, b, g+np.pi*0.3, sph, aps, e)
+            return _newton(a, b, g + np.pi * 0.3, sph, aps, e)
         return x % (2 * np.pi)
 
     gamma = _newton(alpha, beta, gamma, sTg[:3, 3], oTs[:3, 3], 1e-7)
@@ -391,19 +394,20 @@ class EquipmentTask(GraspTask):
                 intermediate_pose = None
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
+            self.moveit.clear_octomap_on_marker(marker_at_ps(self.selected_equipment.place_ps))
             debug_pose_pub.publish(target_pose)
             self.moveit.move_to_target(target_pose, info="TARGET_POSE")
 
         if 5 in stages:
             rospy.loginfo("STAGE 8: Release/Hold SSB %s" % self.selected_equipment.name)
             if self.selected_equipment.hold_on_set != 0.0:
+                # TODO: Test this path
                 rospy.sleep(self.selected_equipment.hold_on_set)
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp")
             rospy.loginfo("EquipmentTask.perform([8]): Release Equipment")
             self.hand_controller.openHand()
-            rospy.sleep(2.0)
             self.moveit.detach_equipment()
 
         if 6 in stages:
@@ -413,24 +417,21 @@ class EquipmentTask(GraspTask):
                 # Now release the station in a manner that it stays on the floor
                 # moving eef
                 self.hand_controller.closeHand(mode="scissor")
-                rospy.sleep(2.0)
-                release_pose = copy.deepcopy(target_pose)
                 hand_frame = "gripper_robotiq_palm_planning"
                 self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, target_pose.header.stamp,
                                                   timeout=rospy.Duration(10.0))
                 release_pose = self.tf_listener.transformPose(hand_frame, target_pose)
-                release_pose.pose.position.x -= 0.1
+                release_pose.pose.position.x -= 0.15
                 from scipy.spatial.transform import Rotation as R
                 r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
                                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
-                r_relative = R.from_euler('z', -9, degrees=True)
+                r_relative = R.from_euler('z', -20, degrees=True)
                 r_soll = r_is * r_relative
                 q = r_soll.as_quat()
                 release_pose.pose.orientation.x = q[0]
                 release_pose.pose.orientation.y = q[1]
                 release_pose.pose.orientation.z = q[2]
                 release_pose.pose.orientation.w = q[3]
-                self.moveit.move_to_target(release_pose, "relative")
                 while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=True):
                     release_pose.pose.position.x += 0.01
                     r_soll = r_soll * r_relative
@@ -441,14 +442,13 @@ class EquipmentTask(GraspTask):
                     release_pose.pose.orientation.w = q[3]
                     rospy.loginfo("EquipmentTask.perform([9]): Release Pose not reached - Trying again")
                 self.hand_controller.closeHand()
-                if intermediate_pose is None:
-                    intermediate_pose = release_pose
-                while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE"):
+                while not self.moveit.move_to_target(intermediate_pose,
+                                                     info="INTERMED_POSE") and intermediate_pose is not None:
                     rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
-            if intermediate_pose is not None:
-                self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False)
+            # if intermediate_pose is not None:
+            #     self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False)
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
-            self.moveit.move_to_target(self.home_joint_values, info="HOME")
+            # self.moveit.move_to_target(self.home_joint_values, info="HOME")
             # self.moveit.remove_equipment(self.selected_equipment.name)
 
         rospy.loginfo("EquipmentTask.perform(): Finished")
@@ -459,15 +459,86 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        #self.perform([2, 3, 4, 5, 6])
+        # self.perform([2, 3, 4, 5, 6])
         self.perform([0, 1, 2, 3, 4, 5, 6])
+
+    def check_set_equipment_pose(self):
+        """
+        Move the camera to observe the previuous set smart equipment and the query the object detector via service call
+        :return:
+        """
+        self.hand_controller.closeHand(mode="basic")
+        ssb_pose = self.selected_equipment.place_ps
+        self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
+        arm_frame = "gripper_ur5_base_link"
+        self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
+                                          timeout=rospy.Duration(10.0))
+        watch_pose = self.tf_listener.transformPose(arm_frame, ssb_pose)
+        watch_pose.pose.position.z = 0.5
+        from scipy.spatial.transform import Rotation as R
+        r_zrot = R.from_euler('z', -180, degrees=True)
+        r_yrot = R.from_euler('y', -180, degrees=True)
+        r_soll = r_yrot * r_zrot
+        q = r_soll.as_quat()
+        watch_pose.pose.orientation.x = q[0]
+        watch_pose.pose.orientation.y = q[1]
+        watch_pose.pose.orientation.z = q[2]
+        watch_pose.pose.orientation.w = q[3]
+        detected_ssb_pose = None
+        while detected_ssb_pose is None:
+            rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
+            self.moveit.move_to_target(watch_pose, info="DETECT_POSE", endless=True)
+            detected_ssb_pose = object_detection()
+            watch_pose.pose.position.z += 0.1
+        diff = self.compute_ssb_delta(self.selected_equipment.place_ps, detected_ssb_pose)
+        rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
+        rospy.Publisher("/ssb_delta", Float32, queue_size=10).publish(diff)
+
+    def compute_ssb_delta(self, ps_0, ps_1):
+        """
+        compute the euclidean distance between two poses
+        :param ps_0: first pose
+        :type ps_0: PoseStamped
+        :param ps_1: second pose
+        :type ps_1: PoseStamped
+        :return: difference
+        :rtype: float
+        """
+        self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, ps_1.header.stamp,
+                                          timeout=rospy.Duration(10.0))
+        ps1 = self.tf_listener.transformPose(ps_0.header.frame_id, ps_1)
+        T0 = pose_to_array(ps_0)
+        T1 = pose_to_array(ps1)
+        return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
+
+
+def object_detection():
+    """
+    Connect to <~service_name> and request a <LocateInCloud> for the next point cloud on <~cloud_topic>
+    :return: Response from service call
+    :rtype: LocateInCloudResponse
+    """
+    from sensor_msgs.msg import PointCloud2
+    pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
+                                     PointCloud2, rospy.Duration(10.0))
+    if pcl_msg is None:
+        return None
+    service_name = rospy.get_param("~service_name", default='locate_ssb_in_cloud')
+    rospy.wait_for_service(service_name)
+    locate_service = rospy.ServiceProxy(service_name, LocateInCloud)
+    if locate_service is None:
+        return None
+    request = LocateInCloudRequest()
+    request.cloud_msg = pcl_msg
+    return locate_service(request)
 
 
 def marker_at_ps(ps_marker, gripper_pose=None):
     """
     visualize a interactive marker at the given ps
-    :param ps_marker:
-    :return:
+    :param gripper_pose: if given mark an arrow there
+    :param ps_marker: pose of the marker
+    :return: interactive marker
     """
     if gripper_pose is None:
         int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="r")
@@ -488,3 +559,5 @@ if __name__ == '__main__':
         eq = obj.lst_equipment[i]  # type: SmartEquipment
         if obj.select_equipment(eq.name):
             obj.start()
+            # Now we can test if we see the SSB where we think it is
+            obj.check_ssb_pose()

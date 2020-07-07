@@ -465,8 +465,8 @@ class MoveitInterface(object):
         rospy.logdebug("MoveitInterface._clear_octomap_on_marker(): MeshPath %s", p)
         ps = PoseStamped(header=equipment.header, pose=equipment.pose)
         ps.header.stamp = rospy.Time.now()
-        self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=equipment.getMeshScale())
-        # rospy.sleep(2.0)
+        self.scene.add_mesh(name="tmp_marker", pose=ps, filename=p, size=tuple(1.1*x for x in equipment.getMeshScale()))
+        rospy.sleep(rospy.Duration(2.0))
         # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
         self._remove_world_object(name="tmp_marker")
