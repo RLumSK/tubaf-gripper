@@ -327,6 +327,7 @@ class MoveitInterface(object):
             while not plan:
                 plan = self.plan(target, info)
                 if plan:
+                    # Todo: send empty trajectory
                     success = self.execute(plan)
                 if not endless or success:
                     return success

@@ -13,7 +13,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'old_ssb.stl']
+      path: ['resources', 'mesh', 'old_ssb_redefined.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-140.28, -112.12, 79.40, 35.40, 127.56, 46.88]
       grasp: [-158.1, -103.72, 74.26, 31.87, 109.73, 45.98]
