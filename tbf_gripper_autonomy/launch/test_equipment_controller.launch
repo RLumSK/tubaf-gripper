@@ -7,11 +7,6 @@
     <arg name="cloud_topic"        default="/gripper_d435/depth_registered/points"/>
     <arg name="record"              default="false" />
 
-    <node name="set_pose_generator" pkg="tbf_gripper_autonomy" type="run_set_pose_generators.py" respawn="true" output="log">
-        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
-        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_generator.yaml"/>
-    </node>
-
     <node name="equipment_handler" pkg="tbf_gripper_autonomy" type="EquipmentTask.py" respawn="false" output="screen">
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
