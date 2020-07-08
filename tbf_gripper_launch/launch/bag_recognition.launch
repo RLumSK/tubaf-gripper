@@ -3,8 +3,8 @@
     <arg name="name" default="recognition"/>
     <arg name="path" default="$(env HOME)/bags/$(arg name)"/>
     <arg name="core_topics" default="/rosout /clock /tf /tf_static /joint_states /cmd_vel /e_stop" />
-    <arg name="source_topics" default="/gripper_d435/color/camera_info /gripper_d435/color/image_rect_color /gripper_d435/depth/camera_info /gripper_d435/depth/image_rect_raw"/>
-    <arg name="recognition_topics" default="/ork/table_array /ork/tabletop/clusters /ork/floor_normal /ork/floor_plane /ork/floor_pose"/>
+    <arg name="source_topics" default="/gripper_d435/color/camera_info /gripper_d435/color/image_rect_color /gripper_d435/depth/camera_info /gripper_d435/depth/image_rect_raw /gripper_d435/depth_registered/points"/>
+    <arg name="recognition_topics" default="/ork/table_array /ork/tabletop/clusters /ork/floor_normal /ork/floor_plane /ork/floor_pose /ssb_pose"/>
     <arg name="record_source" default="true"/>
 
     <arg name="topics" default="$(arg core_topics) $(arg source_topics) $(arg recognition_topics)" if="$(arg record_source)"/>
