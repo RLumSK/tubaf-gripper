@@ -9,6 +9,7 @@
 /move_group/feedback /move_group/goal /move_group/result /move_group/status
 /execute_trajectory/feedback /execute_trajectory/goal /execute_trajectory/result /execute_trajectory/status
 /move_group/monitored_planning_scene /move_group/ompl/parameter_descriptions /move_group/ompl/parameter_updates
+/move_group/display_planned_path
 "/>
     <arg name="hand_topics" default="
 /hand/Robotiq3FGripperRobotInput /hand/Robotiq3FGripperRobotOutput

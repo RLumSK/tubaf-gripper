@@ -556,7 +556,7 @@ if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
     obj.hand_controller.openHand()
-    rospy.sleep(1.0)
+    rospy.sleep(rospy.Duration(1))
     obj.hand_controller.closeHand()
     for i in range(0, len(obj.lst_equipment)):
         eq = obj.lst_equipment[i]  # type: SmartEquipment
