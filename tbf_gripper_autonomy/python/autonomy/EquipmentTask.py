@@ -523,7 +523,7 @@ def object_detection():
     """
     from sensor_msgs.msg import PointCloud2
     pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
-                                     PointCloud2, rospy.Duration(10.0))
+                                     PointCloud2, rospy.Duration(10))
     if pcl_msg is None:
         return None
     service_name = rospy.get_param("~service_name", default='locate_ssb_in_cloud')

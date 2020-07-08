@@ -68,9 +68,9 @@ def convert_angle(ist, sol, interval=360.0):
     sol2 = ist + rest - interval
 
     retval = 0
-    if abs(sol1 - ist) < abs(sol2 - ist) and -interval/2.0 <= sol1 <= interval/2.0:
+    if abs(sol1 - ist) < abs(sol2 - ist) and -interval / 2.0 <= sol1 <= interval / 2.0:
         retval = sol1
-    elif -interval/2.0 <= sol2 <= interval/2.0:
+    elif -interval / 2.0 <= sol2 <= interval / 2.0:
         retval = sol2
     else:
         retval = sol
@@ -179,7 +179,7 @@ class MoveitInterface(object):
         self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
         self.attached_equipment = None  # type: SmartEquipment
 
-    def _remove_world_object(self, name = None):
+    def _remove_world_object(self, name=None):
         """
         Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
         Remove an object from planning scene, or all if no name is provided
@@ -388,10 +388,10 @@ class MoveitInterface(object):
         if equipment.name in ao_keys:
             rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
             self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
-        rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s",  ko_names)
+        rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s", ko_names)
         if equipment.name in ko_names:
             rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
-            #return
+            # return
 
         if pose is None:
             pose = equipment.ps
@@ -400,7 +400,10 @@ class MoveitInterface(object):
             self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(1.0, 1.0, 1.0))
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
-            rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (equipment.name, equipment.mesh_path))
+            rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (
+            equipment.name, equipment.mesh_path))
+        except Exception as e:
+            rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(e), e.message))
 
     def remove_equipment(self, name):
         """
@@ -418,8 +421,9 @@ class MoveitInterface(object):
             rospy.sleep(0.5)
             self._remove_world_object(name)
         else:
-            rospy.logwarn("MoveitInterface.remove_equipment(): %s is not present in the scene and hence can't be removed"
-                          " known objects are: %s" % (name, lst_names))
+            rospy.logwarn(
+                "MoveitInterface.remove_equipment(): %s is not present in the scene and hence can't be removed"
+                " known objects are: %s" % (name, lst_names))
         rospy.sleep(0.5)
 
     def attach_equipment(self, equipment):
@@ -500,7 +504,7 @@ class MoveitInterface(object):
         # # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         # # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
         name = "tmp_marker"
-        self.scene.add_mesh(name=name, pose=ps, filename=p, size=tuple(1.1*x for x in equipment.getMeshScale()))
+        self.scene.add_mesh(name=name, pose=ps, filename=p, size=tuple(1.1 * x for x in equipment.getMeshScale()))
         rospy.sleep(rospy.Duration(2.0))
         self.scene.remove_world_object(name=name)
         return
@@ -518,8 +522,8 @@ class MoveitInterface(object):
         # size = (0.4, 0.6, 0.4)
         size = (0.6, 0.4, 0.5)
         ps.pose.position.x = 0  # was: size[0]/2.0
-        ps.pose.position.y = size[1]/2.0
-        ps.pose.position.z = size[2]/2.0
+        ps.pose.position.y = size[1] / 2.0
+        ps.pose.position.z = size[2] / 2.0
 
         co = CollisionObject()
         co.operation = CollisionObject.REMOVE
@@ -586,8 +590,8 @@ class MoveitInterface(object):
                 request.ik_request.avoid_collisions = True
                 request.ik_request.ik_link_name = ik_link_name
                 request.ik_request.pose_stamped = ps
-                request.ik_request.timeout = rospy.Duration(0.5)*attempt*attempt
-                request.ik_request.attempts = 20*attempt*attempt  # each attempt get the timeout, so total time = timeout * attempts
+                request.ik_request.timeout = rospy.Duration(0.5) * attempt * attempt
+                request.ik_request.attempts = 20 * attempt * attempt  # each attempt get the timeout, so total time = timeout * attempts
                 response = srv_call(request)  # type: GetPositionIKResponse
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)
