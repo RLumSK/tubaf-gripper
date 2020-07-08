@@ -130,28 +130,52 @@ class MoveitInterface(object):
         # Instantiate a MoveGroupCommander object.  This object is an interface to one group of joints. In this
         # case the group is the joints in the arm.  This interface can be used to plan and execute motions on the
         # arm.
-        self.group = moveit_commander.MoveGroupCommander(self.parameter["group_name"])
-        self.group.set_planner_id(self.parameter["planner_id"])
-        self.group.set_planning_time(self.parameter["planner_time"])
-        self.group.set_num_planning_attempts(self.parameter["planner_attempts"])
-        self.group.set_goal_tolerance(self.parameter["goal_tolerance"])
-        self.group.set_goal_position_tolerance(self.parameter["goal_position_tolerance"])
-        self.group.set_goal_orientation_tolerance(self.parameter["goal_orientation_tolerance"])
-        self.group.set_goal_joint_tolerance(self.parameter["goal_joint_tolerance"])
-        self.group.allow_replanning(self.parameter["allow_replanning"])
-        self.group.allow_looking(self.parameter["allow_looking"])
-        # [minX, minY, minZ, maxX, maxY, maxZ]
-        self.group.set_pose_reference_frame(reference_frame=self.parameter["reference_frame"])
-        # Planning frame is /base_footprint
-        self.group.set_workspace(self.parameter["workspace"])
-        self.group.set_goal_tolerance(self.parameter["tolerance"])
-        self.lst_planner = self.parameter["planner"]
-        self.display_trajectory_publisher = rospy.Publisher("/move_group/display_planned_path",
-                                                            moveit_msgs.msg.DisplayTrajectory,
-                                                            queue_size=10)
-        self.eef_link = self.parameter["eef_link"]
-        self.touch_links = self.parameter["touch_links"]
-        self.max_attempts = self.parameter["max_attempts"]
+        if len(self.parameter.keys()) > 0:
+            self.group = moveit_commander.MoveGroupCommander(self.parameter["group_name"])
+            self.group.set_planner_id(self.parameter["planner_id"])
+            self.group.set_planning_time(self.parameter["planner_time"])
+            self.group.set_num_planning_attempts(self.parameter["planner_attempts"])
+            self.group.set_goal_tolerance(self.parameter["goal_tolerance"])
+            self.group.set_goal_position_tolerance(self.parameter["goal_position_tolerance"])
+            self.group.set_goal_orientation_tolerance(self.parameter["goal_orientation_tolerance"])
+            self.group.set_goal_joint_tolerance(self.parameter["goal_joint_tolerance"])
+            self.group.allow_replanning(self.parameter["allow_replanning"])
+            self.group.allow_looking(self.parameter["allow_looking"])
+            # [minX, minY, minZ, maxX, maxY, maxZ]
+            self.group.set_pose_reference_frame(reference_frame=self.parameter["reference_frame"])
+            # Planning frame is /base_footprint
+            self.group.set_workspace(self.parameter["workspace"])
+            self.group.set_goal_tolerance(self.parameter["tolerance"])
+            self.lst_planner = self.parameter["planner"]
+            self.display_trajectory_publisher = rospy.Publisher("/move_group/display_planned_path",
+                                                                moveit_msgs.msg.DisplayTrajectory,
+                                                                queue_size=10)
+            self.eef_link = self.parameter["eef_link"]
+            self.touch_links = self.parameter["touch_links"]
+            self.max_attempts = self.parameter["max_attempts"]
+        else:
+            self.group = moveit_commander.MoveGroupCommander("UR5")
+            self.group.set_planner_id("KPIECEkConfigDefault")
+            self.group.set_planning_time(1.0)
+            self.group.set_num_planning_attempts(100)
+            self.group.set_goal_tolerance(0.02)
+            self.group.set_goal_position_tolerance(0.005)
+            self.group.set_goal_orientation_tolerance(0.005)
+            self.group.set_goal_joint_tolerance(0.01)
+            self.group.allow_replanning(False)
+            self.group.allow_looking(False)
+            # [minX, minY, minZ, maxX, maxY, maxZ]
+            self.group.set_pose_reference_frame(reference_frame="/gripper_ur5_base_link")
+            # Planning frame is /base_footprint
+            self.group.set_workspace([-1.6, -1.2, 0.0, 0.25, 1.2, 1.7])
+            self.group.set_goal_tolerance(0.005)
+            self.lst_planner = ["RRTConnectkConfigDefault", "PRMstarkConfigDefault"]
+            self.display_trajectory_publisher = rospy.Publisher("/move_group/display_planned_path",
+                                                                moveit_msgs.msg.DisplayTrajectory,
+                                                                queue_size=10)
+            self.eef_link = "gripper_robotiq_palm_planning"
+            self.touch_links = []
+            self.max_attempts = 5
         self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
         self.attached_equipment = None  # type: SmartEquipment
 

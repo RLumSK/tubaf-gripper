@@ -118,7 +118,7 @@ class SmartEquipment:
         :rtype: list
         """
         ret_lst = []  # type: list
-        for entry in rospy.get_param(group_name):
+        for entry in rospy.get_param(group_name, default=[]):
             # rospy.logdebug("%s", entry)
             ret_lst.append(SmartEquipment(entry))
         return ret_lst

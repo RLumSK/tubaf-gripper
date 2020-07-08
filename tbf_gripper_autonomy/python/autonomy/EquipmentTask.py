@@ -227,7 +227,10 @@ class EquipmentTask(GraspTask):
         self.lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
         for eq in self.lst_equipment:
             self.moveit.add_equipment(eq)
-        self.selected_equipment = self.lst_equipment[0]  # type: SmartEquipment
+
+        self.selected_equipment = None
+        if len(self.lst_equipment) > 0:
+            self.selected_equipment = self.lst_equipment[0]  # type: SmartEquipment
         rospy.loginfo("EquipmentTask.__init__(): Equipment initialized")
 
         # Static joint values for specific well known poses
@@ -237,12 +240,12 @@ class EquipmentTask(GraspTask):
         self.env_sense_joints_poses = rospy.get_param("~arm/env_scan_joint_poses", [])
 
         # @All parameters were imported@
-        super(EquipmentTask, self).__init__(js_t=rospy.get_param("~arm/joint_states_topic"),
+        super(EquipmentTask, self).__init__(js_t=rospy.get_param("~arm/joint_states_topic", "/ur5/joint_states"),
                                             bu_pos=self.backup_joint_values,
-                                            ltcp_s=rospy.get_param("~arm/linear_tcp_speed"),
-                                            ltcp_a=rospy.get_param("~arm/linear_tcp_acceleration"),
-                                            j_s=rospy.get_param("~arm/joint_speed"),
-                                            j_a=rospy.get_param("~arm/joint_acceleration"))
+                                            ltcp_s=rospy.get_param("~arm/linear_tcp_speed", 0.1),
+                                            ltcp_a=rospy.get_param("~arm/linear_tcp_acceleration", 0.04),
+                                            j_s=rospy.get_param("~arm/joint_speed", 5.0),
+                                            j_a=rospy.get_param("~arm/joint_acceleration", 1.0))
         rospy.loginfo("EquipmentTask.__init__(): initialized")
 
     def select_equipment(self, name="Smart_Sensor_Box"):
