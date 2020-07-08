@@ -3,16 +3,35 @@
     <arg name="name" default="equipment_task"/>
     <arg name="path" default="$(env HOME)/bags/$(arg name)"/>
     <arg name="core_topics" default="/rosout /clock /tf /tf_static /joint_states /cmd_vel /e_stop" />
-    <arg name="camera_topics" default="/gripper_d435/depth/color/points_throttle /gripper_d435/color/camera_info /gripper_d435/color/image_rect_color /gripper_d435/depth/camera_info /gripper_d435/depth/image_rect_raw"/>
-    <arg name="move_group_topics_out" default="/octomap_filtered_cloud /move_group/result /execute_trajectory/result" />
-    <arg name="move_group_topics_in" default="/attached_collision_object /collision_object /move_group/goal /execute_trajectory/goal /move_group /move_group_world" />
+<!--    <arg name="camera_topics" default="/gripper_d435/depth/color/points_throttle /gripper_d435/color/camera_info /gripper_d435/color/image_rect_color /gripper_d435/depth/camera_info /gripper_d435/depth/image_rect_raw"/>-->
+    <arg name="move_group_topics" default="
+/octomap_filtered_cloud /move_group_world /move_group/motion_plan_request /attached_collision_object /collision_object
+/move_group/feedback /move_group/goal /move_group/result /move_group/status
+/execute_trajectory/feedback /execute_trajectory/goal /execute_trajectory/result /execute_trajectory/status
+/move_group/monitored_planning_scene /move_group/ompl/parameter_descriptions /move_group/ompl/parameter_updates
+"/>
+    <arg name="hand_topics" default="
+/hand/Robotiq3FGripperRobotInput /hand/Robotiq3FGripperRobotOutput
+/hand/Robotiq3FGripperServer_basic/feedback /hand/Robotiq3FGripperServer_basic/goal /hand/Robotiq3FGripperServer_basic/result /hand/Robotiq3FGripperServer_basic/status
+/hand/Robotiq3FGripperServer_pinch/feedback /hand/Robotiq3FGripperServer_pinch/goal /hand/Robotiq3FGripperServer_pinch/result /hand/Robotiq3FGripperServer_pinch/status
+/hand/Robotiq3FGripperServer_scissor/feedback /hand/Robotiq3FGripperServer_scissor/goal /hand/Robotiq3FGripperServer_scissor/result /hand/Robotiq3FGripperServer_scissor/status
+/hand/Robotiq3FGripperServer_wide/feedback /hand/Robotiq3FGripperServer_wide/goal /hand/Robotiq3FGripperServer_wide/result /hand/Robotiq3FGripperServer_wide/status
+" />
     <arg name="controller" default="scaled_pos_traj_controller" />
     <arg name="controller_type" default="follow_joint_trajectory" />
     <arg name="controller_topics" default="/$(arg controller)/$(arg controller_type)/result /$(arg controller)/$(arg controller_type)/goal /$(arg controller)/$(arg controller_type)/feedback /$(arg controller)/$(arg controller_type)/status" />
 
     <arg name="equipment_task_topics" default="/equipment_task/continue /debug_target_pose /ssb_delta" />
 
-    <arg name="topics" default="$(arg core_topics) $(arg camera_topics) $(arg move_group_topics_out) $(arg move_group_topics_in) $(arg controller_topics) $(arg equipment_task_topics)"/>
+    <arg name="topics" default="$(arg core_topics) $(arg hand_topics) $(arg move_group_topics) $(arg controller_topics) $(arg equipment_task_topics)"/>
 
     <node pkg="rosbag" type="record" name="$(arg name)_record" output="screen" args="-o $(arg path) $(arg topics)"/>
+    <node name="dump_rosparamsstart"
+      pkg="aliencontrol"
+      type="aliencontrol"
+      args="'sleep 5; rosparam dump $(arg path)_parameters_dump_start.yaml'"/>
+    <node name="dump_rosparamsend"
+      pkg="aliencontrol"
+      type="aliencontrol"
+      args="'while true; do rosparam dump $(arg path)_parameters_dump_end.yaml; sleep 5; done'"/>
 </launch>

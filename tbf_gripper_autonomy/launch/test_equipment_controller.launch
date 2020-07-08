@@ -4,6 +4,7 @@
 
     <arg name="service_name"       default="locate_ssb_in_cloud"/>
     <arg name="cloud_topic"        default="/gripper_d435/depth_registered/points"/>
+    <arg name="record"              default="false" />
 
     <node name="set_pose_generator" pkg="tbf_gripper_autonomy" type="run_set_pose_generators.py" respawn="true" output="log">
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
@@ -37,4 +38,6 @@
         <param name="service_name" value="$(arg service_name)"/>
         <param name="cloud_topic" value="$(arg cloud_topic)"/>
     </node>
+
+    <include file="$(find tbf_gripper_launch)/launch/bag_equipment_handling.launch" if="$(arg record)" />
 </launch>

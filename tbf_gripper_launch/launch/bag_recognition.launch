@@ -11,4 +11,12 @@
     <arg name="topics" default="$(arg core_topics) $(arg recognition_topics)" unless="$(arg record_source)"/>
 
     <node pkg="rosbag" type="record" name="$(arg name)_record" output="screen" args="-o $(arg path) $(arg topics)"/>
+    <node name="dump_rosparamsstart"
+      pkg="aliencontrol"
+      type="aliencontrol"
+      args="'sleep 5; rosparam dump $(arg path)_parameters_dump_start.yaml'"/>
+    <node name="dump_rosparamsend"
+      pkg="aliencontrol"
+      type="aliencontrol"
+      args="'while true; do rosparam dump $(arg path)_parameters_dump_end.yaml; sleep 5; done'"/>
 </launch>
