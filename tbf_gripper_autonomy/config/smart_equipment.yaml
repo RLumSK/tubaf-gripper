@@ -51,7 +51,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'knauf_ssb.stl']
+      path: ['resources', 'mesh', 'knauf_ssb_redefined.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
       grasp: [-174.5, -85.0, 46.4, -106.6, -84.9, 35.8]
@@ -126,7 +126,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'kugel_ssb.stl']
+      path: ['resources', 'mesh', 'kugel_ssb_redefined.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
       grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
@@ -164,7 +164,7 @@ smart_equipment:
         w: 0.7071
     mesh:
       pkg: "tbf_gripper_tools"
-      path: ['resources', 'mesh', 'water_station.stl']
+      path: ['resources', 'mesh', 'water_station_redefined.stl']
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-12.18, -75.06, -31.19, -132.94, 80.34, -142.55]
       grasp: [-13.50, -99.22, -35.34, -130.96, 80.41, -142.55]
