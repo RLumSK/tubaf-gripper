@@ -391,7 +391,7 @@ class MoveitInterface(object):
         rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s", ko_names)
         if equipment.name in ko_names:
             rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
-            # return
+            return
 
         if pose is None:
             pose = equipment.ps
