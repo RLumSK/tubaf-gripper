@@ -465,17 +465,18 @@ class EquipmentTask(GraspTask):
         """
         self.hand_controller.closeHand(mode="basic")
         ssb_pose = self.selected_equipment.place_ps
-        self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
+        # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
         arm_frame = "gripper_ur5_base_link"
         self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
                                           timeout=rospy.Duration(10.0))
         watch_pose = self.tf_listener.transformPose(arm_frame, ssb_pose)
         watch_pose.pose.position.z = 0.5
         from scipy.spatial.transform import Rotation as R
-        r_zrot = R.from_euler('z', -180, degrees=True)
-        r_yrot = R.from_euler('y', -180, degrees=True)
-        r_soll = r_yrot * r_zrot
+        r_yrot = R.from_euler('y', 90, degrees=True)
+        r_xrot = R.from_euler('x', -90, degrees=True)
+        r_soll = r_yrot * r_xrot
         q = r_soll.as_quat()
+        # q = [0, 0, 0, 1]  # no rotation matches rotation from arm_frame
         watch_pose.pose.orientation.x = q[0]
         watch_pose.pose.orientation.y = q[1]
         watch_pose.pose.orientation.z = q[2]
@@ -500,8 +501,7 @@ class EquipmentTask(GraspTask):
         :return: difference
         :rtype: float
         """
-        self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, ps_1.header.stamp,
-                                          timeout=rospy.Duration(10.0))
+        self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, rospy.Time(0), rospy.Duration(4))
         ps1 = self.tf_listener.transformPose(ps_0.header.frame_id, ps_1)
         T0 = pose_to_array(ps_0)
         T1 = pose_to_array(ps1)
@@ -512,11 +512,11 @@ def object_detection():
     """
     Connect to <~service_name> and request a <LocateInCloud> for the next point cloud on <~cloud_topic>
     :return: Response from service call
-    :rtype: LocateInCloudResponse
+    :rtype: PoseStamped
     """
     from sensor_msgs.msg import PointCloud2
     pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
-                                     PointCloud2, rospy.Duration(10))
+                                     PointCloud2, 10)
     if pcl_msg is None:
         return None
     service_name = rospy.get_param("~service_name", default='locate_ssb_in_cloud')
@@ -526,7 +526,9 @@ def object_detection():
         return None
     request = LocateInCloudRequest()
     request.cloud_msg = pcl_msg
-    return locate_service(request)
+    response = locate_service(request)  # type: LocateInCloudResponse
+    rospy.loginfo("[object_detection] response :\n%s" % response)
+    return response.object_pose
 
 
 def marker_at_ps(ps_marker, gripper_pose=None):
@@ -546,7 +548,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.INFO)
+    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
@@ -554,7 +556,7 @@ if __name__ == '__main__':
     for i in range(0, len(obj.lst_equipment)):
         eq = obj.lst_equipment[i]  # type: SmartEquipment
         if obj.select_equipment(eq.name):
-            obj.start()
+            # obj.start()
             # Now we can test if we see the SSB where we think it is
             obj.check_set_equipment_pose()
     # obj.moveit.clear_octomap_on_mesh(obj.selected_equipment.place_ps, obj.selected_equipment.mesh_path)
