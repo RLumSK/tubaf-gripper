@@ -569,7 +569,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
+    rospy.init_node("EquipmentTask", log_level=rospy.INFO)
     obj = EquipmentTask()
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
