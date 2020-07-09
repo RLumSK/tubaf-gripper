@@ -333,6 +333,33 @@ class MoveitInterface(object):
         rospy.loginfo("MoveitInterface.execute(): Executing ...")
         return self.group.execute(plan)
 
+    def move_to_set(self, target, info, endless=True):
+        """
+        Same as move_to_target() but while ignoring the planing scene
+        :type target: list or Pose or PoseStamped
+        :param info: short information about the context of the given pose
+        :type info: str
+        :return: success
+        :rtype: bool
+        """
+        from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene
+        from moveit_msgs.msg import PlanningScene, PlanningSceneComponents
+        from std_srvs.srv import Empty
+        get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
+        apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
+        current_octomap = get_planning_scene(
+            components=PlanningSceneComponents(components=PlanningSceneComponents.OCTOMAP))
+        rospy.loginfo("[MoveitInterface.move_to_set()] current_octomap \n %s" % current_octomap)
+        clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
+        clear_octomap()
+        self.move_to_target(self, target, info, endless)
+        success = apply_planning_scene(current_octomap)
+        rospy.loginfo("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
+        return success
+
+
+
+
     def move_to_target(self, target, info, endless=True):
         """
         Plan and execute

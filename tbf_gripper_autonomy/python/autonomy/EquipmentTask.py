@@ -395,9 +395,9 @@ class EquipmentTask(GraspTask):
                 intermediate_pose = None
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
-            self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
+            # self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             debug_pose_pub.publish(target_pose)
-            self.moveit.move_to_target(target_pose, info="TARGET_POSE")
+            self.moveit.move_to_set(target_pose, info="TARGET_POSE")
 
         if 5 in stages:
             rospy.loginfo("STAGE 8: Release/Hold SSB %s" % self.selected_equipment.name)
@@ -551,7 +551,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
+    rospy.init_node("EquipmentTask", log_level=rospy.INFO)
     obj = EquipmentTask()
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
@@ -561,6 +561,6 @@ if __name__ == '__main__':
         if obj.select_equipment(eq.name):
             obj.start()
             # Now we can test if we see the SSB where we think it is
-            obj.check_ssb_pose()
+            obj.check_set_equipment_pose()
     # obj.moveit.clear_octomap_on_mesh(obj.selected_equipment.place_ps, obj.selected_equipment.mesh_path)
     # rospy.spin()
