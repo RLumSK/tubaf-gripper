@@ -351,6 +351,8 @@ class MoveitInterface(object):
             while not plan:
                 if "PostGrasp" in info:
                     self.clear_octomap_via_box_marker()
+                elif "TARGET" in info:
+                    self.clear_octomap_via_box_marker(target)
                 plan = self.plan(target, info)
                 if plan:
                     success = self.execute(plan)
@@ -518,21 +520,24 @@ class MoveitInterface(object):
         rospy.sleep(sleep)
         return
 
-    def clear_octomap_via_box_marker(self):
+    def clear_octomap_via_box_marker(self, ps=None):
         """
         Clear the octomap above the bos station using a marker
+        :param ps: optional pose where the box should clear
+        :type ps: PoseStamped
         :return: None
         """
         name = "rubber"
         rospy.logdebug("MoveitInterface.clear_octomap_via_box_marker():")
-        ps = PoseStamped()
-        ps.header.frame_id = "controlbox_structure_top_front_link"
-        ps.header.stamp = rospy.Time.now()
         # size = (0.4, 0.6, 0.4)
         size = (0.6, 0.4, 0.5)
-        ps.pose.position.x = 0  # was: size[0]/2.0
-        ps.pose.position.y = size[1] / 2.0
-        ps.pose.position.z = size[2] / 2.0
+        if ps is None:
+            ps = PoseStamped()
+            ps.header.frame_id = "controlbox_structure_top_front_link"
+            ps.header.stamp = rospy.Time.now()
+            ps.pose.position.x = 0  # was: size[0]/2.0
+            ps.pose.position.y = size[1] / 2.0
+            ps.pose.position.z = size[2] / 2.0
 
         co = CollisionObject()
         co.operation = CollisionObject.REMOVE
