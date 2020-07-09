@@ -348,8 +348,9 @@ class MoveitInterface(object):
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
         apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
         current_octomap = get_planning_scene(
-            components=PlanningSceneComponents(components=PlanningSceneComponents.OCTOMAP))
-        rospy.loginfo("[MoveitInterface.move_to_set()] current_octomap \n %s" % current_octomap)
+            components=PlanningSceneComponents(components=PlanningSceneComponents.OCTOMAP))  # type: PlanningScene
+        rospy.loginfo("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
+                      current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
         clear_octomap()
         self.move_to_target(self, target, info, endless)
