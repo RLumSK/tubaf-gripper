@@ -421,19 +421,14 @@ class EquipmentTask(GraspTask):
                 self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, target_pose.header.stamp,
                                                   timeout=rospy.Duration(10.0))
                 release_pose = self.tf_listener.transformPose(hand_frame, target_pose)
-                release_pose.pose.position.x -= 0.15
+                release_pose.pose.position.x = release_pose.pose.position.x -0.15
                 from scipy.spatial.transform import Rotation as R
                 r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
                                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
                 r_relative = R.from_euler('z', -20, degrees=True)
-                r_soll = r_is * r_relative
-                q = r_soll.as_quat()
-                release_pose.pose.orientation.x = q[0]
-                release_pose.pose.orientation.y = q[1]
-                release_pose.pose.orientation.z = q[2]
-                release_pose.pose.orientation.w = q[3]
+                r_soll = r_is
                 while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=True):
-                    release_pose.pose.position.x += 0.01
+                    release_pose.pose.position.x = release_pose.pose.position.x + 0.05
                     r_soll = r_soll * r_relative
                     q = r_soll.as_quat()
                     release_pose.pose.orientation.x = q[0]

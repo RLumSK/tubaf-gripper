@@ -361,9 +361,6 @@ class MoveitInterface(object):
         rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
         return success
 
-
-
-
     def move_to_target(self, target, info, endless=True):
         """
         Plan and execute
@@ -435,7 +432,7 @@ class MoveitInterface(object):
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
             rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (
-            equipment.name, equipment.mesh_path))
+                equipment.name, equipment.mesh_path))
         except Exception as e:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(e), e.message))
 
@@ -539,7 +536,7 @@ class MoveitInterface(object):
         co.id = "tmp_scaled"
         scaling = 1.5
         sleep = rospy.Duration(2)
-        ps.pose.position.z = ps.pose.position.z + 0.1*(1-scaling)  # move slightly in the ground
+        ps.pose.position.z = ps.pose.position.z + 0.1 * (1 - scaling)  # move slightly in the ground
         self.scene.add_mesh(name=co.id, pose=ps, filename=mesh, size=tuple(scaling * x for x in (1.0, 1.0, 1.0)))
         rospy.sleep(sleep)
         self.scene.add_mesh(name="tmp_orginal", pose=orginal_ps, filename=mesh, size=(1.0, 1.0, 1.0))
