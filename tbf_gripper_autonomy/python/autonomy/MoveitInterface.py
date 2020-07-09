@@ -539,7 +539,7 @@ class MoveitInterface(object):
         co.header.frame_id = ps.header.frame_id
         co.id = name
         self.scene.add_box(name=co.id, pose=ps, size=size)
-        rospy.sleep(rospy.Duration(2)
+        rospy.sleep(rospy.Duration(2))
         self.scene._pub_co.publish(co)
         # self.scene.remove_world_object(name=co.id)
 
