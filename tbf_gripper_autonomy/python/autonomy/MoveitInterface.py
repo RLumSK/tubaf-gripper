@@ -356,7 +356,7 @@ class MoveitInterface(object):
             current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
         clear_octomap()
-        self.move_to_target(self, target, info, endless)
+        self.move_to_target(target, info, endless)
         success = apply_planning_scene(current_octomap)
         rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
         return success

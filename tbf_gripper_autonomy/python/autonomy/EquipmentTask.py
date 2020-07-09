@@ -390,9 +390,8 @@ class EquipmentTask(GraspTask):
             intermediate_pose.pose.position.z += 0.3
             debug_pose_pub.publish(intermediate_pose)
             rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose published")
-            if not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False):
-                rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying target pose")
-                intermediate_pose = None
+            while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False):
+                rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying again")
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
             # self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
