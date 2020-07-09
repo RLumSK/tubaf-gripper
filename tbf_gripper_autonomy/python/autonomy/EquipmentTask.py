@@ -210,6 +210,38 @@ def optimize_ssb_z_rotation(oTs, sTg):
     return oTs
 
 
+def compute_ssb_delta(ps_0, ps_1):
+    """
+    compute the euclidean distance between two poses
+    :param ps_0: first pose (/result/placed_pose)
+    :type ps_0: PoseStamped
+    :param ps_1: second pose (/result/observed_pose)
+    :type ps_1: PoseStamped
+    :return: difference
+    :rtype: float
+    """
+    import tf2_ros
+    import tf2_geometry_msgs
+    tfBuffer = tf2_ros.Buffer()
+    rospy.sleep(10)
+    pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
+    pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
+    try:
+        tfs = tfBuffer.lookup_transform(target_frame=ps_0.header.frame_id, source_frame=ps_1.header.frame_id,
+                                        time=rospy.Time(0), timeout=rospy.Duration(1))
+        ps1 = tf2_geometry_msgs.do_transform_pose(ps_1, tfs)
+    except Exception as ex:
+        rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
+        return np.NaN
+    T0 = pose_to_array(ps_0.pose)
+    T1 = pose_to_array(ps1.pose)
+
+    pub0.publish(ps_0)
+    pub1.publish(ps1)
+
+    return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
+
+
 class EquipmentTask(GraspTask):
     """
     Handle equipment using the gripper unit of Julius
@@ -463,6 +495,9 @@ class EquipmentTask(GraspTask):
         Move the camera to observe the previuous set smart equipment and the query the object detector via service call
         :return:
         """
+        from sensor_msgs.msg import PointCloud2
+        pcl_pub = rospy.Publisher("/result/pointcloud", PointCloud2, queue_size=10)
+        diff_pub = rospy.Publisher("/result/ssb_delta", Float32, queue_size=10)
         self.hand_controller.closeHand(mode="basic")
         ssb_pose = self.selected_equipment.place_ps
         # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
@@ -484,28 +519,14 @@ class EquipmentTask(GraspTask):
         detected_ssb_pose = None
         while detected_ssb_pose is None:
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
-            self.moveit.move_to_target(watch_pose, info="DETECT_POSE", endless=True)
+            self.moveit.move_to_target(watch_pose, info="DETECT_POSE", endless=True, blind=True)
             detected_ssb_pose = object_detection()
             watch_pose.pose.position.z += 0.1
-        diff = self.compute_ssb_delta(self.selected_equipment.place_ps, detected_ssb_pose)
+        diff = compute_ssb_delta(self.selected_equipment.place_ps, detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
-        rospy.Publisher("/ssb_delta", Float32, queue_size=10).publish(diff)
 
-    def compute_ssb_delta(self, ps_0, ps_1):
-        """
-        compute the euclidean distance between two poses
-        :param ps_0: first pose
-        :type ps_0: PoseStamped
-        :param ps_1: second pose
-        :type ps_1: PoseStamped
-        :return: difference
-        :rtype: float
-        """
-        self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, rospy.Time(0), rospy.Duration(4))
-        ps1 = self.tf_listener.transformPose(ps_0.header.frame_id, ps_1)
-        T0 = pose_to_array(ps_0)
-        T1 = pose_to_array(ps1)
-        return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
+        pcl_pub.publish(rospy.wait_for_message("/gripper_d435/depth/color/points", PointCloud2))
+        diff_pub.publish(diff)
 
 
 def object_detection():
@@ -556,7 +577,7 @@ if __name__ == '__main__':
     for i in range(0, len(obj.lst_equipment)):
         eq = obj.lst_equipment[i]  # type: SmartEquipment
         if obj.select_equipment(eq.name):
-            # obj.start()
+            obj.start()
             # Now we can test if we see the SSB where we think it is
             obj.check_set_equipment_pose()
     # obj.moveit.clear_octomap_on_mesh(obj.selected_equipment.place_ps, obj.selected_equipment.mesh_path)

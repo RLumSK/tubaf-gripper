@@ -22,7 +22,7 @@
     <arg name="controller_type" default="follow_joint_trajectory" />
     <arg name="controller_topics" default="/$(arg controller)/$(arg controller_type)/result /$(arg controller)/$(arg controller_type)/goal /$(arg controller)/$(arg controller_type)/feedback /$(arg controller)/$(arg controller_type)/status" />
 
-    <arg name="equipment_task_topics" default="/equipment_task/continue /debug_target_pose /ssb_delta" />
+    <arg name="equipment_task_topics" default="/equipment_task/continue /debug_target_pose /result/ssb_delta /result/observed_pose /result/placed_pose /result/pointcloud" />
 
     <arg name="topics" default="$(arg core_topics) $(arg hand_topics) $(arg move_group_topics) $(arg controller_topics) $(arg equipment_task_topics)"/>
 

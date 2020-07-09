@@ -217,9 +217,10 @@ class MoveitInterface(object):
         # rospy.logdebug("MoveitInterface._set_start_state(): msg %s ", msg)
         return msg
 
-    def plan(self, target, info=""):
+    def plan(self, target, info="", blind=False):
         """
         Plan a trajectory towards the target using MoveIt
+        :param blind: [DANGEROUS] if true, plan is executed without confirmation
         :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the reference frame
          of the MoveIt planning group)
         :type target: list or Pose or PoseStamped
@@ -249,11 +250,6 @@ class MoveitInterface(object):
                                                                                                  target_dict[
                                                                                                      joint_name[j]])))
                     self.group.set_joint_value_target(joint_name[j], target_dict[joint_name[j]])
-                # rospy.logdebug("MoveitInterface.plan(): Planning Joint value %s",
-                #                ["%.2f" % v for v in np.rad2deg(target_dict.values())])
-                # rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
-                #                ["%.2f" % v for v in np.rad2deg(current_values)])
-                # self.group.set_joint_value_target(target_dict)
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.plan(): Planning Pose target %s", target)
                 self.group.set_pose_target(target, end_effector_link=self.eef_link)
@@ -271,7 +267,7 @@ class MoveitInterface(object):
                         solu = convert_angle(np.rad2deg(ist), np.rad2deg(soll))
                         lst_joint_target.append(solu)
                     # rospy.logdebug("MoveitInterface.plan(): move_to_target %s", lst_joint_target)
-                    return self.plan(target=lst_joint_target, info=info)
+                    return self.plan(target=lst_joint_target, info=info, blind=blind)
             else:
                 rospy.logwarn("MoveitInterface.plan(): Illegal target type: %s", type(target))
                 return
@@ -306,6 +302,9 @@ class MoveitInterface(object):
                                )
                 continue
             # # Check Plan
+            if blind:
+                rospy.loginfo("MoveitInterface.plan(" + info + "): Not waiting for confirmation")
+                break
             rospy.loginfo("MoveitInterface.plan(): Please confirm the plan using the interactive marker on "
                           "topic: '/confirm_plan_marker/markers/update'")
             plan_valid = wait_for_confirmation(service_ns="~confirm_plan", timeout=60)
@@ -361,11 +360,13 @@ class MoveitInterface(object):
         rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
         return success
 
-    def move_to_target(self, target, info, endless=True):
+    def move_to_target(self, target, info, endless=True, blind=False):
         """
         Plan and execute
-        :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the reference frame
-         of the MoveIt planning group)
+        :param endless: loop the computation of a plan/trajectory
+        :param blind: [DANGEROUS] if true, plan is executed without confirmation
+        :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the
+        reference frame of the MoveIt planning group)
         :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
@@ -379,7 +380,7 @@ class MoveitInterface(object):
             while not plan:
                 if "PostGrasp" in info:
                     self.clear_octomap_via_box_marker()
-                plan = self.plan(target, info)
+                plan = self.plan(target, info, blind=blind)
                 if plan:
                     success = self.execute(plan)
                 if not endless or success:
@@ -509,7 +510,7 @@ class MoveitInterface(object):
         # add_equipment() method of this class.
         world_frame = rospy.get_param("~wolrd_frame", default="base_footprint")
         self.tf_listener.waitForTransform(world_frame, released_equipment.ps.header.frame_id,
-                                          released_equipment.ps.header.stamp, rospy.Duration(10.0))
+                                          released_equipment.ps.header.stamp, rospy.Duration(10))
         released_equipment.ps = self.tf_listener.transformPose(world_frame, released_equipment.ps)
         self.add_equipment(released_equipment)
         return released_equipment
