@@ -34,99 +34,61 @@ smart_equipment:
         z: -0.7071
         w: 0.7071
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
-#
-#  - name:
-#      "Knauf_SSB" # station_new
+
+  - name:
+      "Knauf_SSB" # station_new
+    pose:
+      frame:
+        "base_footprint"
+      position:
+        x: 0.32
+        y: 0.13
+        z: 0.925
+      orientation:
+        x: 0
+        y: 0
+        z: 0.7071
+        w: 0.7071
+    mesh:
+      pkg: "tbf_gripper_tools"
+      path: ['resources', 'mesh', 'knauf_ssb_redefined.stl']
+    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
+      pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
+      grasp: [-174.5, -85.0, 46.4, -106.6, -84.9, 35.8]
+      post_grasp: [-170.3, -95.4, 45.9, -96.2, -93.3, 47.2]
+    place_waypoints:
+      pre_set: [ 0.0, -110.0, 135.0, -169.5, -92.9, 47.0]
+      set: [ 0.3, -17.0, 116.9, -244.3, -92.7, 47.6]
+      post_set: [1.4, -13.4, 116.0, -280.2, -93.2, 47.6]
+    place_pose:
+      frame:
+        "base_footprint"
+      position:
+        x: -0.93
+        y: 0.15
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: -0.7071
+        w: 0.7071
+    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
+
+#  - name:  "SSB_3"
 #    pose:
-#      frame:
-#        "base_footprint"
+#      frame: "base_footprint"
 #      position:
-#        x: 0.32
-#        y: 0.13
+#        x: 0.22
+#        y: 0.07
 #        z: 0.925
 #      orientation:
 #        x: 0
 #        y: 0
-#        z: 0.7071
-#        w: 0.7071
+#        z: 0
+#        w: 1
 #    mesh:
 #      pkg: "tbf_gripper_tools"
-#      path: ['resources', 'mesh', 'knauf_ssb_redefined.stl']
-#    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
-#      pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
-#      grasp: [-174.5, -85.0, 46.4, -106.6, -84.9, 35.8]
-#      post_grasp: [-170.3, -95.4, 45.9, -96.2, -93.3, 47.2]
-#    place_waypoints:
-#      pre_set: [ 0.0, -110.0, 135.0, -169.5, -92.9, 47.0]
-#      set: [ 0.3, -17.0, 116.9, -244.3, -92.7, 47.6]
-#      post_set: [1.4, -13.4, 116.0, -280.2, -93.2, 47.6]
-#    place_pose:
-#      frame:
-#        "base_footprint"
-#      position:
-#        x: -0.93
-#        y: 0.15
-#        z: 0.0
-#      orientation:
-#        x: 0.0
-#        y: 0.0
-#        z: -0.7071
-#        w: 0.7071
-#    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
-#
-##  - name:  "SSB_3"
-##    pose:
-##      frame: "base_footprint"
-##      position:
-##        x: 0.22
-##        y: 0.07
-##        z: 0.925
-##      orientation:
-##        x: 0
-##        y: 0
-##        z: 0
-##        w: 1
-##    mesh:
-##      pkg: "tbf_gripper_tools"
-##      path: ['resources', 'mesh', 'old_ssb.stl']
-##    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
-##      pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
-##      grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
-##      post_grasp: [-171.4, -97.3, 56.0, 25.8, 102.8, 227.4]
-##    place_waypoints:
-##      pre_set: [ -23.6, -76.2, 94.8, -27.1, 94.9, 233.7]
-##      set: [ -23.5, -8.1, 90.4, -90.8, 94.9, 234.2]
-##      post_set: [-26.0, -18.0, 119.3, -94.6, -92.5, 227.6]
-##    place_pose:
-##      frame: "base_footprint"
-##      position:
-##        x: -0.93
-##        y: 0.15
-##        z: 0.0
-##      orientation:
-##        x: 0.0
-##        y: 0.0
-##        z: -0.7071
-##        w: 0.7071
-##    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
-#
-#  - name:
-#      "Kugel_SSB"
-#    pose:
-#      frame:
-#        "base_footprint"
-#      position:
-#        x: 0.32
-#        y: 0.01
-#        z: 0.925
-#      orientation:
-#        x: 0
-#        y: 0
-#        z: 0.7071
-#        w: 0.7071
-#    mesh:
-#      pkg: "tbf_gripper_tools"
-#      path: ['resources', 'mesh', 'kugel_ssb_redefined.stl']
+#      path: ['resources', 'mesh', 'old_ssb.stl']
 #    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
 #      pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
 #      grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
@@ -136,8 +98,7 @@ smart_equipment:
 #      set: [ -23.5, -8.1, 90.4, -90.8, 94.9, 234.2]
 #      post_set: [-26.0, -18.0, 119.3, -94.6, -92.5, 227.6]
 #    place_pose:
-#      frame:
-#        "base_footprint"
+#      frame: "base_footprint"
 #      position:
 #        x: -0.93
 #        y: 0.15
@@ -148,45 +109,84 @@ smart_equipment:
 #        z: -0.7071
 #        w: 0.7071
 #    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
-#
-#  - name:
-#      "Water_Sample_Station"
-#    pose:
-#      frame: "water_sample_station_mount_link"
-#      position:
-#        x: 0.35
-#        y: -0.02
-#        z: 0.11
-#      orientation:
-#        x: 0
-#        y: 0
-#        z: 0.7071
-#        w: 0.7071
-#    mesh:
-#      pkg: "tbf_gripper_tools"
-#      path: ['resources', 'mesh', 'water_station_redefined.stl']
-#    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
-#      pre_grasp: [-12.18, -75.06, -31.19, -132.94, 80.34, -142.55]
-#      grasp: [-13.50, -99.22, -35.34, -130.96, 80.41, -142.55]
-#      lift: [-13.53, -107.30, -16.28, -141.95, 80.50, -142.55]
-#      post_grasp: [-13.53, -107.30, -16.28, -44.79, 80.50, -142.55]
-#    place_waypoints:
-#      pre_set: [-6.77, -67.42, 117.42, -48.85, 88.43, -130.03]
-#      set: [-6.74, -53.95, 119.04, -63.94, 88.42, -129.84]
-#      post_set: [-6.83, -86.84, 87.12, 0.87, 88.67, -130.3]
-#    place_pose:
-#      frame:
-#        "base_footprint"
-#      position:
-#        x: -0.93
-#        y: 0.15
-#        z: 0.29
-#      orientation:
-#        x: 0.7071
-#        y: 0.0
-#        z: 0.0
-#        w: 0.7071
-#    hold_on_set: 25.0  # 0 is release, else is Duration in seconds
+
+  - name:
+      "Kugel_SSB"
+    pose:
+      frame:
+        "base_footprint"
+      position:
+        x: 0.32
+        y: 0.01
+        z: 0.925
+      orientation:
+        x: 0
+        y: 0
+        z: 0.7071
+        w: 0.7071
+    mesh:
+      pkg: "tbf_gripper_tools"
+      path: ['resources', 'mesh', 'kugel_ssb_redefined.stl']
+    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
+      pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
+      grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
+      post_grasp: [-171.4, -97.3, 56.0, 25.8, 102.8, 227.4]
+    place_waypoints:
+      pre_set: [ -23.6, -76.2, 94.8, -27.1, 94.9, 233.7]
+      set: [ -23.5, -8.1, 90.4, -90.8, 94.9, 234.2]
+      post_set: [-26.0, -18.0, 119.3, -94.6, -92.5, 227.6]
+    place_pose:
+      frame:
+        "base_footprint"
+      position:
+        x: -0.93
+        y: 0.15
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: -0.7071
+        w: 0.7071
+    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
+
+  - name:
+      "Water_Sample_Station"
+    pose:
+      frame: "water_sample_station_mount_link"
+      position:
+        x: 0.35
+        y: -0.02
+        z: 0.11
+      orientation:
+        x: 0
+        y: 0
+        z: 0.7071
+        w: 0.7071
+    mesh:
+      pkg: "tbf_gripper_tools"
+      path: ['resources', 'mesh', 'water_station_redefined.stl']
+    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
+      pre_grasp: [-12.18, -75.06, -31.19, -132.94, 80.34, -142.55]
+      grasp: [-13.50, -99.22, -35.34, -130.96, 80.41, -142.55]
+      lift: [-13.53, -107.30, -16.28, -141.95, 80.50, -142.55]
+      post_grasp: [-13.53, -107.30, -16.28, -44.79, 80.50, -142.55]
+    place_waypoints:
+      pre_set: [-6.77, -67.42, 117.42, -48.85, 88.43, -130.03]
+      set: [-6.74, -53.95, 119.04, -63.94, 88.42, -129.84]
+      post_set: [-6.83, -86.84, 87.12, 0.87, 88.67, -130.3]
+    place_pose:
+      frame:
+        "base_footprint"
+      position:
+        x: -0.93
+        y: 0.15
+        z: 0.29
+      orientation:
+        x: 0.7071
+        y: 0.0
+        z: 0.0
+        w: 0.7071
+    hold_on_set: 25.0  # 0 is release, else is Duration in seconds
 
 ### General Information ###
 interactive_marker_server_name: "SE_MarkerServer"

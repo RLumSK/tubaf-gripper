@@ -494,19 +494,23 @@ class MoveitInterface(object):
         :return: -
         :rtype: -
         """
-        rospy.logdebug("MoveitInterface.clear_octomap_on_marker(): Equipment %s", equipment)
+        rospy.logdebug("MoveitInterface.clear_octomap_on_marker(): Using Equipment %s", equipment.name)
         p = parse_to_os_path(equipment.getMeshResourcePath())
         rospy.logdebug("MoveitInterface._clear_octomap_on_marker(): MeshPath %s", p)
         ps = PoseStamped(pose=equipment.pose)
         ps.header.frame_id = equipment.header.frame_id
         ps.header.stamp = rospy.Time.now()
 
-        # # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
-        # # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
+        # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
+        # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
         name = "tmp_marker"
-        self.scene.add_mesh(name=name, pose=ps, filename=p, size=tuple(1.1 * x for x in equipment.getMeshScale()))
+        co = CollisionObject()
+        co.operation = CollisionObject.REMOVE
+        co.header.frame_id = ps.header.frame_id
+        co.id = name
+        self.scene.add_mesh(name=co.id, pose=ps, filename=p, size=tuple(1.1 * x for x in equipment.getMeshScale()))
         rospy.sleep(rospy.Duration(2.0))
-        self.scene.remove_world_object(name=name)
+        self.scene._pub_co.publish(co)
         return
 
     def clear_octomap_via_box_marker(self):

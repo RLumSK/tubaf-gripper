@@ -106,6 +106,7 @@ class SmartEquipment:
         self.hold_on_set = entry["hold_on_set"]
         self.ssb_T_gripper = np.eye(4)  # type: np.ndarray   # description: Affine transformation from mesh origin to
         # gripper pose
+        # rospy.logwarn("[SmartEquipment.__init__] %s has mesh-path: %s" % (self.name, self.mesh_path))
 
     @classmethod
     def from_parameter_server(cls, group_name="~smart_equipment"):
