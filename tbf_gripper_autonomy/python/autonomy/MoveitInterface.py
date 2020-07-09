@@ -342,20 +342,23 @@ class MoveitInterface(object):
         :return: success
         :rtype: bool
         """
-        from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene
+        from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene, GetPlanningSceneResponse
         from moveit_msgs.msg import PlanningScene, PlanningSceneComponents
         from std_srvs.srv import Empty
+
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
         apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
-        current_octomap = get_planning_scene(
-            components=PlanningSceneComponents(components=PlanningSceneComponents.OCTOMAP))  # type: PlanningScene
-        rospy.loginfo("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
-                      current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
+        response = get_planning_scene(
+            components=PlanningSceneComponents(
+                components=PlanningSceneComponents.OCTOMAP))  # type: GetPlanningSceneResponse
+        current_octomap = response.scene
+        rospy.logdebug("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
+            current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
         clear_octomap()
         self.move_to_target(self, target, info, endless)
         success = apply_planning_scene(current_octomap)
-        rospy.loginfo("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
+        rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
         return success
 
 
