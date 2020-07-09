@@ -379,8 +379,6 @@ class MoveitInterface(object):
             while not plan:
                 if "PostGrasp" in info:
                     self.clear_octomap_via_box_marker()
-                elif "TARGET" in info:
-                    self.clear_octomap_via_box_marker(target)
                 plan = self.plan(target, info)
                 if plan:
                     success = self.execute(plan)
@@ -638,13 +636,13 @@ class MoveitInterface(object):
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)
             if response.error_code.val != 1:
-                rospy.logwarn("MoveitInterface.get_ik(): Failed with error: %s",
-                              MoveitInterface.dct_moveit_error[response.error_code.val])
-                rospy.logwarn("MoveitInterface.get_ik(): Target Pose was:\n%s", request.ik_request.pose_stamped)
-                rospy.logwarn("MoveitInterface.get_ik(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
+                rospy.logwarn("MoveitInterface.get_ik(): Failed with error: %s (%s/%s)" % (
+                              MoveitInterface.dct_moveit_error[response.error_code.val], attempt, self.max_attempts))
+                rospy.logdebug("MoveitInterface.get_ik(): Target Pose was:\n%s", request.ik_request.pose_stamped)
+                rospy.logdebug("MoveitInterface.get_ik(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
                     request.ik_request.robot_state.joint_state.name,
                     request.ik_request.robot_state.joint_state.position)))
-                rospy.logwarn("MoveitInterface.get_ik(): Response was:\n%s", response)
+                rospy.logdebug("MoveitInterface.get_ik(): Response was:\n%s", response)
             else:
                 break
         if response.error_code.val != 1:

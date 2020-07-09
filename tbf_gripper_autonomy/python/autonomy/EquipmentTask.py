@@ -409,19 +409,15 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("EquipmentTask.perform([8]): Release Equipment")
             self.hand_controller.openHand()
             self.moveit.detach_equipment()
-
-        if 6 in stages:
-            rospy.loginfo("STAGE 6: Return to home pose")
-            # Plan back to home station
             if self.selected_equipment.hold_on_set == 0.0:
                 # Now release the station in a manner that it stays on the floor
                 # moving eef
                 self.hand_controller.closeHand(mode="scissor")
-                hand_frame = "gripper_robotiq_palm_planning"
+                hand_frame = "gripper_robotiq_palm_planning"  # = self.moveit.group.get_planning_frame()
                 self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, target_pose.header.stamp,
-                                                  timeout=rospy.Duration(10.0))
-                release_pose = self.tf_listener.transformPose(hand_frame, target_pose)
-                release_pose.pose.position.x = release_pose.pose.position.x -0.15
+                                                  timeout=rospy.Duration(10))
+                release_pose = self.tf_listener.transformPose(hand_frame, target_pose)  # type: PoseStamped
+                release_pose.pose.position.x = release_pose.pose.position.x - 0.15
                 from scipy.spatial.transform import Rotation as R
                 r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
                                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
@@ -440,6 +436,11 @@ class EquipmentTask(GraspTask):
                 while not self.moveit.move_to_target(intermediate_pose,
                                                      info="INTERMED_POSE") and intermediate_pose is not None:
                     rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
+
+        if 6 in stages:
+            rospy.loginfo("STAGE 6: Return to home pose")
+            # Plan back to home station
+
             # if intermediate_pose is not None:
             #     self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False)
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
