@@ -371,7 +371,6 @@ class EquipmentTask(GraspTask):
             target_pose = copy.deepcopy(self.selected_equipment.place_ps)
             target_pose.pose = array_to_pose(np.matmul(pose_to_array(self.selected_equipment.place_ps.pose), sTg))
             marker_at_ps(self.selected_equipment.place_ps, gripper_pose=target_pose)
-            self.moveit.clear_octomap_via_box_marker()
 
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
@@ -381,7 +380,6 @@ class EquipmentTask(GraspTask):
         if 4 in stages:
             rospy.loginfo("STAGE 4: Move SSB %s" % self.selected_equipment.name)
             # Formulate Planning Problem
-            self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             if target_pose is None:
                 rospy.loginfo("EquipmentTask.perform([5]): No Target Pose")
                 return

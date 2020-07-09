@@ -349,9 +349,10 @@ class MoveitInterface(object):
         iplanner = 0
         try:
             while not plan:
+                if "PostGrasp" in info:
+                    self.clear_octomap_via_box_marker()
                 plan = self.plan(target, info)
                 if plan:
-                    # Todo: send empty trajectory
                     success = self.execute(plan)
                 if not endless or success:
                     return success
@@ -538,7 +539,7 @@ class MoveitInterface(object):
         co.header.frame_id = ps.header.frame_id
         co.id = name
         self.scene.add_box(name=co.id, pose=ps, size=size)
-        rospy.sleep(rospy.Duration(2.0))
+        rospy.sleep(rospy.Duration(2)
         self.scene._pub_co.publish(co)
         # self.scene.remove_world_object(name=co.id)
 
