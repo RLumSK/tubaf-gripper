@@ -30,6 +30,7 @@
 # Author: grehl
 
 import sys
+import copy
 
 import rospy
 import moveit_commander
@@ -43,7 +44,6 @@ from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 
 from tf import TransformListener
-from tubaf_tools import parse_to_os_path
 from tubaf_tools.confirm_service import wait_for_confirmation
 import tbf_gripper_rviz.ssb_marker as marker
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
@@ -485,32 +485,36 @@ class MoveitInterface(object):
         self.add_equipment(released_equipment)
         return released_equipment
 
-    def clear_octomap_on_marker(self, equipment):
+    def clear_octomap_on_mesh(self, ps, mesh):
         """
         Clears the octomap on a desired pose with a marker to enable planning to this pose without collision -
         use careful
-        :param equipment: marker on the desired pose
-        :type equipment: marker.SSBMarker
+        :param ps: pose of the mesh
+        :type ps: PoseStamped
+        :param ps: path to mesh
+        :type ps: str
         :return: -
         :rtype: -
         """
-        rospy.logdebug("MoveitInterface.clear_octomap_on_marker(): Using Equipment %s", equipment.name)
-        p = parse_to_os_path(equipment.getMeshResourcePath())
-        rospy.logdebug("MoveitInterface._clear_octomap_on_marker(): MeshPath %s", p)
-        ps = PoseStamped(pose=equipment.pose)
-        ps.header.frame_id = equipment.header.frame_id
-        ps.header.stamp = rospy.Time.now()
-
         # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
         # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
-        name = "tmp_marker"
+        orginal_ps = copy.deepcopy(ps)
         co = CollisionObject()
         co.operation = CollisionObject.REMOVE
         co.header.frame_id = ps.header.frame_id
-        co.id = name
-        self.scene.add_mesh(name=co.id, pose=ps, filename=p, size=tuple(1.1 * x for x in equipment.getMeshScale()))
-        rospy.sleep(rospy.Duration(2.0))
+        co.id = "tmp_scaled"
+        scaling = 1.5
+        sleep = rospy.Duration(2)
+        ps.pose.position.z = ps.pose.position.z + 0.1*(1-scaling)  # move slightly in the ground
+        self.scene.add_mesh(name=co.id, pose=ps, filename=mesh, size=tuple(scaling * x for x in (1.0, 1.0, 1.0)))
+        rospy.sleep(sleep)
+        self.scene.add_mesh(name="tmp_orginal", pose=orginal_ps, filename=mesh, size=(1.0, 1.0, 1.0))
+        rospy.sleep(sleep)
         self.scene._pub_co.publish(co)
+        rospy.sleep(sleep)
+        co.id = "tmp_orginal"
+        self.scene._pub_co.publish(co)
+        rospy.sleep(sleep)
         return
 
     def clear_octomap_via_box_marker(self):

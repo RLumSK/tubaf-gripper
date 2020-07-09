@@ -381,7 +381,7 @@ class EquipmentTask(GraspTask):
         if 4 in stages:
             rospy.loginfo("STAGE 4: Move SSB %s" % self.selected_equipment.name)
             # Formulate Planning Problem
-            self.moveit.clear_octomap_on_marker(marker_at_ps(self.selected_equipment.place_ps))
+            self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             if target_pose is None:
                 rospy.loginfo("EquipmentTask.perform([5]): No Target Pose")
                 return
@@ -397,7 +397,7 @@ class EquipmentTask(GraspTask):
                 intermediate_pose = None
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
-            self.moveit.clear_octomap_on_marker(marker_at_ps(self.selected_equipment.place_ps))
+            self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             debug_pose_pub.publish(target_pose)
             self.moveit.move_to_target(target_pose, info="TARGET_POSE")
 
@@ -544,7 +544,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
     :return: interactive marker
     """
     if gripper_pose is None:
-        int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="r")
+        int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="")
     else:
         int_marker = marker.SSBGraspedMarker(name="debug_grasped_marker", pose=ps_marker, gripper_pose=gripper_pose,
                                              controls="")
@@ -564,3 +564,5 @@ if __name__ == '__main__':
             obj.start()
             # Now we can test if we see the SSB where we think it is
             obj.check_ssb_pose()
+    # obj.moveit.clear_octomap_on_mesh(obj.selected_equipment.place_ps, obj.selected_equipment.mesh_path)
+    # rospy.spin()
