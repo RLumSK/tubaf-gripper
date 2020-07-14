@@ -455,8 +455,8 @@ class EquipmentTask(GraspTask):
                                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
                 r_relative = R.from_euler('z', -20, degrees=True)
                 r_soll = r_is
-                while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=True):
-                    release_pose.pose.position.x = release_pose.pose.position.x + 0.05
+                while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=False):
+                    release_pose.pose.position.x = release_pose.pose.position.x + 0.01
                     r_soll = r_soll * r_relative
                     q = r_soll.as_quat()
                     release_pose.pose.orientation.x = q[0]
