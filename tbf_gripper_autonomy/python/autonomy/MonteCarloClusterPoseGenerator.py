@@ -48,7 +48,7 @@ except ImportError as ie:
 
 DF_N_CPU = mp.cpu_count()
 
-class MonteCarloClusterPoseGenerator(PoseGeneratorRosInterface):
+class MonteCarloClusterPoseGenerator(PoseGeneratorRosView):
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
                  enable_ros=DF_ENABLE_ROS, mc_raster=DF_MC_RASTER, mc_wo=DF_MC_WO, n_cpu=DF_N_CPU):

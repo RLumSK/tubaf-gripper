@@ -49,20 +49,22 @@ from object_recognition_msgs.msg import TableArray, Table
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import PoseStamped, Point, Pose
 
-
-# import matplotlib
-#
-# # matplotlib.use('TKAgg')
 # from pylab import *
-# import matplotlib.pyplot as plt
-# from matplotlib import ticker
 #
-# if sys.version_info.major < 3:
-#     # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
-#     import matplotlib2tikz as mpl2tkz
-# else:
-#     import tikzplotlib as mpl2tkz
 #
+# import matplotlib
+
+# matplotlib.use('TKAgg')
+from pylab import *
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+
+if sys.version_info.major < 3:
+    # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
+    import matplotlib2tikz as mpl2tkz
+else:
+    import tikzplotlib as mpl2tkz
+
 
 
 def pose_to_array(pose_msg, dst=None):
@@ -181,9 +183,6 @@ class PoseGeneratorRosInterface:
         Mi[:3, :3] = Pi
         Mi[:3, 3] = np.matmul(-Pi, v.T)
         u = np.matmul(Mi, np.hstack([v, 1]).T).T
-
-        print v
-        print u
         rospy.loginfo("[PoseGeneratorRosInterface.transform_point_from_plane()] returning %s" % u)
 
         # Ai[:3, 3] = Ai[:3, 3] + x[:3]
@@ -782,7 +781,6 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         import matplotlib
 
         # matplotlib.use('TKAgg')
-        from pylab import *
         import matplotlib.pyplot as plt
         from matplotlib import ticker
 
@@ -827,7 +825,7 @@ class PoseGeneratorRosView(PoseGeneratorRosInterface):
         return ax.plot(self.result[0, 0], self.result[0, 1], 'o', ms=12, zorder=100, color=c, label=n)
 
 
-class PcaPoseGenerator(PoseGeneratorRosInterface):
+class PcaPoseGenerator(PoseGeneratorRosView):
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
                  enable_ros=DF_ENABLE_ROS):
@@ -928,7 +926,7 @@ class PcaPoseGenerator(PoseGeneratorRosInterface):
         return np.asarray(p)
 
 
-class DelaunayPoseGenerator(PoseGeneratorRosInterface):
+class DelaunayPoseGenerator(PoseGeneratorRosView):
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
                  enable_ros=DF_ENABLE_ROS):
@@ -1015,7 +1013,7 @@ class DelaunayPoseGenerator(PoseGeneratorRosInterface):
                                             _delaunay.points[max_idx[2]]]))
 
 
-class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
+class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosView):
     """
     Determine the Pose using KDE and discretization
     """
@@ -1120,7 +1118,7 @@ class MinimalDensityEstimatePoseGenerator(PoseGeneratorRosInterface):
     #     return ret_ax
 
 
-class MonteCarloPoseGenerator(PoseGeneratorRosInterface):
+class MonteCarloPoseGenerator(PoseGeneratorRosView):
     """
     Discretion of the search area and run nn approach for hull and obstacles
     """
