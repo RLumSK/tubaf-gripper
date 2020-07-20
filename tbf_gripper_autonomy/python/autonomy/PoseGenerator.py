@@ -300,7 +300,7 @@ class PoseGeneratorRosInterface:
         # Xt = PoseGeneratorRosInterface.transform_point_from_plane(assumed_position, floor_msg)
         X = pose_to_array(floor_msg.pose)
         X[:3, 3] = assumed_position
-        rospy.loginfo("[PoseGeneratorRosInterface._as_pose_stamped()] X:\n%s" % X)
+        rospy.logdebug("[PoseGeneratorRosInterface._as_pose_stamped()] X:\n%s" % X)
         ps = PoseStamped()
         ps.header = floor_msg.header
         ps.pose = array_to_pose(X)
@@ -922,7 +922,7 @@ class PcaPoseGenerator(PoseGeneratorRosView):
         y0 = obs2d_pca.inverse_transform([0, min(pca_y)])
         y1 = obs2d_pca.inverse_transform([0, max(pca_y)])
         self.lines = [[x0, x1], [y0, y1]]
-        rospy.loginfo("[PcaPoseGenerator._generate()] p: %s  " % p)
+        rospy.logdebug("[PcaPoseGenerator._generate()] p: %s  " % p)
         return np.asarray(p)
 
 

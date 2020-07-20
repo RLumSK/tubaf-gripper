@@ -414,41 +414,61 @@ class EvaluatePoseGenerators(object):
         for k in self.dct_count_largest_obstacle_distance:
             rospy.loginfo("%s\t%g" % (k, self.dct_count_largest_obstacle_distance[k]))
 
-        self.plot_bar(self.dct_lst_hull_distance, title=u'Abstand zur konvexen Hülle')
-        if print_it:
-            print_plt(file_formats=ff, suffix="hull_barplot", save_dir=self.plot_dir)
+        try:
+            self.plot_bar(self.dct_lst_hull_distance, title=u'Abstand zur konvexen Hülle')
+            if print_it:
+                print_plt(file_formats=ff, suffix="hull_barplot", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(Abstand zur konvexen Hülle) failed with %s" % ex)
 
-        self.plot_bar(self.dct_lst_obstacle_distance, title=u'Abstand zum nächsten Hindernis')
-        if print_it:
-            print_plt(file_formats=ff, suffix="obstacle_barplot", save_dir=self.plot_dir)
+        try:
+            self.plot_bar(self.dct_lst_obstacle_distance, title=u'Abstand zum nächsten Hindernis')
+            if print_it:
+                print_plt(file_formats=ff, suffix="obstacle_barplot", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(Abstand zum nächsten Hindernis) failed with %s" % ex)
 
-        self.plot_bar(self.dct_metric, title=u'Metrik')
-        if print_it:
-            print_plt(file_formats=ff, suffix="metric_barplot", save_dir=self.plot_dir)
+        try:
+            self.plot_bar(self.dct_metric, title=u'Metrik')
+            if print_it:
+                print_plt(file_formats=ff, suffix="metric_barplot", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(metrik) failed with %s" % ex)
 
-        self.plot_bar(self.dct_timing, title=u'Rechenzeit', y_scale='log')
-        if print_it:
-            print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
+        try:
+            self.plot_bar(self.dct_timing, title=u'Rechenzeit', y_scale='log')
+            if print_it:
+                print_plt(file_formats=ff, suffix="timing", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(Rechenzeit) failed with %s" % ex)
 
         # dct_relative = EvaluatePoseGenerators.relative_distance("MonteCarloCluster", self.dct_metric)
         # self.plot_bar(dct_relative, title=u'delta zur Metrik')
         # if print_it:
         #     print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+        try:
+            dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_metric)
+            self.plot_bar(dct_relative, title=u'delta zur Metrik')
+            if print_it:
+                print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(delta zur Metrik) failed with %s" % ex)
 
-        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_metric)
-        self.plot_bar(dct_relative, title=u'delta zur Metrik')
-        if print_it:
-            print_plt(file_formats=ff,  suffix="d_metrik_barplot", save_dir=self.plot_dir)
+        try:
+            dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_obstacle_distance)
+            self.plot_bar(dct_relative, title=u'delta zur d_o')
+            if print_it:
+                print_plt(file_formats=ff,  suffix="d_o_barplot", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(delta zur d_o) failed with %s" % ex)
 
-        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_obstacle_distance)
-        self.plot_bar(dct_relative, title=u'delta zur d_o')
-        if print_it:
-            print_plt(file_formats=ff,  suffix="d_o_barplot", save_dir=self.plot_dir)
-
-        dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_hull_distance)
-        self.plot_bar(dct_relative, title=u'delta zur d_h')
-        if print_it:
-            print_plt(file_formats=ff,  suffix="d_h_barplot", save_dir=self.plot_dir)
+        try:
+            dct_relative = EvaluatePoseGenerators.relative_to_maximum(self.dct_lst_hull_distance)
+            self.plot_bar(dct_relative, title=u'delta zur d_h')
+            if print_it:
+                print_plt(file_formats=ff,  suffix="d_h_barplot", save_dir=self.plot_dir)
+        except Exception as ex:
+            rospy.logwarn("[EvaluatePoseGenerators.evaluate()] plot_bar(delta zur d_h) failed with %s" % ex)
 
     @staticmethod
     def relative_to_maximum(dct):

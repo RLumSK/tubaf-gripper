@@ -48,6 +48,7 @@ except ImportError as ie:
 
 DF_N_CPU = mp.cpu_count()
 
+
 class MonteCarloClusterPoseGenerator(PoseGeneratorRosView):
 
     def __init__(self, pub_topic=DF_PUB_TOPIC, obs_topic=DF_OBS_TOPIC, flr_topic=DF_FLR_TOPIC, sub_sample=DF_SUB_SAMPLE,
@@ -98,7 +99,8 @@ class MonteCarloClusterPoseGenerator(PoseGeneratorRosView):
 
         # See: https://www.machinelearningplus.com/python/parallel-processing-python/
         pool = mp.Pool(self.n_cpu)
-        result_objects = pool.starmap_async(parallel_distances, [(i, p, lst_obs_points, hull, self.w) for i, p in enumerate(positions)]).get()
+        result_objects = pool.starmap_async(parallel_distances, [(i, p, lst_obs_points, hull, self.w) for i, p in
+                                                                 enumerate(positions)]).get()
         pool.close()
         pool.join()
 

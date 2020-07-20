@@ -164,7 +164,7 @@ if __name__ == '__main__':
     evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins, weight=mc_weight_obstacle)
     formats = ['.png', '.tex']
 
-    print("Starting: bag has " + str(n_msg) + " messages")
+    rospy.loginfo("[evaluate_bag.py@main] Starting: bag has " + str(n_msg) + " messages")
     for topic, msg, t in bag.read_messages(topics=[floor_topic, obstacles_topic]):
         i_msg += 1
         progress(i_msg - 1, n_msg, suffix="of messages processed")
@@ -177,19 +177,21 @@ if __name__ == '__main__':
         elif topic in floor_topic:
             floor_msg = msg
         else:
-            print("unknown topic")
+            rospy.loginfo("[evaluate_bag.py@main] unknown topic")
             continue
 
         if not pca.check_messages(obstacle_msg, floor_msg):
             continue
-
-        evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        if verbose_plot:
-            try:
-                # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-                ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
-            except IndexError as ie:
-                print("IndexError during view_all")
+        try:
+            evaluation.run(obs=obstacle_msg, flr=floor_msg)
+            if verbose_plot:
+                try:
+                    # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+                    ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
+                except IndexError as ie:
+                    print("IndexError during view_all")
+        except Exception as ex:
+            rospy.logwarn("[evaluate_bag.py@main] Evaluation failed for message %d with error %s" % (i_msg, ex))
 
     # evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
     # evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
