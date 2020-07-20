@@ -48,6 +48,7 @@ except ImportError as ie:
 DF_BAG_PATH = '/in/bag/buero.bag'
 DF_IS = 0
 DF_IE = -DF_IS
+DF_VP = False
 
 
 # from: https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
@@ -79,7 +80,8 @@ if __name__ == '__main__':
     parser.add_argument("-ss", "--sub_sample", default=pg.DF_SUB_SAMPLE, help='Subsample rate', type=float)
     parser.add_argument("-nb", "--n_bins", default=pg.DF_N_BINS, help='[KDE] Number of Bins used ', type=int)
     parser.add_argument("-mcr", "--mc_raster", default=pg.DF_MC_RASTER, help='[Ref] Number of x and y line', type=int)
-    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO, help='[Ref] Weight for obstacle distance',
+    parser.add_argument("-mc_wo", "--mc_weight_obstacle", default=pg.DF_MC_WO,
+                        help='[Ref] Weight for obstacle distance',
                         type=float)
     parser.add_argument("-bh", "--histogram_bins", default=ev.DF_N_BINS, help='Number of Bins used in the Histograms '
                                                                               'during Evaluation', type=int)
@@ -88,6 +90,8 @@ if __name__ == '__main__':
     parser.add_argument("-ie", "--end_index", default=DF_IE, help='Message number to end the analysis', type=int)
 
     parser.add_argument("-nc", "--n_cpu", default=mc.DF_N_CPU, help='Number of CPUs used for multiprocessing', type=int)
+    parser.add_argument("-vp", "--verbose_plot", default=DF_IE,
+                        help='Plot results for every new pair of obstacle and floor message', type=bool)
 
     args = parser.parse_args()
 
@@ -109,6 +113,8 @@ if __name__ == '__main__':
         start_index = rospy.get_param("~start_index", DF_IS)
         end_index = rospy.get_param("~end_index", DF_IE)
         n_cpu = rospy.get_param("~n_cpu", mc.DF_N_CPU)
+        verbose_plot = rospy.get_param("~verbose_plot", DF_VP)
+
     else:
         print("Using args")
         print(args)
@@ -125,6 +131,7 @@ if __name__ == '__main__':
         start_index = args.start_index
         end_index = args.end_index
         n_cpu = args.n_cpu
+        verbose_plot = args.verbose_plot
 
         from logging import basicConfig, getLogger, ERROR, INFO
 
@@ -149,8 +156,9 @@ if __name__ == '__main__':
     dln = pg.DelaunayPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros)
     kde = pg.MinimalDensityEstimatePoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros,
                                                  n_bins)
-    mcr = mc.MonteCarloClusterPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros, mc_raster,
-                                     mc_weight_obstacle, n_cpu)
+    mcr = mc.MonteCarloClusterPoseGenerator(pub_topic, obstacles_topic, floor_topic, sub_sample, args.use_ros,
+                                            mc_raster,
+                                            mc_weight_obstacle, n_cpu)
     lst_gen = [pca, dln, kde, mcr]
 
     evaluation = ev.EvaluatePoseGenerators(lst_gen, save_dir=plot_dir, n_bins=histogram_bins, weight=mc_weight_obstacle)
@@ -176,11 +184,12 @@ if __name__ == '__main__':
             continue
 
         evaluation.run(obs=obstacle_msg, flr=floor_msg)
-        # try:
-        #     # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
-        #     ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
-        # except IndexError as ie:
-        #     print("IndexError during view_all")
+        if verbose_plot:
+            try:
+                # ev.view_general(lst_gen[0], show_it=False, print_it=True, ff=formats, save_to=plot_dir)
+                ev.view_all(lst_generator=lst_gen, show_it=False, print_it=True, ff=formats, save_to=plot_dir, index=i_msg)
+            except IndexError as ie:
+                print("IndexError during view_all")
 
     # evaluation.plot_heatmap(print_it=True, ff=['.png', '.pgf', '.pdf'])
     # evaluation.distance_to(evaluation.dct_result[mcr.get_name()], print_it=True, show_it=False, ff=formats)
