@@ -356,7 +356,7 @@ class EquipmentTask(GraspTask):
             self.hand_controller.closeHand()
             # Scan env
             for joint_target in self.env_sense_joints_poses:
-                self.moveit.move_to_target(joint_target, info="ENV_SCAN")
+                self.moveit.move_to_target(joint_target, info="ENV_SCAN", blind=True)
 
         if 2 in stages:
             rospy.loginfo("STAGE 2: Sense for target pose")
