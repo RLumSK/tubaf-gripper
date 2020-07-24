@@ -61,10 +61,13 @@ from matplotlib import ticker
 
 if sys.version_info.major < 3:
     # see: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
-    import matplotlib2tikz as mpl2tkz
+    try:
+        import matplotlib2tikz as mpl2tkz
+    except SyntaxError:
+        # also: https://stackoverflow.com/questions/55554352/import-of-matplotlib2tikz-results-in-syntaxerror-invalid-syntax
+        pass
 else:
     import tikzplotlib as mpl2tkz
-
 
 
 def pose_to_array(pose_msg, dst=None):
