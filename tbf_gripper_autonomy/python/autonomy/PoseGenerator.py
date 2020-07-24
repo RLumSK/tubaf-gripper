@@ -589,7 +589,7 @@ class PoseGeneratorRosInterface:
         :return: decision
         :rtype: bool
         """
-        if obs_msg is None or flr is None:
+        if obs_msg is None or flr_msg is None:
             rospy.logdebug("[PoseGeneratorRosInterface.check_messages()] One or both messages is/are None")
             return False
         if type(flr_msg) == TableArray and len(flr_msg.tables) == 0:
