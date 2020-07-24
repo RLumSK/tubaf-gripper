@@ -9,3 +9,4 @@ matplotlib2tikz
 tikzplotlib
 gnupg
 numba
+pycryptodomex
