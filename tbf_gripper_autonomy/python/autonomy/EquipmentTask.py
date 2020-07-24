@@ -523,9 +523,11 @@ class EquipmentTask(GraspTask):
         ssb_pose = self.selected_equipment.place_ps
         # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
         arm_frame = "gripper_ur5_base_link"
+        camera_frame = rospy.get_param("camera_frame", default="rs_gripper_d435_color_optical_frame")
         # self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
         #                                   timeout=rospy.Duration(10.0))
         watch_pose = self.tfBuffer.transform(ssb_pose, arm_frame)
+        watch_pose.pose.position.x = watch_pose.pose.position.x - 0.14
         watch_pose.pose.position.z = 0.0
 
         from scipy.spatial.transform import Rotation as R
