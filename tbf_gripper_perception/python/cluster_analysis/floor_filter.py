@@ -183,9 +183,8 @@ class FloorFilter(object):
 class FloorFilterServer(object):
 
     def __init__(self):
-        self.service_name = rospy.get_param("~service_name", default='identify_floor_plane')
-        self.server = rospy.Service(self.service_name, IdentifyFloor, FloorFilterServer.handle_request)
-        self.cloud_topic = rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points")
+        self.server = rospy.Service(rospy.get_param("~service_name", default='identify_floor_plane'),
+                                    IdentifyFloor, FloorFilterServer.handle_request)
 
     @staticmethod
     def handle_request(req):

@@ -383,6 +383,7 @@ class MoveitInterface(object):
                 plan = self.plan(target, info, blind=blind)
                 if plan:
                     success = self.execute(plan)
+                    rospy.loginfo("[MoveitInterface.move_to_target] Finished %s motion" % info)
                 if not endless or success:
                     return success
                 if not success and endless:

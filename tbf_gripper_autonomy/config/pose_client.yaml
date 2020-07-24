@@ -1,3 +1,3 @@
-sense_service_name: "DelaunayPoseGenerator" #  PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
+sense_service_name: "DelaunayPoseGenerator_service" #  PcaPoseGenerator_service, MinimalDensityEstimatePoseGenerator_service, DelaunayPoseGenerator_service
 obstacles_topic: "/ork/tabletop/clusters"
 floor_topic: "/ork/floor_plane"

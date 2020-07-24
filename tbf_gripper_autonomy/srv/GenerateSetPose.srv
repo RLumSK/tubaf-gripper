@@ -1,6 +1,6 @@
 # Request
 Header header
-object_recognition_msgs/TableArray floor
+object_recognition_msgs/Table floor
 visualization_msgs/MarkerArray obstacles
 string  policy
 bool    print_evaluation

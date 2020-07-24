@@ -500,7 +500,10 @@ class PoseGeneratorRosInterface:
             if floor_msg is None:
                 while floor_msg is None:
                     floor_msg = self._floor_cache.getElemBeforeTime(t)  # type: TableArray
-                ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg.tables[0])
+                if type(floor_msg) == TableArray:
+                    ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg.tables[0])
+                elif type(floor_msg) is Table:
+                    ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg)
             ps.header.stamp = t
 
         if not self.check_messages(obstacles_msg, floor_msg):

@@ -74,46 +74,63 @@ def sense(tf_listener=None):
     :rtype: PoseStamped
     """
     from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
+    from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest
     from std_msgs.msg import Header
     from message_filters import Subscriber, Cache
     from object_recognition_msgs.msg import TableArray
     from visualization_msgs.msg import MarkerArray
 
+    # Identify the floor
+    floor_identify_service_name = rospy.get_param("~floor_identify_service", "/ork/identify_floor_plane")
+    rospy.loginfo("[sense()] floor_identify_service_name: %s" % floor_identify_service_name)
+    rospy.wait_for_service(floor_identify_service_name)
+    rospy.loginfo("[sense()] %s available" % floor_identify_service_name)
+    floor_identify_service = rospy.ServiceProxy(floor_identify_service_name, IdentifyFloor)
+    identify_floor_req = IdentifyFloorRequest()
+    while not rospy.is_shutdown():
+        planes = rospy.wait_for_message(rospy.get_param('~tables_topic', "/ork/table_array"), TableArray)
+        identify_floor_req.planes = planes
+        identify_floor_res = floor_identify_service(identify_floor_req)
+        if identify_floor_res.success:
+            break
+        else:
+            rospy.logwarn("[sense()] Identify floor plane failed")
+            rospy.sleep(2.0)
+
     # As client
     # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
-    service_name = rospy.get_param("~sense_service_name", "PcaPoseGenerator")
-    rospy.wait_for_service(service_name + '_service')
-    service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
+    pose_generation_service_name = rospy.get_param("~sense_service_name", "DelaunayPoseGenerator_service")
+    rospy.loginfo("[sense()] pose_generation_service_name: %s" % pose_generation_service_name)
+    rospy.wait_for_service(pose_generation_service_name)
+    rospy.loginfo("[sense()] %s available" % pose_generation_service_name)
+    pose_generation_service = rospy.ServiceProxy(pose_generation_service_name, GenerateSetPose)
 
     request = GenerateSetPoseRequest()
     request.header = Header()
     request.header.stamp = rospy.Time.now()
     request.print_evaluation = False
     request.policy = "hl"
+    request.floor = identify_floor_res.floor
 
     _obstacle_topic = rospy.get_param("~obstacle_topic", "/ork/tabletop/clusters")
-    _floor_topic = rospy.get_param("~floor_topic", "/ork/floor_plane")
-
     _obstacle_cache = Cache(Subscriber(_obstacle_topic, MarkerArray), 1, allow_headerless=True)
-    _floor_cache = Cache(Subscriber(_floor_topic, TableArray), 1)
 
     ps = None
 
     while ps is None:
         try:
-            request.floor = _floor_cache.getLast()
-            request.obstacles = _obstacle_cache.getLast()
-            if request.floor is None or request.obstacles is None:
+            if _obstacle_cache.getLast() is None:
                 rospy.sleep(1.0)
                 continue
-            rospy.logdebug("[sense()] Request:\n%s" % request)
-            reply = service(request)
-            rospy.loginfo("[sense()] %s suggests %s" % (service_name, reply))
+            request.obstacles = _obstacle_cache.getLast()
+            # rospy.logdebug("[sense()] Request:\n%s" % request)
+            reply = pose_generation_service(request)
+            rospy.loginfo("[sense()] %s suggests %s" % (pose_generation_service_name, reply))
 
             ps = reply.set_pose
 
         except rospy.ServiceException as e:
-            rospy.logerr("[main] Service %s call failed\n%s" % (service_name, e.message))
+            rospy.logerr("[main] Service %s call failed\n%s" % (pose_generation_service_name, e.message))
             ps = None
 
     # Adjust z-coordinate to fit to ground
@@ -351,6 +368,7 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
             # Sense for target_pose
             target_on_floor = sense()  # type: PoseStamped
+            rospy.loginfo("EquipmentTask.perform([2]): Sensed")
             # Assume that the base_link doesn't move, so we can save the pose relative to it
             self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=target_on_floor.header.frame_id,
                                               time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
@@ -431,14 +449,14 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_set(target_pose, info="TARGET_POSE")
 
         if 5 in stages:
-            rospy.loginfo("STAGE 8: Release/Hold SSB %s" % self.selected_equipment.name)
+            rospy.loginfo("STAGE 5: Release/Hold SSB %s" % self.selected_equipment.name)
             if self.selected_equipment.hold_on_set != 0.0:
                 # TODO: Test this path
                 rospy.sleep(self.selected_equipment.hold_on_set)
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp")
-            rospy.loginfo("EquipmentTask.perform([8]): Release Equipment")
+            rospy.loginfo("EquipmentTask.perform([5]): Release Equipment")
             self.hand_controller.openHand()
             self.moveit.detach_equipment()
             if self.selected_equipment.hold_on_set == 0.0:
@@ -449,12 +467,14 @@ class EquipmentTask(GraspTask):
                 self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, target_pose.header.stamp,
                                                   timeout=rospy.Duration(10))
                 release_pose = self.tf_listener.transformPose(hand_frame, target_pose)  # type: PoseStamped
+                rospy.loginfo("EquipmentTask.perform([5]): Release pose was: \n %s" % release_pose.pose)
                 release_pose.pose.position.x = release_pose.pose.position.x - 0.15
                 from scipy.spatial.transform import Rotation as R
                 r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
                                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
                 r_relative = R.from_euler('z', -20, degrees=True)
                 r_soll = r_is
+                rospy.loginfo("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose.pose)
                 while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=False):
                     release_pose.pose.position.x = release_pose.pose.position.x + 0.01
                     r_soll = r_soll * r_relative
@@ -463,7 +483,7 @@ class EquipmentTask(GraspTask):
                     release_pose.pose.orientation.y = q[1]
                     release_pose.pose.orientation.z = q[2]
                     release_pose.pose.orientation.w = q[3]
-                    rospy.loginfo("EquipmentTask.perform([9]): Release Pose not reached - Trying again")
+                    rospy.loginfo("EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" % release_pose.pose)
                 self.hand_controller.closeHand()
                 while not self.moveit.move_to_target(intermediate_pose,
                                                      info="INTERMED_POSE") and intermediate_pose is not None:
@@ -487,8 +507,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        # self.perform([2, 3, 4, 5, 6])
-        self.perform([0, 1, 2, 3, 4, 5, 6])
+        self.perform([2, 3, 4, 5, 6])
+        # self.perform([0, 1, 2, 3, 4, 5, 6])
 
     def check_set_equipment_pose(self):
         """
@@ -569,7 +589,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.INFO)
+    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
