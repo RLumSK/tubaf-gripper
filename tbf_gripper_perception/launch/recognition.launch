@@ -8,7 +8,9 @@
           args="-c $(find tbf_gripper_perception)/config/detection.tabletop.ros.ork" output="screen" />
 
     <node pkg="tbf_gripper_perception" ns="$(arg ns)" name="tbf_floor_detection" output="screen" type="floor_filter.py">
-      <rosparam file="$(find tbf_gripper_perception)/config/floor_filter.yaml" command="load"/>
+        <rosparam file="$(find tbf_gripper_perception)/config/floor_filter.yaml" command="load"/>
+        <param name="run_as_service" type="bool" value="True"/>
+        <param name="service_name" type="string" value="identify_floor_plane" />
     </node>
 
     <node name="set_pose_generator" pkg="tbf_gripper_autonomy" type="run_set_pose_generators.py" respawn="true" output="log">

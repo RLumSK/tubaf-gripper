@@ -36,6 +36,7 @@ import tf
 from geometry_msgs.msg import PoseStamped, QuaternionStamped
 from object_recognition_msgs.msg import TableArray
 from message_filters import Subscriber, Cache
+from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest, IdentifyFloorResponse
 
 
 def signal_handler(_signal, _frame):
@@ -165,7 +166,7 @@ class FloorFilter(object):
             if z < 0 and abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
                 v = pose.position.z + self.floor_frame_offset
                 rospy.logdebug("[cluster_analysis::FloorFilter.identify_floor] %g = %g + %g" % (
-                        v, pose.position.z, self.floor_frame_offset
+                    v, pose.position.z, self.floor_frame_offset
                 ))
                 if min_z > v:
                     ret_plane = plane
@@ -179,8 +180,42 @@ class FloorFilter(object):
         return ret_plane
 
 
+class FloorFilterServer(object):
+
+    def __init__(self):
+        self.service_name = rospy.get_param("~service_name", default='identify_floor_plane')
+        self.server = rospy.Service(self.service_name, IdentifyFloor, FloorFilterServer.handle_request)
+        self.cloud_topic = rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points")
+
+    @staticmethod
+    def handle_request(req):
+        """
+        Service call
+        :param req: service request
+        :type req: IdentifyFloorRequest
+        :return:
+        """
+        response = IdentifyFloorResponse()
+        floor_filter = FloorFilter()
+        planes = req.planes
+        if planes is None:
+            _tables_topic = rospy.get_param('~tables_topic', "/ork/table_array")
+            planes = rospy.wait_for_message(_tables_topic, TableArray)
+        floor = floor_filter.identify_floor(planes)
+        if floor is not None:
+            response.floor = floor
+            response.success = True
+        else:
+            response.success = False
+        return response
+
+
 if __name__ == '__main__':
-    rospy.init_node("floor_filter")
-    obj = FloorFilter()
-    obj.perform()
+    rospy.init_node("floor_filter", log_level=rospy.DEBUG)
+    rospy.logdebug("[floor_filter.py@main] Run as service? %s" % rospy.get_param("~run_as_service", default=False))
+    if not rospy.get_param("~run_as_service", default=False):
+        obj = FloorFilter()
+        obj.perform()
+    else:
+        obj = FloorFilterServer()
     rospy.spin()

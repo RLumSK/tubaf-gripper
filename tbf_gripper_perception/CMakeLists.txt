@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
    sensor_msgs
    tbf_gripper_tools
    dynamic_reconfigure
+   object_recognition_msgs
    )
 
 ## System dependencies are found with CMake's conventions
@@ -63,6 +64,7 @@ add_service_files(
    FILES
    TogglePerception.srv
    ObjectClassifierService.srv
+   IdentifyFloor.srv
 #  Service2.srv
 )
 
@@ -79,6 +81,7 @@ generate_messages(
    std_msgs
    shape_msgs
    geometry_msgs
+   object_recognition_msgs
    # Or other packages containing msgs
 )
 
