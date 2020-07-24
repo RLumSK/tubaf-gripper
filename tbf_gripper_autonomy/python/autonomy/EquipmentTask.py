@@ -33,10 +33,12 @@ import copy
 
 import rospy
 import tf
+import tf2_ros
 import message_filters
 import numpy as np
 
 from geometry_msgs.msg import PoseStamped
+from moveit_msgs.msg import Constraints, JointConstraint, PositionConstraint, OrientationConstraint
 import std_msgs.msg
 
 from autonomy.Task import GraspTask
@@ -227,36 +229,7 @@ def optimize_ssb_z_rotation(oTs, sTg):
     return oTs
 
 
-def compute_ssb_delta(ps_0, ps_1):
-    """
-    compute the euclidean distance between two poses
-    :param ps_0: first pose (/result/placed_pose)
-    :type ps_0: PoseStamped
-    :param ps_1: second pose (/result/observed_pose)
-    :type ps_1: PoseStamped
-    :return: difference
-    :rtype: float
-    """
-    import tf2_ros
-    import tf2_geometry_msgs
-    tfBuffer = tf2_ros.Buffer()
-    rospy.sleep(10)
-    pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
-    pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
-    try:
-        tfs = tfBuffer.lookup_transform(target_frame=ps_0.header.frame_id, source_frame=ps_1.header.frame_id,
-                                        time=rospy.Time(0), timeout=rospy.Duration(1))
-        ps1 = tf2_geometry_msgs.do_transform_pose(ps_1, tfs)
-    except Exception as ex:
-        rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
-        return np.NaN
-    T0 = pose_to_array(ps_0.pose)
-    T1 = pose_to_array(ps1.pose)
 
-    pub0.publish(ps_0)
-    pub1.publish(ps1)
-
-    return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
 
 
 class EquipmentTask(GraspTask):
@@ -269,6 +242,8 @@ class EquipmentTask(GraspTask):
         Default constructor, start ROS, hand_model and demo_monitoring
         """
         self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
+        self.tfBuffer = tf2_ros.Buffer()
+        self.tf2_listener = tf2_ros.TransformListener(self.tfBuffer)
         # Init Moveit
         self.moveit = MoveitInterface("~moveit", self.tf_listener)  # type: MoveitInterface
         rospy.loginfo("EquipmentTask.__init__(): Moveit initialized")
@@ -330,6 +305,25 @@ class EquipmentTask(GraspTask):
         rospy.loginfo("EquipmentTask.generate_goal():  goal_pose: \n %s", ret_pose)
         return ret_pose
 
+    def generate_path_constraints(self):
+        """
+        Generate path constraints for the ssb handling
+        :return: constraints for MoveIt!
+        :rtype: Constraints
+        """
+        planning_frame = self.moveit.group.get_pose_reference_frame()
+        trans = self.tfBuffer.lookup_transform(self.moveit.eef_link, planning_frame, rospy.Time(0))
+
+        c_orientation = OrientationConstraint()
+        c_orientation.header = trans.header
+        c_orientation.link_name = trans.child_frame_id
+        c_orientation.orientation = trans.transform.rotation
+        c_orientation.absolute_z_axis_tolerance = 2*np.pi
+
+        constraints = Constraints()
+        constraints.name = "SSB_handling_contraints"
+        constraints.orientation_constraints.append(c_orientation)
+
     def perform(self, stages=None):
         """
         Equipment Handle Task:
@@ -349,6 +343,7 @@ class EquipmentTask(GraspTask):
         debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         target_pose = None
         intermediate_pose = None
+        constraints = None
         arm_frame = "gripper_ur5_base_link"
         if 0 in stages:
             rospy.loginfo("STAGE 0: Initialize")
@@ -422,9 +417,13 @@ class EquipmentTask(GraspTask):
             target_pose.pose = array_to_pose(np.matmul(pose_to_array(self.selected_equipment.place_ps.pose), sTg))
             marker_at_ps(self.selected_equipment.place_ps, gripper_pose=target_pose)
 
+            constraints = self.generate_path_constraints()
+
             if "lift" in self.selected_equipment.pickup_waypoints:
-                self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift")
-            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp")
+                self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift",
+                                           constraints=constraints)
+            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp",
+                                       constraints=constraints)
 
         # 5. Calculate target pose
         if 4 in stages:
@@ -440,13 +439,15 @@ class EquipmentTask(GraspTask):
             intermediate_pose.pose.position.z += 0.3
             debug_pose_pub.publish(intermediate_pose)
             rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose published")
-            while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False):
+            while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False,
+                                                 constraints=constraints):
                 rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying again")
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
             # self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             debug_pose_pub.publish(target_pose)
-            self.moveit.move_to_set(target_pose, info="TARGET_POSE")
+            self.moveit.move_to_set(target_pose, info="TARGET_POSE",
+                                    constraints=constraints)
 
         if 5 in stages:
             rospy.loginfo("STAGE 5: Release/Hold SSB %s" % self.selected_equipment.name)
@@ -507,8 +508,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([2, 3, 4, 5, 6])
-        # self.perform([0, 1, 2, 3, 4, 5, 6])
+        # self.perform([2, 3, 4, 5, 6])
+        self.perform([0, 1, 2, 3, 4, 5, 6])
 
     def check_set_equipment_pose(self):
         """
@@ -522,10 +523,11 @@ class EquipmentTask(GraspTask):
         ssb_pose = self.selected_equipment.place_ps
         # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
         arm_frame = "gripper_ur5_base_link"
-        self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
-                                          timeout=rospy.Duration(10.0))
-        watch_pose = self.tf_listener.transformPose(arm_frame, ssb_pose)
-        watch_pose.pose.position.z = 0.5
+        # self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
+        #                                   timeout=rospy.Duration(10.0))
+        watch_pose = self.tfBuffer.transform(ssb_pose, arm_frame)
+        watch_pose.pose.position.z = 0.0
+
         from scipy.spatial.transform import Rotation as R
         r_yrot = R.from_euler('y', 90, degrees=True)
         r_xrot = R.from_euler('x', -90, degrees=True)
@@ -542,12 +544,37 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(watch_pose, info="DETECT_POSE", endless=True, blind=True)
             detected_ssb_pose = object_detection()
             watch_pose.pose.position.z += 0.1
-        diff = compute_ssb_delta(self.selected_equipment.place_ps, detected_ssb_pose)
+        diff = self.compute_ssb_delta(detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
 
         pcl_pub.publish(rospy.wait_for_message("/gripper_d435/depth/color/points", PointCloud2))
         diff_pub.publish(diff)
 
+    def compute_ssb_delta(self, ps_1):
+        """
+        compute the euclidean distance between two poses
+        :param ps_0: first pose (/result/placed_pose)
+        :type ps_0: PoseStamped
+        :param ps_1: second pose (/result/observed_pose)
+        :type ps_1: PoseStamped
+        :return: difference
+        :rtype: float
+        """
+        ps_0 = self.selected_equipment.place_ps
+        pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
+        pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
+        try:
+            ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
+        except Exception as ex:
+            rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
+            return np.NaN
+        T0 = pose_to_array(ps_0.pose)
+        T1 = pose_to_array(ps1.pose)
+
+        pub0.publish(ps_0)
+        pub1.publish(ps1)
+
+        return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
 
 def object_detection():
     """
@@ -560,7 +587,7 @@ def object_detection():
                                      PointCloud2, 10)
     if pcl_msg is None:
         return None
-    service_name = rospy.get_param("~service_name", default='locate_ssb_in_cloud')
+    service_name = rospy.get_param("~ssb_detection_service_name", default='locate_ssb_in_cloud')
     rospy.wait_for_service(service_name)
     locate_service = rospy.ServiceProxy(service_name, LocateInCloud)
     if locate_service is None:
@@ -569,6 +596,8 @@ def object_detection():
     request.cloud_msg = pcl_msg
     response = locate_service(request)  # type: LocateInCloudResponse
     rospy.loginfo("[object_detection] response :\n%s" % response)
+    if response is None or response.detection_score == 0.0:
+        return None
     return response.object_pose
 
 

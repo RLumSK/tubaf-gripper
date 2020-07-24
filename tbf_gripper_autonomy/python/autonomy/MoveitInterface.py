@@ -36,7 +36,7 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 from moveit_commander import RobotState, RobotTrajectory
-from moveit_msgs.msg import CollisionObject
+from moveit_msgs.msg import CollisionObject, Constraints
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
 import numpy as np
 
@@ -165,7 +165,7 @@ class MoveitInterface(object):
             self.group.allow_replanning(False)
             self.group.allow_looking(False)
             # [minX, minY, minZ, maxX, maxY, maxZ]
-            self.group.set_pose_reference_frame(reference_frame="/gripper_ur5_base_link")
+            self.group.set_pose_reference_frame(reference_frame="gripper_ur5_base_link")
             # Planning frame is /base_footprint
             self.group.set_workspace([-1.6, -1.2, 0.0, 0.25, 1.2, 1.7])
             self.group.set_goal_tolerance(0.005)
@@ -217,7 +217,7 @@ class MoveitInterface(object):
         # rospy.logdebug("MoveitInterface._set_start_state(): msg %s ", msg)
         return msg
 
-    def plan(self, target, info="", blind=False):
+    def plan(self, target, info="", blind=False, constraints=None):
         """
         Plan a trajectory towards the target using MoveIt
         :param blind: [DANGEROUS] if true, plan is executed without confirmation
@@ -226,6 +226,8 @@ class MoveitInterface(object):
         :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
+        :param constraints: constraints for the planning interface
+        :type constraints: Constraints
         :return: plan
         :rtype: RobotTrajectory
         """
@@ -283,13 +285,19 @@ class MoveitInterface(object):
             rospy.logerr("MoveitInterface.plan(" + info + "): target type: %s" % type(target))
             return False
 
+        if constraints is not None:
+            rospy.loginfo("MoveitInterface.plan(): Setting %s constraints" % constraints.name)
+            self.group.set_path_constraints(constraints)
+
         plan = None
         plan_valid = False
         attempts = 1
         while not plan_valid and attempts <= self.max_attempts:
             rospy.loginfo("MoveitInterface.plan(): Planning %s to: \n%s\tPlanning time: %s" %
                           (info, target, self.group.get_planning_time()))
+            ### HERE WE PLAN ###
             plan = self.group.plan()
+            ###
             self.group.set_planning_time(self.parameter["planner_time"] * attempts ** 2)
             self.group.set_num_planning_attempts(self.parameter["planner_attempts"] * attempts ** 2)
             attempts += 1
@@ -332,12 +340,14 @@ class MoveitInterface(object):
         rospy.loginfo("MoveitInterface.execute(): Executing ...")
         return self.group.execute(plan)
 
-    def move_to_set(self, target, info, endless=True):
+    def move_to_set(self, target, info, endless=True, constraints=None):
         """
         Same as move_to_target() but while ignoring the planing scene
         :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
+        :param constraints: List of contraints for each joint configuration in the path
+        :type constraints: Constraints
         :return: success
         :rtype: bool
         """
@@ -355,12 +365,12 @@ class MoveitInterface(object):
             current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
         clear_octomap()
-        self.move_to_target(target, info, endless)
+        self.move_to_target(target, info, endless, constraints=constraints)
         success = apply_planning_scene(current_octomap)
         rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
         return success
 
-    def move_to_target(self, target, info, endless=True, blind=False):
+    def move_to_target(self, target, info, endless=True, blind=False, constraints=None):
         """
         Plan and execute
         :param endless: loop the computation of a plan/trajectory
@@ -370,6 +380,8 @@ class MoveitInterface(object):
         :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
+        :param constraints: List of contraints for each joint configuration in the path
+        :type constraints: Constraints
         :return: success
         :rtype: bool
         """
@@ -380,7 +392,7 @@ class MoveitInterface(object):
             while not plan:
                 if "PostGrasp" in info:
                     self.clear_octomap_via_box_marker()
-                plan = self.plan(target, info, blind=blind)
+                plan = self.plan(target, info, blind=blind, constraints=None)
                 if plan:
                     success = self.execute(plan)
                     rospy.loginfo("[MoveitInterface.move_to_target] Finished %s motion" % info)

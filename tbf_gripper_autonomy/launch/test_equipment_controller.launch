@@ -1,7 +1,7 @@
 <launch>
 <!--    START AT RECOGNITION AT JM-->
 <!--    <include file="$(find tbf_gripper_perception)/launch/recognition.launch" /> -->
-    <arg name="service_name"       default="locate_ssb_in_cloud"/>
+    <arg name="ssb_detection_service_name"       default="locate_ssb_in_cloud"/>
     <arg name="cloud_topic"        default="/gripper_d435/depth_registered/points"/>
     <arg name="record"              default="false" />
 
@@ -11,7 +11,7 @@
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
-        <param name="service_name" value="$(arg service_name)"/>
+        <param name="ssb_detection_service_name" value="$(arg ssb_detection_service_name)"/>
         <param name="cloud_topic" value="$(arg cloud_topic)"/>
     </node>
 
