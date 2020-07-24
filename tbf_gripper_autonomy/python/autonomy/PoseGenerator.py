@@ -510,8 +510,11 @@ class PoseGeneratorRosInterface:
             rospy.loginfo("[PoseGeneratorRosInterface.once()] messages not suitable\n%s\n---\n%s" %
                           (obstacles_msg, floor_msg))
             return ps
-
-        self.obs_points, self.hull_points = self.extract_points(obstacles_msg, floor_msg.tables[0])
+        if type(floor_msg) == TableArray:
+            flr = floor_msg.tables[0]
+        else:
+            flr = floor_msg
+        self.obs_points, self.hull_points = self.extract_points(obstacles_msg, flr)
         # Points are projected into the floor plane, since the normal vector is orthogonal to this plane
         # the z-coordinate for all points within is roughly the same - but not necessary zero
         if len(self.obs_points) == 0:
@@ -555,11 +558,11 @@ class PoseGeneratorRosInterface:
                 self._generate(valid_points, hull=self.hull_points[:, :2]), self.hull_points)
 
         if self.result is None:
-            ps.header = floor_msg.tables[0].header
-            ps.pose = floor_msg.tables[0].pose
+            ps.header = flr.header
+            ps.pose = flr.pose
         else:
             # result is given in plane coordinates, the transformation in camera coordinates is part of _as_pose_stamped
-            ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, floor_msg.tables[0])
+            ps = PoseGeneratorRosInterface._as_pose_stamped(self.result, flr)
 
         return ps
 
