@@ -195,18 +195,21 @@ class FloorFilterServer(object):
         :type req: IdentifyFloorRequest
         :return:
         """
+        rospy.logdebug("[FloorFilterServer.handle_request()] Received Request")
         response = IdentifyFloorResponse()
         floor_filter = FloorFilter()
         planes = req.planes
         if planes is None:
-            _tables_topic = rospy.get_param('~tables_topic', "/ork/table_array")
-            planes = rospy.wait_for_message(_tables_topic, TableArray)
+            tables_topic = rospy.get_param('~tables_topic', "/ork/table_array")
+            rospy.logdebug("[FloorFilterServer.handle_request()] Waiting for message at %s" % tables_topic)
+            planes = rospy.wait_for_message(tables_topic, TableArray)
         floor = floor_filter.identify_floor(planes)
         if floor is not None:
             response.floor = floor
             response.success = True
         else:
             response.success = False
+        rospy.logdebug("[FloorFilterServer.handle_request()] Finished")
         return response
 
 
