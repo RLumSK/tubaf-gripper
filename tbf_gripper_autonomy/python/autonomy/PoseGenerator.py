@@ -589,15 +589,21 @@ class PoseGeneratorRosInterface:
         :return: decision
         :rtype: bool
         """
-        if obs_msg is None or flr_msg is None:
+        if obs_msg is None or flr is None:
             rospy.logdebug("[PoseGeneratorRosInterface.check_messages()] One or both messages is/are None")
             return False
-        if len(flr_msg.tables) == 0:
+        if type(flr_msg) == TableArray and len(flr_msg.tables) == 0:
             rospy.logwarn("[PoseGeneratorRosInterface.check_messages()] No floor plane given")
             return False
-        if len(flr_msg.tables[0].convex_hull) < PoseGeneratorRosInterface.HULL_THRESHOLD:
+
+        if type(flr_msg) == TableArray:
+            flr = flr_msg.tables[0]
+        else:
+            flr = flr_msg
+
+        if len(flr.convex_hull) < PoseGeneratorRosInterface.HULL_THRESHOLD:
             rospy.logwarn("[PoseGeneratorRosInterface.check_messages()]  Linear hull of the floor is to small (%g/%g)"
-                          % (len(flr_msg.tables[0].convex_hull), PoseGeneratorRosInterface.HULL_THRESHOLD))
+                          % (len(flr.convex_hull), PoseGeneratorRosInterface.HULL_THRESHOLD))
             return False
         if len(obs_msg.markers) != 0:
             for marker in obs_msg.markers:  # type: Marker
