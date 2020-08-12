@@ -236,7 +236,7 @@ class ObservativeHandController(object):
     see also: rospkg tubaf_tools toggle_topic_by_service.py
     """
 
-    def __init__(self, image_service=None, hand_controller=None):
+    def __init__(self, image_service=None, info_service=None, hand_controller=None):
         """
         Default constructor
         :param image_service: toggle this service to start/stop image stream
@@ -244,27 +244,39 @@ class ObservativeHandController(object):
         """
         if image_service is None:
             image_service = rospy.get_param("~toggle_depth_image_service_name", "")
+        if info_service is None:
+            info_service = rospy.get_param("~toggle_camera_info_service_name", "")
         if hand_controller is None:
             self.hand = AdvancedHandController()
         elif isinstance(hand_controller, (HandController, AdvancedHandController, DummyHandController)):
             self.hand = hand_controller
         else:
             rospy.logerr("[ObservativeHandController.__init__()] hand_controller of unsupported type %s" % type(hand_controller))
-
+        rospy.logdebug("[ObservativeHandController.__init__()] Waiting for Image Service: %s" % image_service)
         rospy.wait_for_service(image_service)
-        self.service = rospy.ServiceProxy(image_service, std_srvs.srv.SetBool)
+        self.image_service = rospy.ServiceProxy(image_service, std_srvs.srv.SetBool)
+
+        rospy.logdebug("[ObservativeHandController.__init__()] Waiting for Info Service: %s" % info_service)
+        rospy.wait_for_service(info_service)
+        self.info_service = rospy.ServiceProxy(image_service, std_srvs.srv.SetBool)
 
     def _setImageService(self, flag=True):
         """
         Set the image toggler to the given value
-        :param flag: true = pass iamges
+        :param flag: true = pass images
         :return: success
         """
         try:
-            response = self.service(flag)
-            rospy.logdebug("[ObservativeHandController._setImageService(%s)] Service says: %s" % (flag, response))
+            response = self.image_service(flag)
+            rospy.logdebug("[ObservativeHandController._setImageService(%s)] Image Service says: %s" % (flag, response))
         except rospy.ServiceException as exc:
-            rospy.logwarn("[ObservativeHandController._setImageService(%s)] Service did not process request: " +
+            rospy.logwarn("[ObservativeHandController._setImageService(%s)] Image Service did not process request: " +
+                          str(exc))
+        try:
+            response = self.info_service(flag)
+            rospy.logdebug("[ObservativeHandController._setImageService(%s)] Info Service says: %s" % (flag, response))
+        except rospy.ServiceException as exc:
+            rospy.logwarn("[ObservativeHandController._setImageService(%s)] Info Service did not process request: " +
                           str(exc))
 
     def openHand(self, mode="basic"):

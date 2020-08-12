@@ -376,7 +376,8 @@ class EquipmentTask(GraspTask):
                                                  info="PreGrasp"):
                 rospy.loginfo("EquipmentTask.perform([2]): Try to plan pre-grasping again")
             self.hand_controller.openHand()
-            self.moveit.clear_octomap_on_mesh(self.selected_equipment.ps, self.selected_equipment.mesh_path)
+            # self.moveit.clear_octomap_on_mesh(self.selected_equipment.ps, self.selected_equipment.mesh_path)
+            self.moveit.clear_octomap_via_box_marker(None)  # Clears area on top of the control box
             rospy.sleep(2.01)
             self.hand_controller.closeHand("scissor")
 
