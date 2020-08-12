@@ -54,3 +54,4 @@ moveit:
     - gripper_robotiq_finger_middle_link_1
     - gripper_robotiq_finger_middle_link_2
     - gripper_robotiq_finger_middle_link_3
+  ssb_scale: 1.1

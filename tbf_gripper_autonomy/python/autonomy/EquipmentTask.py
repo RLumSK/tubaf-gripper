@@ -229,9 +229,6 @@ def optimize_ssb_z_rotation(oTs, sTg):
     return oTs
 
 
-
-
-
 class EquipmentTask(GraspTask):
     """
     Handle equipment using the gripper unit of Julius
@@ -318,7 +315,7 @@ class EquipmentTask(GraspTask):
         c_orientation.header = trans.header
         c_orientation.link_name = trans.child_frame_id
         c_orientation.orientation = trans.transform.rotation
-        c_orientation.absolute_z_axis_tolerance = 2*np.pi
+        c_orientation.absolute_z_axis_tolerance = 2 * np.pi
 
         constraints = Constraints()
         constraints.name = "SSB_handling_contraints"
@@ -379,6 +376,7 @@ class EquipmentTask(GraspTask):
                                                  info="PreGrasp"):
                 rospy.loginfo("EquipmentTask.perform([2]): Try to plan pre-grasping again")
             self.hand_controller.openHand()
+            self.moveit.clear_octomap_on_mesh(self.selected_equipment.ps, self.selected_equipment.mesh_path)
             rospy.sleep(2.01)
             self.hand_controller.closeHand("scissor")
 
@@ -484,7 +482,8 @@ class EquipmentTask(GraspTask):
                     release_pose.pose.orientation.y = q[1]
                     release_pose.pose.orientation.z = q[2]
                     release_pose.pose.orientation.w = q[3]
-                    rospy.loginfo("EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" % release_pose.pose)
+                    rospy.loginfo(
+                        "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" % release_pose.pose)
                 self.hand_controller.closeHand()
                 while not self.moveit.move_to_target(intermediate_pose,
                                                      info="INTERMED_POSE") and intermediate_pose is not None:
@@ -577,6 +576,7 @@ class EquipmentTask(GraspTask):
         pub1.publish(ps1)
 
         return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
+
 
 def object_detection():
     """

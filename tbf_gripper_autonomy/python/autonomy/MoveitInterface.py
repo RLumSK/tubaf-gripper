@@ -153,6 +153,7 @@ class MoveitInterface(object):
             self.eef_link = self.parameter["eef_link"]
             self.touch_links = self.parameter["touch_links"]
             self.max_attempts = self.parameter["max_attempts"]
+            self.ssb_scale = self.parameter["ssb_scale"]
         else:
             self.group = moveit_commander.MoveGroupCommander("UR5")
             self.group.set_planner_id("KPIECEkConfigDefault")
@@ -176,6 +177,7 @@ class MoveitInterface(object):
             self.eef_link = "gripper_robotiq_palm_planning"
             self.touch_links = []
             self.max_attempts = 5
+            self.ssb_scale = 1.0
         self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
         self.attached_equipment = None  # type: SmartEquipment
 
@@ -440,7 +442,8 @@ class MoveitInterface(object):
             pose = equipment.ps
         try:
             rospy.logdebug("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
-            self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(1.0, 1.0, 1.0))
+            scale = self.ssb_scale
+            self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(scale, scale, scale))
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
             rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (
@@ -547,13 +550,13 @@ class MoveitInterface(object):
         co.header.frame_id = ps.header.frame_id
         co.id = "tmp_scaled"
         scaling = 1.5
-        sleep = rospy.Duration(2)
-        ps.pose.position.z = ps.pose.position.z + 0.1 * (1 - scaling)  # move slightly in the ground
-        self.scene.add_mesh(name=co.id, pose=ps, filename=mesh, size=tuple(scaling * x for x in (1.0, 1.0, 1.0)))
-        rospy.sleep(sleep)
-        self.scene.add_mesh(name="tmp_orginal", pose=orginal_ps, filename=mesh, size=(1.0, 1.0, 1.0))
+        sleep = 2.0
+        # ps.pose.position.z = ps.pose.position.z + 0.1 * (1 - scaling)  # move slightly in the ground
+        self.scene.add_mesh(name=co.id, pose=ps, filename=mesh, size=(scaling, scaling, scaling))
         rospy.sleep(sleep)
         self.scene._pub_co.publish(co)
+        rospy.sleep(sleep)
+        self.scene.add_mesh(name="tmp_orginal", pose=orginal_ps, filename=mesh, size=(1.0, 1.0, 1.0))
         rospy.sleep(sleep)
         co.id = "tmp_orginal"
         self.scene._pub_co.publish(co)
@@ -584,7 +587,7 @@ class MoveitInterface(object):
         co.header.frame_id = ps.header.frame_id
         co.id = name
         self.scene.add_box(name=co.id, pose=ps, size=size)
-        rospy.sleep(rospy.Duration(2))
+        rospy.sleep(2.0)
         self.scene._pub_co.publish(co)
         # self.scene.remove_world_object(name=co.id)
 
