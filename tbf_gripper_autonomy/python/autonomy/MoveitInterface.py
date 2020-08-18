@@ -36,7 +36,7 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 from moveit_commander import RobotState, RobotTrajectory
-from moveit_msgs.msg import CollisionObject, Constraints
+from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
 import numpy as np
 
@@ -45,7 +45,6 @@ from sensor_msgs.msg import JointState
 
 from tf import TransformListener
 from tubaf_tools.confirm_service import wait_for_confirmation
-import tbf_gripper_rviz.ssb_marker as marker
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
 
 from pyassimp.errors import AssimpError
@@ -67,7 +66,6 @@ def convert_angle(ist, sol, interval=360.0):
     sol1 = ist + rest
     sol2 = ist + rest - interval
 
-    retval = 0
     if abs(sol1 - ist) < abs(sol2 - ist) and -interval / 2.0 <= sol1 <= interval / 2.0:
         retval = sol1
     elif -interval / 2.0 <= sol2 <= interval / 2.0:
@@ -76,6 +74,43 @@ def convert_angle(ist, sol, interval=360.0):
         retval = sol
     # rospy.logdebug("convert_angle(%g, %g, 360) -> %g oder %g -> %g" % (ist, sol, sol1, sol2, retval))
     return retval
+
+
+# Ensuring Collision Updates Are Received
+def wait_till_updated(pl_scene, obj_name, attached, known):
+    """
+    Wait until the planning scene was updated
+    :param pl_scene: planning scene
+    :param obj_name: name of the object to be updated
+    :param attached: is the object now attached
+    :param known: is the object now known
+    :return: -
+    """
+    start = rospy.get_time()
+    seconds = rospy.get_time()
+    timeout = 5
+    while (seconds - start < timeout) and not rospy.is_shutdown():
+        # Test if the box is in attached objects
+        attached_objects = pl_scene.get_attached_objects([obj_name])
+        is_attached = len(attached_objects.keys()) > 0
+        rospy.logdebug(
+            "[MoveitInterface.clear_octomap_via_box_marker()] Attached Objects: %s" % attached_objects.keys())
+
+        # Test if the box is in the scene.
+        # Note that attaching the box will remove it from known_objects
+        is_known = obj_name in pl_scene.get_known_object_names()
+        rospy.logdebug(
+            "[MoveitInterface.clear_octomap_via_box_marker()] Known Objects: %s" %
+            pl_scene.get_known_object_names())
+
+        # Test if we are in the expected state
+        if (attached == is_attached) and (known == is_known):
+            return True
+
+        # Sleep so that we give other threads time on the processor
+        rospy.logdebug("[MoveitInterface.clear_octomap_via_box_marker()] Waiting ...")
+        rospy.sleep(0.5)
+        seconds = rospy.get_time()
 
 
 class MoveitInterface(object):
@@ -119,7 +154,7 @@ class MoveitInterface(object):
             tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
         self.tf_listener = tf_listener
         # Initialize MoveIt!
-        # https://github.com/ros-planning/moveit_tutorials/blob/indigo-devel/doc/pr2_tutorials/planning/scripts/move_group_python_interface_tutorial.py
+        # https://ros-planning.github.io/moveit_tutorials/doc/move_group_python_interface/move_group_python_interface_tutorial.html#start-rviz-and-movegroup-node
         moveit_commander.roscpp_initialize(sys.argv)
         # Instantiate a RobotCommander object.  This object is an interface to the robot as a whole.
         self.robot = moveit_commander.RobotCommander()
@@ -154,6 +189,8 @@ class MoveitInterface(object):
             self.touch_links = self.parameter["touch_links"]
             self.max_attempts = self.parameter["max_attempts"]
             self.ssb_scale = self.parameter["ssb_scale"]
+            # https://groups.google.com/g/moveit-users/c/h75nDpwOKLk/m/1-IytpO_BQAJ?pli=1
+            self.use_approximate_ik = self.parameter["use_approximate_ik"]
         else:
             self.group = moveit_commander.MoveGroupCommander("UR5")
             self.group.set_planner_id("KPIECEkConfigDefault")
@@ -178,8 +215,11 @@ class MoveitInterface(object):
             self.touch_links = []
             self.max_attempts = 5
             self.ssb_scale = 1.0
+            self.use_approximate_ik = False
         self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
-        self.attached_equipment = None  # type: SmartEquipment
+        self.attached_equipment = None
+
+        self.scene_diff_pub = rospy.Publisher("/planning_scene", data_class=PlanningScene, queue_size=1)
 
     def _remove_world_object(self, name=None):
         """
@@ -189,7 +229,7 @@ class MoveitInterface(object):
         co = CollisionObject()
         co.header.frame_id = "base_footprint"
         co.operation = CollisionObject.REMOVE
-        if not name is None:
+        if name is not None:
             co.id = name
         self.scene._pub_co.publish(co)
 
@@ -208,7 +248,7 @@ class MoveitInterface(object):
         js.position = self.group.get_current_joint_values()
         msg.joint_state = js
         dict_collision_objects = self.scene.get_attached_objects()
-        for name, aco in dict_collision_objects.iteritems():
+        for name, aco in dict_collision_objects.items():  # iteritems
             rospy.logdebug("MoveitInterface._set_start_state(): %s is attached", name)
             msg.attached_collision_objects.append(aco)
         # if len(msg.attached_collision_objects) != 0:
@@ -223,8 +263,8 @@ class MoveitInterface(object):
         """
         Plan a trajectory towards the target using MoveIt
         :param blind: [DANGEROUS] if true, plan is executed without confirmation
-        :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the reference frame
-         of the MoveIt planning group)
+        :param target: either end_effector pose of joint values (in deg) of the target pose (assumed to be in the
+         reference frame of the MoveIt planning group)
         :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
@@ -240,9 +280,9 @@ class MoveitInterface(object):
                        ["%.2f" % v for v in np.rad2deg(current_values)]
                        )
         self.group.set_start_state(start)
+        target_dict = dict()
+        set_values = [0, 0, 0, 0, 0, 0]
         try:
-            target_dict = dict()
-            set_values = [0, 0, 0, 0, 0, 0]
             if type(target) is list:
                 joint_name = self.robot.get_joint_names(self.group.get_name())[0:6]
                 for j, ist in zip(range(len(target)), current_values):
@@ -256,7 +296,7 @@ class MoveitInterface(object):
                     self.group.set_joint_value_target(joint_name[j], target_dict[joint_name[j]])
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.plan(): Planning Pose target %s", target)
-                self.group.set_pose_target(target, end_effector_link=self.eef_link)
+                self.group.set_joint_value_target(target, self.eef_link, self.use_approximate_ik)
             elif type(target) is PoseStamped:
                 # rospy.logdebug("MoveitInterface.plan(): Transforming PoseStamped target %s", target)
                 lst_joint_target = []
@@ -265,7 +305,7 @@ class MoveitInterface(object):
                 if target_values is None:
                     rospy.loginfo("MoveitInterface.plan(): IK Service call failed - give it a try using the "
                                   "pose interface")
-                    self.group.set_pose_target(target, end_effector_link=self.eef_link)
+                    self.group.set_joint_value_target(target, self.eef_link, self.use_approximate_ik)
                 else:
                     for name, ist, soll in zip(active_joints, current_values, target_values):
                         solu = convert_angle(np.rad2deg(ist), np.rad2deg(soll))
@@ -297,9 +337,9 @@ class MoveitInterface(object):
         while not plan_valid and attempts <= self.max_attempts:
             rospy.loginfo("MoveitInterface.plan(): Planning %s to: \n%s\tPlanning time: %s" %
                           (info, target, self.group.get_planning_time()))
-            ### HERE WE PLAN ###
+            # HERE WE PLAN #
             plan = self.group.plan()
-            ###
+
             self.group.set_planning_time(self.parameter["planner_time"] * attempts ** 2)
             self.group.set_num_planning_attempts(self.parameter["planner_attempts"] * attempts ** 2)
             attempts += 1
@@ -345,6 +385,8 @@ class MoveitInterface(object):
     def move_to_set(self, target, info, endless=True, constraints=None):
         """
         Same as move_to_target() but while ignoring the planing scene
+        :param endless: loop the computation of a plan/trajectory
+        :type endless: bool
         :type target: list or Pose or PoseStamped
         :param info: short information about the context of the given pose
         :type info: str
@@ -354,7 +396,7 @@ class MoveitInterface(object):
         :rtype: bool
         """
         from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene, GetPlanningSceneResponse
-        from moveit_msgs.msg import PlanningScene, PlanningSceneComponents
+        from moveit_msgs.msg import PlanningSceneComponents
         from std_srvs.srv import Empty
 
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
@@ -362,7 +404,8 @@ class MoveitInterface(object):
         response = get_planning_scene(
             components=PlanningSceneComponents(
                 components=PlanningSceneComponents.OCTOMAP))  # type: GetPlanningSceneResponse
-        current_octomap = response.scene
+        current_octomap = response.scene  # type:PlanningScene
+        current_octomap.is_diff = True  # keeps robot_state, since we will only add the old octomap
         rospy.logdebug("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
             current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
@@ -392,9 +435,7 @@ class MoveitInterface(object):
         iplanner = 0
         try:
             while not plan:
-                if "PostGrasp" in info:
-                    self.clear_octomap_via_box_marker()
-                plan = self.plan(target, info, blind=blind, constraints=None)
+                plan = self.plan(target, info, blind=blind, constraints=constraints)
                 if plan:
                     success = self.execute(plan)
                     rospy.loginfo("[MoveitInterface.move_to_target] Finished %s motion" % info)
@@ -433,17 +474,23 @@ class MoveitInterface(object):
         if equipment.name in ao_keys:
             rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
             self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
+            wait_till_updated(self.scene, equipment.name, attached=False, known=True)
+            self.scene.remove_world_object(name=equipment.name)
+            wait_till_updated(self.scene, equipment.name, attached=False, known=False)
+
         rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s", ko_names)
-        if equipment.name in ko_names:
-            rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
-            return
+        # if equipment.name in ko_names:
+        #     rospy.logdebug("MoveitInterface.add_equipment(): Already known:  %s", equipment.name)
+        #     return
 
         if pose is None:
             pose = equipment.ps
         try:
             rospy.logdebug("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
             scale = self.ssb_scale
-            self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path, size=(scale, scale, scale))
+            self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path,
+                                size=(scale, scale, scale))
+            wait_till_updated(self.scene, equipment.name, attached=False, known=True)
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
             rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (
@@ -464,13 +511,13 @@ class MoveitInterface(object):
             lst_attached_obj = self.scene.get_attached_objects()
             if name in lst_attached_obj:
                 self.scene.remove_attached_object(self.eef_link, name)
-            rospy.sleep(0.5)
+                wait_till_updated(self.scene, name, False, True)
             self._remove_world_object(name)
+            wait_till_updated(self.scene, name, False, False)
         else:
             rospy.logwarn(
                 "MoveitInterface.remove_equipment(): %s is not present in the scene and hence can't be removed"
                 " known objects are: %s" % (name, lst_names))
-        rospy.sleep(0.5)
 
     def attach_equipment(self, equipment):
         """
@@ -491,9 +538,10 @@ class MoveitInterface(object):
         co.header.frame_id = equipment.ps.header.frame_id
         co.id = equipment.name
         self.scene._pub_co.publish(co)
-        rospy.sleep(2.0)
+        wait_till_updated(self.scene, equipment.name, False, False)
         self.scene.attach_mesh(link=self.eef_link, name=equipment.name, filename=equipment.mesh_path,
                                pose=equipment.ps, touch_links=self.touch_links)
+        wait_till_updated(self.scene, equipment.name, True, True)
         self.attached_equipment = equipment
 
     def detach_equipment(self):
@@ -510,12 +558,12 @@ class MoveitInterface(object):
             rospy.logwarn("MoveitInterface.detach_equipment: self.attached_equipment is %s" % self.attached_equipment)
             return
         dct_obj = self.scene.get_attached_objects([self.attached_equipment.name])
-        obj = dct_obj[self.attached_equipment.name]
+        attached_obj = dct_obj[self.attached_equipment.name]
         obj_pose = PoseStamped()
-        obj_pose.header = obj.object.header
-        obj_pose.pose = obj.object.mesh_poses[0]
+        obj_pose.header = attached_obj.object.header
+        obj_pose.pose = attached_obj.object.mesh_poses[0]
 
-        self.scene.remove_attached_object(obj.link_name, obj.object.id)
+        self.scene.remove_attached_object(attached_obj.link_name, attached_obj.object.id)
         released_equipment = self.attached_equipment
         released_equipment.ps = obj_pose
         self.attached_equipment = None
@@ -537,8 +585,8 @@ class MoveitInterface(object):
         use careful
         :param ps: pose of the mesh
         :type ps: PoseStamped
-        :param ps: path to mesh
-        :type ps: str
+        :param mesh: path to mesh
+        :type mesh: str
         :return: -
         :rtype: -
         """
@@ -570,10 +618,10 @@ class MoveitInterface(object):
         :type ps: PoseStamped
         :return: None
         """
-        name = "rubber"
         rospy.logdebug("MoveitInterface.clear_octomap_via_box_marker():")
         # size = (0.4, 0.6, 0.4)
-        size = (0.6, 0.4, 0.5)
+        # size = [0.6, 0.4, 0.5]
+        size = [0.75, 0.5, 0.5]
         if ps is None:
             ps = PoseStamped()
             ps.header.frame_id = "controlbox_structure_top_front_link"
@@ -582,14 +630,29 @@ class MoveitInterface(object):
             ps.pose.position.y = size[1] / 2.0
             ps.pose.position.z = size[2] / 2.0
 
-        co = CollisionObject()
-        co.operation = CollisionObject.REMOVE
-        co.header.frame_id = ps.header.frame_id
-        co.id = name
-        self.scene.add_box(name=co.id, pose=ps, size=size)
-        rospy.sleep(2.0)
-        self.scene._pub_co.publish(co)
-        # self.scene.remove_world_object(name=co.id)
+
+            # If we exited the while loop without returning then we timed out
+            return False
+        # Adding Objects to the Planning Scene
+        # https://ros-planning.github.io/moveit_tutorials/doc/move_group_python_interface/move_group_python_interface_tutorial.html#start-rviz-and-movegroup-node
+        name = "rubber"
+        self.scene.add_box(name, ps, size)
+        wait_till_updated(self.scene, name, attached=False, known=True)
+        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Added")
+        self.scene.attach_box(ps.header.frame_id, name)
+        wait_till_updated(self.scene, name, attached=True, known=False)
+        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Attached")
+
+        rospy.sleep(1.0)
+
+        self.scene.remove_attached_object(ps.header.frame_id, name)
+        wait_till_updated(self.scene, name, attached=False, known=True)
+        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Detached")
+
+        # Note: The object must be detached before we can remove it from the world
+        self.scene.remove_world_object(name)
+        wait_till_updated(self.scene, name, attached=False, known=False)
+        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Removed")
 
     def get_object_pose(self, name):
         """
@@ -643,12 +706,12 @@ class MoveitInterface(object):
             try:
                 srv_call = rospy.ServiceProxy(srv_name, GetPositionIK)
                 request.ik_request.group_name = self.group.get_name()
-                request.ik_request.robot_state = self.robot.get_current_state()  # type: RobotState
+                request.ik_request.robot_state = self.robot.get_current_state()
                 request.ik_request.avoid_collisions = True
                 request.ik_request.ik_link_name = ik_link_name
                 request.ik_request.pose_stamped = ps
-                request.ik_request.timeout = rospy.Duration(0.5) * attempt * attempt
-                request.ik_request.attempts = 20 * attempt * attempt  # each attempt get the timeout, so total time = timeout * attempts
+                request.ik_request.timeout = rospy.Duration(attempt * attempt)
+                request.ik_request.attempts = 0  # each attempt get the timeout, so total time = timeout * attempts
                 response = srv_call(request)  # type: GetPositionIKResponse
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)

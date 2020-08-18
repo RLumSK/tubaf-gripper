@@ -38,13 +38,13 @@ import message_filters
 import numpy as np
 
 from geometry_msgs.msg import PoseStamped
-from moveit_msgs.msg import Constraints, JointConstraint, PositionConstraint, OrientationConstraint
+from moveit_msgs.msg import Constraints, OrientationConstraint
 import std_msgs.msg
 
 from autonomy.Task import GraspTask
 from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
-from tubaf_tools import rotate_pose, array_from_xyzrpy, array_to_pose, pose_to_array
+from tubaf_tools import array_to_pose, pose_to_array
 import tbf_gripper_rviz.ssb_marker as marker
 from tf import TransformListener
 
@@ -76,7 +76,7 @@ def sense(tf_listener=None):
     :rtype: PoseStamped
     """
     from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
-    from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest
+    from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest, IdentifyFloorResponse
     from std_msgs.msg import Header
     from message_filters import Subscriber, Cache
     from object_recognition_msgs.msg import TableArray
@@ -89,6 +89,7 @@ def sense(tf_listener=None):
     rospy.loginfo("[sense()] %s available" % floor_identify_service_name)
     floor_identify_service = rospy.ServiceProxy(floor_identify_service_name, IdentifyFloor)
     identify_floor_req = IdentifyFloorRequest()
+    identify_floor_res = IdentifyFloorResponse()
     while not rospy.is_shutdown():
         planes = rospy.wait_for_message(rospy.get_param('~tables_topic', "/ork/table_array"), TableArray)
         identify_floor_req.planes = planes
@@ -277,13 +278,13 @@ class EquipmentTask(GraspTask):
         :return: True if equipment was selected
         :rtype: bool
         """
-        retValue = False
+        ret_value = False
         for item in self.lst_equipment:
-            retValue = item.name == name
-            if retValue:
+            ret_value = item.name == name
+            if ret_value:
                 self.selected_equipment = item
-                return retValue
-        return retValue
+                return ret_value
+        return ret_value
 
     def generate_goal(self, query_pose):
         """
@@ -318,7 +319,7 @@ class EquipmentTask(GraspTask):
         c_orientation.absolute_z_axis_tolerance = 2 * np.pi
 
         constraints = Constraints()
-        constraints.name = "SSB_handling_contraints"
+        constraints.name = "SSB_handling_constraint"
         constraints.orientation_constraints.append(c_orientation)
 
     def perform(self, stages=None):
@@ -350,14 +351,14 @@ class EquipmentTask(GraspTask):
         if 1 in stages:
             rospy.loginfo("STAGE 0: Scan Environment for obstacles")
             rospy.loginfo("EquipmentTask.perform([0]): Closing hand and scan the environment by given watch pose")
-            self.hand_controller.closeHand()
+            self.hand_controller.closeHand(continue_image_service=True)
             # Scan env
             for joint_target in self.env_sense_joints_poses:
                 self.moveit.move_to_target(joint_target, info="ENV_SCAN", blind=True)
 
         if 2 in stages:
             rospy.loginfo("STAGE 2: Sense for target pose")
-            self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
+            self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose", blind=True)
             # Sense for target_pose
             target_on_floor = sense()  # type: PoseStamped
             rospy.loginfo("EquipmentTask.perform([2]): Sensed")
@@ -371,20 +372,21 @@ class EquipmentTask(GraspTask):
         # 2. Pick Up Equipment
         if 3 in stages:
             rospy.loginfo("STAGE 3: Pickup Equipment")
+            self.hand_controller._set_image_and_info_service(False)
             # TODO: Select Equipment
             while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"],
-                                                 info="PreGrasp"):
+                                                 info="PreGrasp", blind=True):
                 rospy.loginfo("EquipmentTask.perform([2]): Try to plan pre-grasping again")
             self.hand_controller.openHand()
             # self.moveit.clear_octomap_on_mesh(self.selected_equipment.ps, self.selected_equipment.mesh_path)
-            self.moveit.clear_octomap_via_box_marker(None)  # Clears area on top of the control box
-            rospy.sleep(2.01)
-            self.hand_controller.closeHand("scissor")
+            # self.moveit.clear_octomap_via_box_marker(None)  # Clears area on top of the control box
+            self.hand_controller.closeHand("scissor", continue_image_service=False)
 
-            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp"):
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp",
+                                                 blind=True):
                 rospy.loginfo("EquipmentTask.perform([3]): Try to plan grasping again")
             # Grasp station
-            self.hand_controller.closeHand("basic")
+            self.hand_controller.closeHand("basic", continue_image_service=False)
 
             # Update Planning Scene - Attach collision object to end effector
             rospy.loginfo("STAGE 3: Update scene, Attach object")
@@ -409,10 +411,11 @@ class EquipmentTask(GraspTask):
             n_aTs = optimize_ssb_z_rotation(oTs=aTs, sTg=sTg)
             self.selected_equipment.place_ps.header.frame_id = arm_frame
             self.selected_equipment.place_ps.pose = array_to_pose(n_aTs)
+            # TODO: Fix Internal error. <Mesh filter handle 85 not found> from move_group node
             self.moveit.attach_equipment(self.selected_equipment)
 
             # self.selected_equipment.place_ps was set earlier
-            target_pose = copy.deepcopy(self.selected_equipment.place_ps)
+            target_pose = copy.deepcopy(self.selected_equipment.place_ps)  # target pose is in arm_frame
             target_pose.pose = array_to_pose(np.matmul(pose_to_array(self.selected_equipment.place_ps.pose), sTg))
             marker_at_ps(self.selected_equipment.place_ps, gripper_pose=target_pose)
 
@@ -443,7 +446,7 @@ class EquipmentTask(GraspTask):
                 rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying again")
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
-            # self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
+    # self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             debug_pose_pub.publish(target_pose)
             self.moveit.move_to_set(target_pose, info="TARGET_POSE",
                                     constraints=constraints)
@@ -462,20 +465,25 @@ class EquipmentTask(GraspTask):
             if self.selected_equipment.hold_on_set == 0.0:
                 # Now release the station in a manner that it stays on the floor
                 # moving eef
-                self.hand_controller.closeHand(mode="scissor")
+                self.hand_controller.closeHand(mode="scissor", continue_image_service=False)
+
                 hand_frame = "gripper_robotiq_palm_planning"  # = self.moveit.group.get_planning_frame()
-                self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, target_pose.header.stamp,
-                                                  timeout=rospy.Duration(10))
-                release_pose = self.tf_listener.transformPose(hand_frame, target_pose)  # type: PoseStamped
-                rospy.loginfo("EquipmentTask.perform([5]): Release pose was: \n %s" % release_pose.pose)
-                release_pose.pose.position.x = release_pose.pose.position.x - 0.15
+                self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, rospy.Time(0),
+                                                  rospy.Duration(4))
+                release_pose = self.tf_listener.transformPose(target_frame=hand_frame, ps=target_pose)
+                # release_pose = self.tfBuffer.transform(target_pose, target_frame=hand_frame,
+                #                                        timeout=rospy.Duration(10))  # type: PoseStamped
+                rospy.logdebug("EquipmentTask.perform([5]): Release pose was: \n %s" % release_pose)
+                release_pose.pose.position.x = release_pose.pose.position.z - 0.15
                 from scipy.spatial.transform import Rotation as R
                 r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
                                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
                 r_relative = R.from_euler('z', -20, degrees=True)
                 r_soll = r_is
-                rospy.loginfo("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose.pose)
-                while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=False):
+                rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
+                debug_pose_pub.publish(release_pose)
+                while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=False, blind=True):
+
                     release_pose.pose.position.x = release_pose.pose.position.x + 0.01
                     r_soll = r_soll * r_relative
                     q = r_soll.as_quat()
@@ -484,14 +492,17 @@ class EquipmentTask(GraspTask):
                     release_pose.pose.orientation.z = q[2]
                     release_pose.pose.orientation.w = q[3]
                     rospy.loginfo(
-                        "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" % release_pose.pose)
-                self.hand_controller.closeHand()
-                while not self.moveit.move_to_target(intermediate_pose,
-                                                     info="INTERMED_POSE") and intermediate_pose is not None:
-                    rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
+                        "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" %
+                        release_pose.pose)
+                    debug_pose_pub.publish(release_pose)
+                self.hand_controller.closeHand(continue_image_service=False)
+
+                # while not self.moveit.move_to_target(intermediate_pose,
+                #                                      info="INTERMED_POSE") and intermediate_pose is not None:
+                #     rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
 
         if 6 in stages:
-            rospy.loginfo("STAGE 6: Return to home pose")
+            rospy.loginfo("STAGE 6: Return to watch pose")
             # Plan back to home station
 
             # if intermediate_pose is not None:
@@ -508,7 +519,7 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        # self.perform([2, 3, 4, 5, 6])
+        # self.perform([1, 2, 3, 4, 5, 6])
         self.perform([0, 1, 2, 3, 4, 5, 6])
 
     def check_set_equipment_pose(self):
@@ -523,10 +534,13 @@ class EquipmentTask(GraspTask):
         ssb_pose = self.selected_equipment.place_ps
         # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
         arm_frame = "gripper_ur5_base_link"
-        camera_frame = rospy.get_param("camera_frame", default="rs_gripper_d435_color_optical_frame")
+        # camera_frame = rospy.get_param("camera_frame", default="rs_gripper_d435_color_optical_frame")
         # self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
         #                                   timeout=rospy.Duration(10.0))
-        watch_pose = self.tfBuffer.transform(ssb_pose, arm_frame)
+        self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, rospy.Time(0),
+                                          rospy.Duration(4))
+        watch_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=ssb_pose)
+        # watch_pose = self.tfBuffer.transform(ssb_pose, arm_frame)
         watch_pose.pose.position.x = watch_pose.pose.position.x - 0.14
         watch_pose.pose.position.z = 0.0
 
@@ -554,9 +568,7 @@ class EquipmentTask(GraspTask):
 
     def compute_ssb_delta(self, ps_1):
         """
-        compute the euclidean distance between two poses
-        :param ps_0: first pose (/result/placed_pose)
-        :type ps_0: PoseStamped
+        compute the euclidean distance between pose and self.selected_equipment.place_ps
         :param ps_1: second pose (/result/observed_pose)
         :type ps_1: PoseStamped
         :return: difference
@@ -566,7 +578,10 @@ class EquipmentTask(GraspTask):
         pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
         pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
         try:
-            ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
+            self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, rospy.Time(0),
+                                              rospy.Duration(4))
+            ps1 = self.tf_listener.transformPose(target_frame=ps_0.header.frame_id, ps=ps_1)
+            # ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
         except Exception as ex:
             rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
             return np.NaN
@@ -625,7 +640,7 @@ if __name__ == '__main__':
     obj = EquipmentTask()
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
-    obj.hand_controller.closeHand()
+    obj.hand_controller.closeHand(continue_image_service=False)
     for i in range(0, len(obj.lst_equipment)):
         eq = obj.lst_equipment[i]  # type: SmartEquipment
         if obj.select_equipment(eq.name):

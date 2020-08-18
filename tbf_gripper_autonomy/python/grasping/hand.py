@@ -258,9 +258,9 @@ class ObservativeHandController(object):
 
         rospy.logdebug("[ObservativeHandController.__init__()] Waiting for Info Service: %s" % info_service)
         rospy.wait_for_service(info_service)
-        self.info_service = rospy.ServiceProxy(image_service, std_srvs.srv.SetBool)
+        self.info_service = rospy.ServiceProxy(info_service, std_srvs.srv.SetBool)
 
-    def _setImageService(self, flag=True):
+    def _set_image_and_info_service(self, flag=True):
         """
         Set the image toggler to the given value
         :param flag: true = pass images
@@ -279,17 +279,17 @@ class ObservativeHandController(object):
             rospy.logwarn("[ObservativeHandController._setImageService(%s)] Info Service did not process request: " +
                           str(exc))
 
-    def openHand(self, mode="basic"):
-        self._setImageService(False)
+    def openHand(self, mode="basic", continue_image_service=False):
+        self._set_image_and_info_service(continue_image_service)
         if "scissor" in mode:
             return
         self.hand.openHand(mode)
 
-    def closeHand(self, mode="basic"):
+    def closeHand(self, mode="basic", continue_image_service=True):
         self.hand.closeHand(mode)
         if "scissor" in mode:
             return
-        self._setImageService(True)
+        self._set_image_and_info_service(continue_image_service)
 
 
 class DummyHandController(object):

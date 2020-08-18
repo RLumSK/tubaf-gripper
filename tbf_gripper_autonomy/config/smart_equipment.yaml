@@ -3,8 +3,8 @@ smart_equipment:
     pose:
       frame: "base_footprint"
       position:
-        x: 0.03
-        y: 0.15
+        x: 0.02
+        y: 0.115
         z: 0.925
       orientation:
         x: 0
