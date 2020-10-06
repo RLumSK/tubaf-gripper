@@ -51,7 +51,7 @@ if __name__ == "__main__":
         # se.calculate_grasp_offset(attached_frame="gripper_robotiq_palm", tf_listener=tf_listener)  # attached_frame="gripper_robotiq_palm_planning"
         v_marker = SSBGraspedMarker.from_SmartEquipment(se, marker_pose=se.place_ps, tf_listener=tf_listener,
                                                         save_relation=False, use_relation=True)
-        mvit.clear_octomap_on_mesh(v_marker) # TODO: DEPRECATED
+        # mvit.clear_octomap_on_mesh(v_marker) # TODO: DEPRECATED
         lst_marker.append(v_marker)
         lst_marker.append(SSBGraspedMarker.from_SmartEquipment(se, marker_pose=se.ps, tf_listener=tf_listener,
                                                         save_relation=False, use_relation=True))

@@ -578,12 +578,19 @@ class EquipmentTask(GraspTask):
         pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
         pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
         try:
+            ps_1.header.stamp.secs = 0
+            ps_1.header.stamp.nsecs = 0
+            ps_1.header.seq = 0
+            rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Placed Pose:\n%s" % ps_0)
+            rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Observed Pose:\n%s" % ps_1)
             self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, rospy.Time(0),
-                                              rospy.Duration(4))
-            ps1 = self.tf_listener.transformPose(target_frame=ps_0.header.frame_id, ps=ps_1)
+                                              rospy.Duration.from_sec(15.0))
+            ps1 = self.tf_listener.transformPose(ps_0.header.frame_id, ps_1)
             # ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
         except Exception as ex:
             rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
+            pub0.publish(ps_0)
+            pub1.publish(ps_1)
             return np.NaN
         T0 = pose_to_array(ps_0.pose)
         T1 = pose_to_array(ps1.pose)
@@ -638,6 +645,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
 if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     obj = EquipmentTask()
+
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
     obj.hand_controller.closeHand(continue_image_service=False)
@@ -647,5 +655,5 @@ if __name__ == '__main__':
             obj.start()
             # Now we can test if we see the SSB where we think it is
             obj.check_set_equipment_pose()
-    # obj.moveit.clear_octomap_on_mesh(obj.selected_equipment.place_ps, obj.selected_equipment.mesh_path)
-    # rospy.spin()
+
+    rospy.spin()

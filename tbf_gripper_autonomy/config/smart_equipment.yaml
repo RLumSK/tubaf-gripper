@@ -1,11 +1,11 @@
 smart_equipment:
-  - name: "Smart_Sensor_Box"
+  - name: "[SSB] Henkel"
     pose:
       frame: "base_footprint"
       position:
         x: 0.02
-        y: 0.115
-        z: 0.925
+        y: 0.12
+        z: 0.923
       orientation:
         x: 0
         y: 0
@@ -26,7 +26,7 @@ smart_equipment:
       frame: "base_footprint"
       position:
         x: -0.93
-        y: 0.15
+        y: 0.145
         z: 0.0
       orientation:
         x: 0.0
@@ -36,14 +36,14 @@ smart_equipment:
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 #
 #  - name:
-#      "Knauf_SSB" # station_new
+#      "[SSB] Knauf" # station_new
 #    pose:
 #      frame:
 #        "base_footprint"
 #      position:
-#        x: 0.32
-#        y: 0.13
-#        z: 0.925
+#        x: 0.31
+#        y: 0.095
+#        z: 0.923
 #      orientation:
 #        x: 0
 #        y: 0
@@ -74,51 +74,15 @@ smart_equipment:
 #        w: 0.7071
 #    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 #
-##  - name:  "SSB_3"
-##    pose:
-##      frame: "base_footprint"
-##      position:
-##        x: 0.22
-##        y: 0.07
-##        z: 0.925
-##      orientation:
-##        x: 0
-##        y: 0
-##        z: 0
-##        w: 1
-##    mesh:
-##      pkg: "tbf_gripper_tools"
-##      path: ['resources', 'mesh', 'old_ssb.stl']
-##    pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
-##      pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
-##      grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
-##      post_grasp: [-171.4, -97.3, 56.0, 25.8, 102.8, 227.4]
-##    place_waypoints:
-##      pre_set: [ -23.6, -76.2, 94.8, -27.1, 94.9, 233.7]
-##      set: [ -23.5, -8.1, 90.4, -90.8, 94.9, 234.2]
-##      post_set: [-26.0, -18.0, 119.3, -94.6, -92.5, 227.6]
-##    place_pose:
-##      frame: "base_footprint"
-##      position:
-##        x: -0.93
-##        y: 0.15
-##        z: 0.0
-##      orientation:
-##        x: 0.0
-##        y: 0.0
-##        z: -0.7071
-##        w: 0.7071
-##    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
-#
 #  - name:
-#      "Kugel_SSB"
+#      "[SSB] Kugel"
 #    pose:
 #      frame:
 #        "base_footprint"
 #      position:
-#        x: 0.32
-#        y: 0.01
-#        z: 0.925
+#        x: 0.31
+#        y: -0.04
+#        z: 0.923
 #      orientation:
 #        x: 0
 #        y: 0
@@ -150,7 +114,7 @@ smart_equipment:
 #    hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 #
 #  - name:
-#      "Water_Sample_Station"
+#      "[SSB] Wassersonde"
 #    pose:
 #      frame: "water_sample_station_mount_link"
 #      position:

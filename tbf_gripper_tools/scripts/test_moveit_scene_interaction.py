@@ -45,21 +45,21 @@ def wait_till_updated(pl_scene, obj_name, attached, known):
         attached_objects = pl_scene.get_attached_objects([obj_name])
         is_attached = len(attached_objects.keys()) > 0
         rospy.logdebug(
-            "[MoveitInterface.clear_octomap_via_box_marker()] Attached Objects: %s" % attached_objects.keys())
+            "[MoveitInterface.wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
 
         # Test if the box is in the scene.
         # Note that attaching the box will remove it from known_objects
         is_known = obj_name in pl_scene.get_known_object_names()
         rospy.logdebug(
-            "[MoveitInterface.clear_octomap_via_box_marker()] Known Objects: %s" % pl_scene.get_known_object_names())
+            "[MoveitInterface.wait_till_updated()] Known Objects: %s" % pl_scene.get_known_object_names())
 
         # Test if we are in the expected state
         if (attached == is_attached) and (known == is_known):
             return True
 
         # Sleep so that we give other threads time on the processor
-        rospy.logdebug("[MoveitInterface.clear_octomap_via_box_marker()] Waiting ...")
-        rospy.sleep(0.5)
+        rospy.logdebug("[MoveitInterface.wait_till_updated()] Waiting ...")
+        rospy.sleep(0.1)
         seconds = rospy.get_time()
 
     # If we exited the while loop without returning then we timed out

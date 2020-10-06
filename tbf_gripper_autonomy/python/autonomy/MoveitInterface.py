@@ -40,6 +40,7 @@ from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
 import numpy as np
 
+from shape_msgs.msg import Mesh
 from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 
@@ -47,6 +48,7 @@ from tf import TransformListener
 from tubaf_tools.confirm_service import wait_for_confirmation
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
 
+import pyassimp
 from pyassimp.errors import AssimpError
 
 
@@ -88,29 +90,28 @@ def wait_till_updated(pl_scene, obj_name, attached, known):
     """
     start = rospy.get_time()
     seconds = rospy.get_time()
-    timeout = 5
+    timeout = 1.0
     while (seconds - start < timeout) and not rospy.is_shutdown():
         # Test if the box is in attached objects
         attached_objects = pl_scene.get_attached_objects([obj_name])
         is_attached = len(attached_objects.keys()) > 0
-        rospy.logdebug(
-            "[MoveitInterface.clear_octomap_via_box_marker()] Attached Objects: %s" % attached_objects.keys())
+        rospy.logdebug("[wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
 
         # Test if the box is in the scene.
         # Note that attaching the box will remove it from known_objects
         is_known = obj_name in pl_scene.get_known_object_names()
-        rospy.logdebug(
-            "[MoveitInterface.clear_octomap_via_box_marker()] Known Objects: %s" %
-            pl_scene.get_known_object_names())
+        rospy.logdebug("[wait_till_updated()] Known Objects: %s" % pl_scene.get_known_object_names())
 
         # Test if we are in the expected state
         if (attached == is_attached) and (known == is_known):
             return True
 
         # Sleep so that we give other threads time on the processor
-        rospy.logdebug("[MoveitInterface.clear_octomap_via_box_marker()] Waiting ...")
-        rospy.sleep(0.5)
+        rospy.logdebug("[wait_till_updated()] Waiting for %s to be updated at planning scene ..." % obj_name)
+        rospy.sleep(1.0)
         seconds = rospy.get_time()
+    rospy.logwarn("[wait_till_updated(%s, attached=%s, known=%s)] Timeout reached" % (obj_name, attached, known))
+    return False
 
 
 class MoveitInterface(object):
@@ -258,6 +259,39 @@ class MoveitInterface(object):
         #         rospy.logdebug("MoveitInterface._set_start_state(): @msg \n %s", item)
         # rospy.logdebug("MoveitInterface._set_start_state(): msg %s ", msg)
         return msg
+
+    def wait_till_updated(self, obj_name, attached, known):
+        """
+        Wait until the planning scene was updated
+        :param obj_name: name of the object to be updated
+        :param attached: is the object now attached
+        :param known: is the object now known
+        :return: -
+        """
+        start = rospy.get_time()
+        seconds = rospy.get_time()
+        timeout = 5.0
+        while (seconds - start < timeout) and not rospy.is_shutdown():
+            # Test if the box is in attached objects
+            attached_objects = self.scene.get_attached_objects([obj_name])
+            is_attached = len(attached_objects.keys()) > 0
+            rospy.logdebug("[wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
+
+            # Test if the box is in the scene.
+            # Note that attaching the box will remove it from known_objects
+            is_known = obj_name in self.scene.get_known_object_names()
+            rospy.logdebug("[wait_till_updated()] Known Objects: %s" % self.scene.get_known_object_names())
+
+            # Test if we are in the expected state
+            if (attached == is_attached) and (known == is_known):
+                return True
+
+            # Sleep so that we give other threads time on the processor
+            rospy.logdebug("[wait_till_updated()] Waiting for %s to be updated at planning scene ..." % obj_name)
+            rospy.sleep(1.0)
+            seconds = rospy.get_time()
+        rospy.logwarn("[wait_till_updated(%s, attached=%s, known=%s)] Timeout reached" % (obj_name, attached, known))
+        return False
 
     def plan(self, target, info="", blind=False, constraints=None):
         """
@@ -458,6 +492,62 @@ class MoveitInterface(object):
             self.group.set_planner_id(self.parameter["planner_id"])
         return False
 
+    def add_mesh_to_scene(self, name, pose, filename, size):
+        """
+        Instead of PlaningSceneInterface.add_mesh
+        :param name:
+        :param pose:
+        :param filename:
+        :param size:
+        :return:
+        """
+        ### From Moveit_commander.planing_scene_interface.py PlanningSceneInterface.__make_mesh()
+        scale = size
+        co = CollisionObject()
+        scene = pyassimp.load(filename)
+        if not scene.meshes or len(scene.meshes) == 0:
+            raise Exception("There are no meshes in the file")
+        if len(scene.meshes[0].faces) == 0:
+            raise Exception("There are no faces in the mesh")
+        co.operation = CollisionObject.ADD
+        co.id = name
+        co.header.frame_id = pose.header.frame_id
+
+        mesh = Mesh()
+        first_face = scene.meshes[0].faces[0]
+        from shape_msgs.msg import MeshTriangle
+        if hasattr(first_face, '__len__'):
+            for face in scene.meshes[0].faces:
+                if len(face) == 3:
+                    triangle = MeshTriangle()
+                    triangle.vertex_indices = [face[0], face[1], face[2]]
+                    mesh.triangles.append(triangle)
+        elif hasattr(first_face, 'indices'):
+            for face in scene.meshes[0].faces:
+                if len(face.indices) == 3:
+                    triangle = MeshTriangle()
+                    triangle.vertex_indices = [face.indices[0],
+                                               face.indices[1],
+                                               face.indices[2]]
+                    mesh.triangles.append(triangle)
+        else:
+            raise Exception("Unable to build triangles from mesh due to mesh object structure")
+        from geometry_msgs.msg import Point
+        for vertex in scene.meshes[0].vertices:
+            point = Point()
+            point.x = vertex[0] * scale[0]
+            point.y = vertex[1] * scale[1]
+            point.z = vertex[2] * scale[2]
+            mesh.vertices.append(point)
+        co.meshes = [mesh]
+        co.mesh_poses = [pose.pose]
+        pyassimp.release(scene)
+
+        msg = PlanningScene()
+        msg.world.collision_objects.append(co)
+        msg.is_diff = True
+        self.scene_diff_pub.publish(msg)
+
     def add_equipment(self, equipment, pose=None):
         """
         Add the given equipment to the planning scene
@@ -473,10 +563,10 @@ class MoveitInterface(object):
         rospy.logdebug("MoveitInterface.add_equipment(): Attached objects %s", ao_keys)
         if equipment.name in ao_keys:
             rospy.loginfo("MoveitInterface.add_equipment(): Detaching %s", equipment.name)
-            self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
-            wait_till_updated(self.scene, equipment.name, attached=False, known=True)
-            self.scene.remove_world_object(name=equipment.name)
-            wait_till_updated(self.scene, equipment.name, attached=False, known=False)
+            while not self.wait_till_updated(equipment.name, attached=False, known=True):
+                self.scene.remove_attached_object(link=self.eef_link, name=equipment.name)
+            while not self.wait_till_updated(equipment.name, attached=False, known=False):
+                self.scene.remove_world_object(name=equipment.name)
 
         rospy.logdebug("MoveitInterface.add_equipment(): Known objects %s", ko_names)
         # if equipment.name in ko_names:
@@ -488,9 +578,11 @@ class MoveitInterface(object):
         try:
             rospy.logdebug("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
             scale = self.ssb_scale
-            self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path,
-                                size=(scale, scale, scale))
-            wait_till_updated(self.scene, equipment.name, attached=False, known=True)
+            while not wait_till_updated(self.scene, equipment.name, attached=False, known=True):
+                self.add_mesh_to_scene(name=equipment.name, pose=pose, filename=equipment.mesh_path,
+                                    size=(scale, scale, scale))
+                # self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path,
+                #                     size=(scale, scale, scale))
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
             rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (
@@ -567,9 +659,10 @@ class MoveitInterface(object):
         released_equipment = self.attached_equipment
         released_equipment.ps = obj_pose
         self.attached_equipment = None
+        # wait_till_updated(self.scene, attached_obj.object.id, attached=False, known=False)
         rospy.sleep(0.5)
 
-        # The station is still present in the scene, but now as an environmental object. Tho it has to be readded the
+        # The station is still present in the scene, but now as an environmental object. Tho it has to be re-added the
         # planning scene. In order to do so its pose needs to be determined and passed to the interface by calling the
         # add_equipment() method of this class.
         world_frame = rospy.get_param("~wolrd_frame", default="base_footprint")
