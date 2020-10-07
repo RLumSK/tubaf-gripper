@@ -20,5 +20,10 @@
         <param name="service_ns" value="/equipment_handler/confirm_plan"/>
     </node>
 
+    <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_set_pose_marker" respawn="false" output="screen">
+        <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_pose.yaml"/>
+        <param name="service_ns" value="/equipment_handler/confirm_set_pose"/>
+    </node>
+
     <include file="$(find tbf_gripper_launch)/launch/bag_equipment_handling.launch" if="$(arg record)" />
 </launch>

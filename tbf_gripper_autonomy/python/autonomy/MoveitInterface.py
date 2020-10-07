@@ -53,6 +53,7 @@ from pyassimp.errors import AssimpError
 
 from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
 
+
 def convert_angle(ist, sol, interval=360.0):
     """
     Given the current angle an desired one, compute the closest equivalent joint value
@@ -408,7 +409,6 @@ class MoveitInterface(object):
         if self.evaluation and plan_valid:
             self.evaluation.dct_trajectory[info] = plan
             self.evaluation.dct_planing_time[info] = self.group.get_planning_time()
-            self.evaluation.dct_planner[info] = self.group.get_planner_id()
             self.evaluation.dct_attempts[info] = attempts
             self.evaluation.dct_rel_time[info] = self.evaluation.calc_time(now=rospy.Time.now())
         return plan
@@ -484,6 +484,8 @@ class MoveitInterface(object):
             while not plan:
                 plan = self.plan(target, info, blind=blind, constraints=constraints)
                 if plan:
+                    if self.evaluation:
+                        self.evaluation.dct_planner[info] = self.lst_planner[iplanner]
                     success = self.execute(plan)
                     rospy.loginfo("[MoveitInterface.move_to_target] Finished %s motion" % info)
                 if not endless or success:

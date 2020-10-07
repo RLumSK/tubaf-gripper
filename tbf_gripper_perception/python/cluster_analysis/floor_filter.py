@@ -146,10 +146,10 @@ class FloorFilter(object):
             rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor] tables is None")
             return None
         ret_plane = None  # type: object_recognition_msgs.msgs.Table
-        lst_ret_planes = []
         # Determine planes with a parallel normal vector
         # Determine closest plane to the floor (z=0 @ base_link, floor is approx. 53 cm below base_link)
         min_z = float("inf")
+        # rospy.loginfo("[cluster_analysis::FloorFilter.identify_floor] %s Candidates" % len(tables.tables))
         for plane in tables.tables:
             pose = self.transform(plane.header.frame_id, self.floor_frame, plane.pose)
             if pose is None:
@@ -163,7 +163,7 @@ class FloorFilter(object):
             #                str(pose.orientation.z) + "," + str(pose.orientation.w) + ")")
             # TODO: Check criteria
             z = pose.position.z
-            if z < 0 and abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
+            if z < 0.01 and abs(pose.orientation.z) > (2 * (abs(pose.orientation.x) + abs(pose.orientation.y))):
                 v = pose.position.z + self.floor_frame_offset
                 rospy.logdebug("[cluster_analysis::FloorFilter.identify_floor] %g = %g + %g" % (
                     v, pose.position.z, self.floor_frame_offset
@@ -214,8 +214,9 @@ class FloorFilterServer(object):
 
 if __name__ == '__main__':
     rospy.init_node("floor_filter", log_level=rospy.DEBUG)
-    rospy.logdebug("[floor_filter.py@main] Run as service? %s" % rospy.get_param("~run_as_service", default=False))
-    if not rospy.get_param("~run_as_service", default=False):
+    as_service = rospy.get_param("~run_as_service", default=False)
+    rospy.logdebug("[floor_filter.py@main] Run as service? %s" % as_service)
+    if not as_service:
         obj = FloorFilter()
         obj.perform()
     else:

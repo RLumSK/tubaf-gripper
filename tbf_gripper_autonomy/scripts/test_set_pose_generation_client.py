@@ -55,10 +55,10 @@ def signal_handler(_signal, _frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == '__main__':
-    rospy.init_node("test_SetPoseGenerator_client", log_level=rospy.INFO)
+    rospy.init_node("test_SetPoseGenerator_client", log_level=rospy.DEBUG)
     # As client
     # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
-    service_name = rospy.get_param("~service_name", "PcaPoseGenerator")
+    service_name = rospy.get_param("~service_name", "DelaunayPoseGenerator")
     rospy.wait_for_service(service_name + '_service')
     service = rospy.ServiceProxy(service_name + '_service', GenerateSetPose)
 
@@ -83,7 +83,8 @@ if __name__ == '__main__':
             if request.floor is None or request.obstacles is None:
                 rospy.sleep(1.0)
                 continue
-            rospy.logdebug("[main] Request:\n%s" % request)
+            request.floor = request.floor.tables[0]
+            rospy.logdebug("[main] Request:\n%s" % type(request))
             reply = service(request)
             rospy.loginfo("[main] %s says %s" % (service_name, reply))
 

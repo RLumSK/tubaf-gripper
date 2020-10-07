@@ -46,6 +46,7 @@ from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
 from tubaf_tools import array_to_pose, pose_to_array
 import tbf_gripper_rviz.ssb_marker as marker
+from tubaf_tools.confirm_service import wait_for_confirmation
 from tf import TransformListener
 
 from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
@@ -328,6 +329,29 @@ class EquipmentTask(GraspTask):
         constraints.name = "SSB_handling_constraint"
         constraints.orientation_constraints.append(c_orientation)
 
+    def sense(self, arm_frame):
+        """
+        Sense for a pose to set the equipment
+        :return:
+        """
+        approved = False
+        candidate_pose = None
+        while not approved:
+            target_on_floor = sense()  # type: PoseStamped
+            # Assume that the base_link doesn't move, so we can save the pose relative to it
+            self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=target_on_floor.header.frame_id,
+                                              time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
+            candidate_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=target_on_floor)
+            if self.evaluation:
+                self.evaluation.pause()
+            marker_at_ps(candidate_pose)
+            rospy.loginfo("EquipmentTask.sense(): Please confirm the pose using the interactive marker on topic: "
+                          "'/confirm_set_pose/markers/update'")
+            approved = wait_for_confirmation(service_ns="~confirm_set_pose", timeout=20)
+            if self.evaluation:
+                self.evaluation.resume()
+        return candidate_pose
+
     def perform(self, stages=None):
         """
         Equipment Handle Task:
@@ -367,16 +391,12 @@ class EquipmentTask(GraspTask):
         if 2 in stages:
             rospy.loginfo("STAGE 2: Sense for target pose")
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose", blind=True)
+
             # Sense for target_pose
-            target_on_floor = sense()  # type: PoseStamped
+            self.selected_equipment.place_ps = self.sense(arm_frame)
+            rospy.loginfo("EquipmentTask.perform([2]): Sensed")
             if self.evaluation:
                 self.evaluation.store_img("Sense")
-            rospy.loginfo("EquipmentTask.perform([2]): Sensed")
-            # Assume that the base_link doesn't move, so we can save the pose relative to it
-            self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=target_on_floor.header.frame_id,
-                                              time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
-            self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=arm_frame,
-                                                                              ps=target_on_floor)
             rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % self.selected_equipment.place_ps)
 
         # 2. Pick Up Equipment
@@ -540,8 +560,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        # self.perform([1, 2, 3, 4, 5, 6])
-        self.perform([0, 1, 2, 3, 4, 5, 6])
+        self.perform([1, 2, 3, 4, 5, 6])
+        # self.perform([2])
 
     def check_set_equipment_pose(self):
         """
@@ -636,18 +656,18 @@ def object_detection():
     pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
                                      PointCloud2, 10)
     if pcl_msg is None:
-        return None
+        return None, -2.0
     service_name = rospy.get_param("~ssb_detection_service_name", default='locate_ssb_in_cloud')
     rospy.wait_for_service(service_name)
     locate_service = rospy.ServiceProxy(service_name, LocateInCloud)
     if locate_service is None:
-        return None
+        return None, -1.0
     request = LocateInCloudRequest()
     request.cloud_msg = pcl_msg
     response = locate_service(request)  # type: LocateInCloudResponse
     rospy.loginfo("[object_detection] response :\n%s" % response)
     if response is None or response.detection_score == 0.0:
-        return None
+        return None, response.detection_score
     return response.object_pose, response.detection_score
 
 
@@ -681,7 +701,6 @@ if __name__ == '__main__':
             # Now we can test if we see the SSB where we think it is
             obj.check_set_equipment_pose()
             if obj.evaluation:
-                obj.evaluation.save_as_bag("~/bags/")
-
-
+                obj.evaluation.save_as_bag("~/bags/EquipmentTask/"+eq.name+".bag")
+            rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()

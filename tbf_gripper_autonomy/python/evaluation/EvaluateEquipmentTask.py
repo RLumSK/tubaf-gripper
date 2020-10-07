@@ -153,9 +153,9 @@ def check_path(path):
     :return: cleaned path
     """
     file_path = os.path.abspath(os.path.expanduser(path))
-    dir = str(os.path.join(os.path.split(file_path)[:-1])[0])
-    if not os.path.exists(dir):
-        os.makedirs(dir)
+    d = str(os.path.join(os.path.split(file_path)[:-1])[0])
+    if not os.path.exists(d):
+        os.makedirs(d)
     return file_path
 
 
@@ -165,4 +165,3 @@ if __name__ == '__main__':
     obj = EquipmentTask()
     obj.store_img("test")
     obj.save_as_bag("~/test/unknown_dir/test.bag")
-
