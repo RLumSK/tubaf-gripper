@@ -51,6 +51,8 @@ from tf import TransformListener
 from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
 from std_msgs.msg import Float32
 
+from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
+
 
 def continue_by_topic(topic=None):
     """
@@ -235,15 +237,19 @@ class EquipmentTask(GraspTask):
     Handle equipment using the gripper unit of Julius
     """
 
-    def __init__(self):
+    def __init__(self, evaluation=None):
         """
         Default constructor, start ROS, hand_model and demo_monitoring
         """
+        if evaluation is None:
+            self.evaluation = False
+        else:
+            self.evaluation = evaluation  # type: Evaluation
         self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         self.tfBuffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tfBuffer)
         # Init Moveit
-        self.moveit = MoveitInterface("~moveit", self.tf_listener)  # type: MoveitInterface
+        self.moveit = MoveitInterface("~moveit", self.tf_listener, evaluation=self.evaluation)  # type: MoveitInterface
         rospy.loginfo("EquipmentTask.__init__(): Moveit initialized")
         # Equipment Parameter
         self.lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
@@ -349,6 +355,8 @@ class EquipmentTask(GraspTask):
             self.hand_controller.openHand()  # Open hand, in case smart equipment is still stuck
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
         if 1 in stages:
+            if self.evaluation:
+                self.evaluation.t_start = rospy.Time.now()
             rospy.loginfo("STAGE 0: Scan Environment for obstacles")
             rospy.loginfo("EquipmentTask.perform([0]): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand(continue_image_service=True)
@@ -361,6 +369,8 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose", blind=True)
             # Sense for target_pose
             target_on_floor = sense()  # type: PoseStamped
+            if self.evaluation:
+                self.evaluation.store_img("Sense")
             rospy.loginfo("EquipmentTask.perform([2]): Sensed")
             # Assume that the base_link doesn't move, so we can save the pose relative to it
             self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=target_on_floor.header.frame_id,
@@ -387,7 +397,8 @@ class EquipmentTask(GraspTask):
                 rospy.loginfo("EquipmentTask.perform([3]): Try to plan grasping again")
             # Grasp station
             self.hand_controller.closeHand("basic", continue_image_service=False)
-
+            if self.evaluation:
+                self.evaluation.store_img("Grasped")
             # Update Planning Scene - Attach collision object to end effector
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.loginfo("EquipmentTask.perform(3): Attach equipment to end effector")
@@ -411,13 +422,17 @@ class EquipmentTask(GraspTask):
             n_aTs = optimize_ssb_z_rotation(oTs=aTs, sTg=sTg)
             self.selected_equipment.place_ps.header.frame_id = arm_frame
             self.selected_equipment.place_ps.pose = array_to_pose(n_aTs)
-            # TODO: Fix Internal error. <Mesh filter handle 85 not found> from move_group node
+            # TODO: Fix Internal error. <Mesh filter handle 85 not found> from move_group node, STLL relevant?
             self.moveit.attach_equipment(self.selected_equipment)
 
             # self.selected_equipment.place_ps was set earlier
             target_pose = copy.deepcopy(self.selected_equipment.place_ps)  # target pose is in arm_frame
             target_pose.pose = array_to_pose(np.matmul(pose_to_array(self.selected_equipment.place_ps.pose), sTg))
             marker_at_ps(self.selected_equipment.place_ps, gripper_pose=target_pose)
+
+            if self.evaluation:
+                self.evaluation.grasp_relation = array_to_pose(sTg)
+                self.evaluation.estimated_set_pose = self.selected_equipment.place_ps
 
             constraints = self.generate_path_constraints()
 
@@ -450,6 +465,9 @@ class EquipmentTask(GraspTask):
             debug_pose_pub.publish(target_pose)
             self.moveit.move_to_set(target_pose, info="TARGET_POSE",
                                     constraints=constraints)
+
+            if self.evaluation:
+                self.evaluation.store_img("Set")
 
         if 5 in stages:
             rospy.loginfo("STAGE 5: Release/Hold SSB %s" % self.selected_equipment.name)
@@ -496,7 +514,8 @@ class EquipmentTask(GraspTask):
                         release_pose.pose)
                     debug_pose_pub.publish(release_pose)
                 self.hand_controller.closeHand(continue_image_service=False)
-
+                if self.evaluation:
+                    self.evaluation.store_img("Released")
                 # while not self.moveit.move_to_target(intermediate_pose,
                 #                                      info="INTERMED_POSE") and intermediate_pose is not None:
                 #     rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
@@ -510,7 +529,9 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
             # self.moveit.move_to_target(self.home_joint_values, info="HOME")
             # self.moveit.remove_equipment(self.selected_equipment.name)
-
+            if self.evaluation:
+                self.evaluation.store_img("Watched")
+                self.evaluation.calc_time()
         rospy.loginfo("EquipmentTask.perform(): Finished")
 
     def start(self):
@@ -558,8 +579,12 @@ class EquipmentTask(GraspTask):
         while detected_ssb_pose is None:
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
             self.moveit.move_to_target(watch_pose, info="DETECT_POSE", endless=True, blind=True)
-            detected_ssb_pose = object_detection()
+            detected_ssb_pose, score = object_detection()
             watch_pose.pose.position.z += 0.1
+        if self.evaluation:
+            self.evaluation.store_img("Detected")
+            self.evaluation.sensed_set_pose = detected_ssb_pose
+            self.evaluation.sensed_pose_confidence = score
         diff = self.compute_ssb_delta(detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
 
@@ -605,7 +630,7 @@ def object_detection():
     """
     Connect to <~service_name> and request a <LocateInCloud> for the next point cloud on <~cloud_topic>
     :return: Response from service call
-    :rtype: PoseStamped
+    :rtype: PoseStamped, float
     """
     from sensor_msgs.msg import PointCloud2
     pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
@@ -623,7 +648,7 @@ def object_detection():
     rospy.loginfo("[object_detection] response :\n%s" % response)
     if response is None or response.detection_score == 0.0:
         return None
-    return response.object_pose
+    return response.object_pose, response.detection_score
 
 
 def marker_at_ps(ps_marker, gripper_pose=None):
@@ -644,7 +669,7 @@ def marker_at_ps(ps_marker, gripper_pose=None):
 
 if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
-    obj = EquipmentTask()
+    obj = EquipmentTask(evaluation=Evaluation())
 
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
@@ -655,5 +680,8 @@ if __name__ == '__main__':
             obj.start()
             # Now we can test if we see the SSB where we think it is
             obj.check_set_equipment_pose()
+            if obj.evaluation:
+                obj.evaluation.save_as_bag("~/bags/")
+
 
     rospy.spin()

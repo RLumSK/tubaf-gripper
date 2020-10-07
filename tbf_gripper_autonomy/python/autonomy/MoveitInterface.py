@@ -51,6 +51,7 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 import pyassimp
 from pyassimp.errors import AssimpError
 
+from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
 
 def convert_angle(ist, sol, interval=360.0):
     """
@@ -146,10 +147,12 @@ class MoveitInterface(object):
         -31: "NO_IK_SOLUTION",
     }
 
-    def __init__(self, param_group_name="~moveit", tf_listener=None):
+    def __init__(self, param_group_name="~moveit", tf_listener=None, evaluation=False):
         """
         Default constructor - Parameters are given via yaml file loaded onto the parameter server
         """
+        self.evaluation = evaluation  # type: Evaluation
+
         self.parameter = rospy.get_param(param_group_name, dict())
         if tf_listener is None:
             tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
@@ -391,13 +394,23 @@ class MoveitInterface(object):
                 break
             rospy.loginfo("MoveitInterface.plan(): Please confirm the plan using the interactive marker on "
                           "topic: '/confirm_plan_marker/markers/update'")
+            if self.evaluation:
+                self.evaluation.pause()
             plan_valid = wait_for_confirmation(service_ns="~confirm_plan", timeout=60)
+            if self.evaluation:
+                self.evaluation.resume()
 
         self.group.set_planning_time(self.parameter["planner_time"])
         self.group.set_num_planning_attempts(self.parameter["planner_attempts"])
         if attempts >= self.max_attempts:
             # We can't plan to the specified target
             return False
+        if self.evaluation and plan_valid:
+            self.evaluation.dct_trajectory[info] = plan
+            self.evaluation.dct_planing_time[info] = self.group.get_planning_time()
+            self.evaluation.dct_planner[info] = self.group.get_planner_id()
+            self.evaluation.dct_attempts[info] = attempts
+            self.evaluation.dct_rel_time[info] = self.evaluation.calc_time(now=rospy.Time.now())
         return plan
 
     def execute(self, plan):
@@ -722,8 +735,6 @@ class MoveitInterface(object):
             ps.pose.position.x = 0  # was: size[0]/2.0
             ps.pose.position.y = size[1] / 2.0
             ps.pose.position.z = size[2] / 2.0
-
-
             # If we exited the while loop without returning then we timed out
             return False
         # Adding Objects to the Planning Scene
