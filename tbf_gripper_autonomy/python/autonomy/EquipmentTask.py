@@ -612,9 +612,12 @@ class EquipmentTask(GraspTask):
             i += 1
 
         if self.evaluation:
-            self.tf_listener.waitForTransform(arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
-                                              rospy.Duration(4))
-            detected_ssb_pose_arm_frame = self.tf_listener.transformPose(target_frame=arm_frame, ps=detected_ssb_pose)
+            try:
+                self.tf_listener.waitForTransform(arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
+                                                  rospy.Duration(4))
+                detected_ssb_pose_arm_frame = self.tf_listener.transformPose(target_frame=arm_frame, ps=detected_ssb_pose)
+            except tf2_ros.tf2.ExtrapolationException:
+
             self.evaluation.sensed_set_pose = detected_ssb_pose_arm_frame
             self.evaluation.sensed_pose_confidence = score
 
@@ -710,10 +713,12 @@ if __name__ == '__main__':
     for i in range(0, len(obj.lst_equipment)):
         eq = obj.lst_equipment[i]  # type: SmartEquipment
         if obj.select_equipment(eq.name):
-            obj.start()
-            # Now we can test if we see the SSB where we think it is
-            obj.check_set_equipment_pose()
-            if obj.evaluation:
-                obj.evaluation.save_as_bag("~/bags/EquipmentTask/"+eq.name+".bag")
+            try:
+                obj.start()
+            except Exception as ex:
+                rospy.logerr(ex.message)
+            finally:
+                if obj.evaluation:
+                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/"+eq.name+".bag")
             rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()
