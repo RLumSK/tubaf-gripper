@@ -58,15 +58,15 @@ class EquipmentTask(object):
         self.dct_rel_time = {}
         self.estimated_set_pose = PoseStamped()
         self.sensed_set_pose = PoseStamped()
+        self.intermediate_set_pose = PoseStamped()
         self.sensed_pose_confidence = 0.0
         self.grasp_relation = Pose()
 
         self.dct_rgb_img = {}
         self.dct_dpt_img = {}
 
-        self._pause_start = False
+        self._paused_since = False
         self.t_start = rospy.Time()
-        self.t_end = rospy.Time()
         self._t_pause = rospy.Duration(0, 0)
 
         self.t_in_s = 0.0
@@ -79,10 +79,10 @@ class EquipmentTask(object):
         Pause timing
         :return:
         """
-        if self._pause_start:
+        if self._paused_since:
             rospy.logwarn("[EquipmentTask.pause()] already in pause")
             return
-        self._pause_start = rospy.Time.now()
+        self._paused_since = rospy.Time.now()
 
     def resume(self):
         """
@@ -90,10 +90,11 @@ class EquipmentTask(object):
         :return:
         """
         end_time = rospy.Time.now()
-        if not self._pause_start:
+        if not self._paused_since:
             rospy.logwarn("[EquipmentTask.resume()] not in pause")
             return
-        self._t_pause += end_time - self._pause_start  # Time minus Time is a Duration
+        self._t_pause = self._t_pause + (end_time - self._paused_since)  # Time minus Time is a Duration
+        self._paused_since = False
 
     def calc_time(self, now=None):
         """
@@ -101,12 +102,9 @@ class EquipmentTask(object):
         :return:
         """
         if now is None:
-            now = self.t_end
-        duration = now - self.t_start
-        duration -= self._t_pause
+            now = rospy.Time.now()
+        duration = now - self.t_start - self._t_pause
         t_in_s = duration.to_sec()
-        if now is None:
-            self.t_in_s = t_in_s
         return t_in_s
 
     def store_img(self, key):
@@ -138,7 +136,12 @@ class EquipmentTask(object):
             for key in self.dct_rgb_img:
                 bag.write('rgb/' + key, self.dct_rgb_img[key])
                 bag.write('depth/' + key, self.dct_dpt_img[key])
-            bag.write('estimated_set_pose', self.estimated_set_pose)
+            import string
+            bag.write('traj_keys', String(";".join(self.dct_trajectory.keys())))
+            bag.write('img_keys', String(";".join(self.dct_rgb_img.keys())))
+            bag.write('pose/estimated', self.estimated_set_pose)
+            bag.write('pose/intermediate', self.intermediate_set_pose)
+            bag.write('pose/sensed', self.sensed_set_pose)
             bag.write('grasp_relation', self.grasp_relation)
             bag.write('sensed_pose_confidence', Float(self.sensed_pose_confidence))
             bag.write('t_in_s', Float(self.t_in_s))
@@ -163,5 +166,12 @@ if __name__ == '__main__':
     rospy.init_node("evaluate_autonomy", log_level=rospy.DEBUG)
     # Init
     obj = EquipmentTask()
+    obj.t_start = rospy.Time.now()
+    rospy.sleep(1.0)
     obj.store_img("test")
+    obj.pause()
+    rospy.sleep(1.0)
+    obj.resume()
+    rospy.sleep(1.0)
+    obj.t_in_s = obj.calc_time()
     obj.save_as_bag("~/test/unknown_dir/test.bag")

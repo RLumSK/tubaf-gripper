@@ -358,10 +358,11 @@ class EquipmentTask(GraspTask):
             0. Initialize
             1. Scan environment
             2. Sense for target pose
-            3. Grasp SSB
-            4. Move SSB
+            3. Pick SSB
+            4. Place SSB
             5. Release SSB
-            6. Return to Home Pose (HOME)
+            6. Search SSB
+            7. Return to Home Pose (HOME)
         :return: -
         :rtype: -
         """
@@ -375,53 +376,56 @@ class EquipmentTask(GraspTask):
         arm_frame = "gripper_ur5_base_link"
         if 0 in stages:
             rospy.loginfo("STAGE 0: Initialize")
-            rospy.loginfo("EquipmentTask.perform([0]): Equipment handling started - Robot starting at HOME position")
+            rospy.logdebug("EquipmentTask.perform([0]): Equipment handling started - Robot starting at HOME position")
             self.hand_controller.openHand()  # Open hand, in case smart equipment is still stuck
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
         if 1 in stages:
             if self.evaluation:
                 self.evaluation.t_start = rospy.Time.now()
             rospy.loginfo("STAGE 0: Scan Environment for obstacles")
-            rospy.loginfo("EquipmentTask.perform([0]): Closing hand and scan the environment by given watch pose")
+            rospy.logdebug("EquipmentTask.perform([0]): Closing hand and scan the environment by given watch pose")
             self.hand_controller.closeHand(continue_image_service=True)
             # Scan env
+            i = 0
             for joint_target in self.env_sense_joints_poses:
-                self.moveit.move_to_target(joint_target, info="ENV_SCAN", blind=True)
+                title = "Scan"+str(i)
+                self.moveit.move_to_target(joint_target, info=title, blind=True)
+                if self.evaluation:
+                    self.evaluation.store_img(title)
+                i += 1
 
         if 2 in stages:
             rospy.loginfo("STAGE 2: Sense for target pose")
-            self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose", blind=True)
-
-            # Sense for target_pose
-            self.selected_equipment.place_ps = self.sense(arm_frame)
-            rospy.loginfo("EquipmentTask.perform([2]): Sensed")
+            self.moveit.move_to_target(self.watch_joint_values, info="Sense", blind=True)
             if self.evaluation:
                 self.evaluation.store_img("Sense")
-            rospy.loginfo("EquipmentTask.perform([1]): Sensed for target_pose %s" % self.selected_equipment.place_ps)
+            # Sense for target_pose
+            self.selected_equipment.place_ps = self.sense(arm_frame)
+            rospy.logdebug("EquipmentTask.perform([1]): Sensed for target_pose %s" % self.selected_equipment.place_ps)
 
         # 2. Pick Up Equipment
         if 3 in stages:
             rospy.loginfo("STAGE 3: Pickup Equipment")
             self.hand_controller._set_image_and_info_service(False)
             # TODO: Select Equipment
-            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"],
-                                                 info="PreGrasp", blind=True):
-                rospy.loginfo("EquipmentTask.perform([2]): Try to plan pre-grasping again")
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"], info="PrePick",
+                                                 blind=True):
+                rospy.logdebug("EquipmentTask.perform([2]): Try to plan pre-grasping again")
+            if self.evaluation:
+                self.evaluation.store_img("PrePick")
             self.hand_controller.openHand()
-            # self.moveit.clear_octomap_on_mesh(self.selected_equipment.ps, self.selected_equipment.mesh_path)
-            # self.moveit.clear_octomap_via_box_marker(None)  # Clears area on top of the control box
             self.hand_controller.closeHand("scissor", continue_image_service=False)
 
-            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Grasp",
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="PickClose",
                                                  blind=True):
-                rospy.loginfo("EquipmentTask.perform([3]): Try to plan grasping again")
+                rospy.logdebug("EquipmentTask.perform([3]): Try to plan grasping again")
             # Grasp station
             self.hand_controller.closeHand("basic", continue_image_service=False)
             if self.evaluation:
-                self.evaluation.store_img("Grasped")
+                self.evaluation.store_img("PickClose")
             # Update Planning Scene - Attach collision object to end effector
             rospy.loginfo("STAGE 3: Update scene, Attach object")
-            rospy.loginfo("EquipmentTask.perform(3): Attach equipment to end effector")
+            rospy.logdebug("EquipmentTask.perform(3): Attach equipment to end effector")
             # Transform all coordinates relevant in <arm_frame>
             self.tf_listener.waitForTransform(arm_frame, self.selected_equipment.ps.header.frame_id,
                                               rospy.Time(0),
@@ -442,7 +446,7 @@ class EquipmentTask(GraspTask):
             n_aTs = optimize_ssb_z_rotation(oTs=aTs, sTg=sTg)
             self.selected_equipment.place_ps.header.frame_id = arm_frame
             self.selected_equipment.place_ps.pose = array_to_pose(n_aTs)
-            # TODO: Fix Internal error. <Mesh filter handle 85 not found> from move_group node, STLL relevant?
+            # TODO: Fix Internal error. <Mesh filter handle 85 not found> from move_group node, STILL relevant?
             self.moveit.attach_equipment(self.selected_equipment)
 
             # self.selected_equipment.place_ps was set earlier
@@ -459,35 +463,34 @@ class EquipmentTask(GraspTask):
             if "lift" in self.selected_equipment.pickup_waypoints:
                 self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["lift"], info="Lift",
                                            constraints=constraints)
-            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostGrasp",
+            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostPick",
                                        constraints=constraints)
 
         # 5. Calculate target pose
         if 4 in stages:
-            rospy.loginfo("STAGE 4: Move SSB %s" % self.selected_equipment.name)
+            rospy.loginfo("STAGE 4: Place SSB %s" % self.selected_equipment.name)
             # Formulate Planning Problem
             if target_pose is None:
-                rospy.loginfo("EquipmentTask.perform([5]): No Target Pose")
+                rospy.logdebug("EquipmentTask.perform([5]): No Target Pose")
                 return
 
             rospy.loginfo("STAGE 4: Move to Intermediate Pose")
             # Plan Path using Moveit
             intermediate_pose = copy.deepcopy(target_pose)
             intermediate_pose.pose.position.z += 0.3
+            if self.evaluation:
+                self.evaluation.intermediate_set_pose = intermediate_pose
             debug_pose_pub.publish(intermediate_pose)
-            rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose published")
-            while not self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False,
+            rospy.logdebug("EquipmentTask.perform([4]): Intermediate Pose published")
+            while not self.moveit.move_to_target(intermediate_pose, info="PlaceIntermediate", endless=False,
                                                  constraints=constraints):
-                rospy.loginfo("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying again")
+                rospy.logdebug("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying again")
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
-    # self.moveit.clear_octomap_on_mesh(ps=self.selected_equipment.place_ps, mesh=self.selected_equipment.mesh_path)
             debug_pose_pub.publish(target_pose)
-            self.moveit.move_to_set(target_pose, info="TARGET_POSE",
-                                    constraints=constraints)
-
+            self.moveit.move_to_set(target_pose, info="PlaceSet",  constraints=constraints)
             if self.evaluation:
-                self.evaluation.store_img("Set")
+                self.evaluation.store_img("PlaceSet")
 
         if 5 in stages:
             rospy.loginfo("STAGE 5: Release/Hold SSB %s" % self.selected_equipment.name)
@@ -520,8 +523,9 @@ class EquipmentTask(GraspTask):
                 r_soll = r_is
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
                 debug_pose_pub.publish(release_pose)
-                while not self.moveit.move_to_target(release_pose, info="RELEASE_POSE", endless=False, blind=True):
-
+                i = 0
+                while not self.moveit.move_to_target(release_pose, info="PlaceRelease"+str(i), endless=False, blind=True):
+                    i += 1
                     release_pose.pose.position.x = release_pose.pose.position.x + 0.01
                     r_soll = r_soll * r_relative
                     q = r_soll.as_quat()
@@ -529,29 +533,28 @@ class EquipmentTask(GraspTask):
                     release_pose.pose.orientation.y = q[1]
                     release_pose.pose.orientation.z = q[2]
                     release_pose.pose.orientation.w = q[3]
-                    rospy.loginfo(
+                    rospy.logdebug(
                         "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" %
                         release_pose.pose)
                     debug_pose_pub.publish(release_pose)
+                    if self.evaluation:
+                        self.evaluation.store_img("PlaceRelease"+str(i))
                 self.hand_controller.closeHand(continue_image_service=False)
-                if self.evaluation:
-                    self.evaluation.store_img("Released")
-                # while not self.moveit.move_to_target(intermediate_pose,
-                #                                      info="INTERMED_POSE") and intermediate_pose is not None:
-                #     rospy.loginfo("EquipmentTask.perform([9]): Intermediate Pose not reached - Trying again")
 
         if 6 in stages:
-            rospy.loginfo("STAGE 6: Return to watch pose")
-            # Plan back to home station
-
-            # if intermediate_pose is not None:
-            #     self.moveit.move_to_target(intermediate_pose, info="INTERMED_POSE", endless=False)
-            self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
-            # self.moveit.move_to_target(self.home_joint_values, info="HOME")
-            # self.moveit.remove_equipment(self.selected_equipment.name)
+            rospy.loginfo("STAGE 7: Search for SSB")
+            self.moveit.move_to_target(self.watch_joint_values, info="SenseAfterwards")
             if self.evaluation:
-                self.evaluation.store_img("Watched")
-                self.evaluation.calc_time()
+                self.evaluation.store_img("SenseAfterwards")
+                self.evaluation.t_in_s = self.evaluation.calc_time()
+            obj.check_set_equipment_pose()
+
+        if 7 in stages:
+            rospy.loginfo("STAGE 7: Return to watch pose")
+            # Plan back to home station
+            self.moveit.move_to_target(self.home_joint_values, info="HOME")
+            # self.moveit.remove_equipment(self.selected_equipment.name)
+
         rospy.loginfo("EquipmentTask.perform(): Finished")
 
     def start(self):
@@ -560,12 +563,12 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([1, 2, 3, 4, 5, 6])
+        self.perform([0, 1, 2, 3, 4, 5, 6])
         # self.perform([2])
 
     def check_set_equipment_pose(self):
         """
-        Move the camera to observe the previuous set smart equipment and the query the object detector via service call
+        Move the camera to observe the previous set smart equipment and the query the object detector via service call
         :return:
         """
         from sensor_msgs.msg import PointCloud2
@@ -581,7 +584,8 @@ class EquipmentTask(GraspTask):
         self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, rospy.Time(0),
                                           rospy.Duration(4))
         watch_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=ssb_pose)
-        # watch_pose = self.tfBuffer.transform(ssb_pose, arm_frame)
+        if self.evaluation:
+            self.evaluation.estimated_set_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=ssb_pose)
         watch_pose.pose.position.x = watch_pose.pose.position.x - 0.14
         watch_pose.pose.position.z = 0.0
 
@@ -596,15 +600,24 @@ class EquipmentTask(GraspTask):
         watch_pose.pose.orientation.z = q[2]
         watch_pose.pose.orientation.w = q[3]
         detected_ssb_pose = None
+        i = 0
         while detected_ssb_pose is None:
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
-            self.moveit.move_to_target(watch_pose, info="DETECT_POSE", endless=True, blind=True)
+            title = "Search"+str(i)
+            self.moveit.move_to_target(watch_pose, info=title, endless=True, blind=True)
             detected_ssb_pose, score = object_detection()
             watch_pose.pose.position.z += 0.1
+            if self.evaluation:
+                self.evaluation.store_img(title)
+            i += 1
+
         if self.evaluation:
-            self.evaluation.store_img("Detected")
-            self.evaluation.sensed_set_pose = detected_ssb_pose
+            self.tf_listener.waitForTransform(arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
+                                              rospy.Duration(4))
+            detected_ssb_pose_arm_frame = self.tf_listener.transformPose(target_frame=arm_frame, ps=detected_ssb_pose)
+            self.evaluation.sensed_set_pose = detected_ssb_pose_arm_frame
             self.evaluation.sensed_pose_confidence = score
+
         diff = self.compute_ssb_delta(detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
 
