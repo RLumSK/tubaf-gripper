@@ -51,11 +51,11 @@ class EquipmentTask(object):
         """
         Default constructor
         """
-        self.dct_trajectory = {}
-        self.dct_planing_time = {}
-        self.dct_planner = {}
-        self.dct_attempts = {}
-        self.dct_rel_time = {}
+        self._dct_trajectory = {}
+        self._dct_planing_time = {}
+        self._dct_planner = {}
+        self._dct_attempts = {}
+        self._dct_rel_time = {}
         self.estimated_set_pose = PoseStamped()
         self.sensed_set_pose = PoseStamped()
         self.intermediate_set_pose = PoseStamped()
@@ -73,6 +73,86 @@ class EquipmentTask(object):
 
         self._rgb_topic = rospy.get_param("~rgb_topic", "/gripper_d435/color/image_rect_color")
         self._dpt_topic = rospy.get_param("~depth_topic", "/gripper_d435/depth/image_rect_raw")
+
+    @property
+    def dct_trajectory(self):
+        return self._dct_trajectory
+
+    @dct_trajectory.setter
+    def dct_trajectory(self, in_dct):
+        for key in in_dct:
+            if key in self._dct_trajectory:
+                self._dct_trajectory[key].append(in_dct[key])
+            else:
+                self._dct_trajectory[key] = [in_dct[key]]
+
+    @dct_trajectory.deleter
+    def dct_trajectory(self):
+        del self._dct_trajectory
+
+    @property
+    def dct_planing_time(self):
+        return self._dct_planing_time
+
+    @dct_planing_time.setter
+    def dct_planing_time(self, in_dct):
+        for key in in_dct:
+            if key in self._dct_planing_time:
+                self._dct_planing_time[key].append(in_dct[key])
+            else:
+                self._dct_planing_time[key] = [in_dct[key]]
+
+    @dct_planing_time.deleter
+    def dct_planing_time(self):
+        del self._dct_planing_time
+
+    @property
+    def dct_planner(self):
+        return self._dct_planner
+
+    @dct_planner.setter
+    def dct_planner(self, in_dct):
+        for key in in_dct:
+            if key in self._dct_planner:
+                self._dct_planner[key].append(in_dct[key])
+            else:
+                self._dct_planner[key] = [in_dct[key]]
+
+    @dct_planner.deleter
+    def dct_planner(self):
+        del self._dct_planner
+
+    @property
+    def dct_attempts(self):
+        return self._dct_attempts
+
+    @dct_attempts.setter
+    def dct_attempts(self, in_dct):
+        for key in in_dct:
+            if key in self._dct_attempts:
+                self._dct_attempts[key].append(in_dct[key])
+            else:
+                self._dct_attempts[key] = [in_dct[key]]
+
+    @dct_attempts.deleter
+    def dct_attempts(self):
+        del self._dct_attempts
+
+    @property
+    def dct_rel_time(self):
+        return self._dct_rel_time
+
+    @dct_rel_time.setter
+    def dct_rel_time(self, in_dct):
+        for key in in_dct:
+            if key in self._dct_attempts:
+                self._dct_rel_time[key].append(in_dct[key])
+            else:
+                self._dct_rel_time[key] = [in_dct[key]]
+
+    @dct_rel_time.deleter
+    def dct_rel_time(self):
+        del self._dct_rel_time
 
     def pause(self):
         """
@@ -126,13 +206,24 @@ class EquipmentTask(object):
 
         file_path = check_path(file_path)
         bag = rosbag.Bag(file_path, 'w')
+        wait_duration = 0.05
         try:
             for key in self.dct_trajectory:
-                bag.write('trajectory/' + key, self.dct_trajectory[key])
-                bag.write('planing_time/' + key, Float(self.dct_planing_time[key]))
-                bag.write('timing/' + key, Float(self.dct_rel_time[key]))
-                bag.write('planner/' + key, String(self.dct_planner[key]))
-                bag.write('attempts/' + key, Int32(self.dct_attempts[key]))
+                for item in self.dct_trajectory[key]:
+                    bag.write('trajectory/' + key, item)
+                    rospy.sleep(wait_duration)
+                for item in self.dct_planing_time[key]:
+                    bag.write('planing_time/' + key, item)
+                    rospy.sleep(wait_duration)
+                for item in self.dct_rel_time[key]:
+                    bag.write('timing/' + key, item)
+                    rospy.sleep(wait_duration)
+                for item in self.dct_planner[key]:
+                    bag.write('planner/' + key, item)
+                    rospy.sleep(wait_duration)
+                for item in self.dct_attempts[key]:
+                    bag.write('attempts/' + key, item)
+                    rospy.sleep(wait_duration)
             for key in self.dct_rgb_img:
                 bag.write('rgb/' + key, self.dct_rgb_img[key])
                 bag.write('depth/' + key, self.dct_dpt_img[key])
