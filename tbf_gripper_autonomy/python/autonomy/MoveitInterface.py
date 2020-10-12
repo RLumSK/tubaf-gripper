@@ -485,7 +485,10 @@ class MoveitInterface(object):
                 plan = self.plan(target, info, blind=blind, constraints=constraints)
                 if plan:
                     if self.evaluation:
-                        self.evaluation.dct_planner = {info: self.lst_planner[iplanner]}
+                        try:
+                            self.evaluation.dct_planner = {info: self.lst_planner[iplanner]}
+                        except Exception as ex:
+                            rospy.logerr("[MoveitInterface.move_to_target] Exception on evaluation %s" % ex.message)
                     success = self.execute(plan)
                     rospy.loginfo("[MoveitInterface.move_to_target] Finished %s motion" % info)
                 if not endless or success:
