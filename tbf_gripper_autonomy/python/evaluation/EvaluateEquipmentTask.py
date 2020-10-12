@@ -153,7 +153,10 @@ class EquipmentTask(object):
                 for k in dct:
                     try:
                         for item in dct[k]:
-                            bfile.write(prefix + k, dtype(item))
+                            if dtype is RobotTrajectory:
+                                bfile.write(prefix + k, item)
+                            else:
+                                bfile.write(prefix + k, dtype(item))
                             rospy.sleep(wait_duration)
                     except KeyError as ke:
                         rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] KeyError: %s \n Allowed keys for "
@@ -165,11 +168,11 @@ class EquipmentTask(object):
                 rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] Exception %s" % ex.message)
 
         from moveit_msgs.msg import RobotTrajectory as RobotTrajectory
-        export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory')
-        export_dict(self.dct_planing_time, bag, Float, 'planing_time')
-        export_dict(self.dct_rel_time, bag, Float, 'timing')
-        export_dict(self.dct_planner, bag, String, 'planner')
-        export_dict(self.dct_attempts, bag, Int32, 'attempts')
+        export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
+        export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
+        export_dict(self.dct_rel_time, bag, Float, 'timing/')
+        export_dict(self.dct_planner, bag, String, 'planner/')
+        export_dict(self.dct_attempts, bag, Int32, 'attempts/')
 
         for key in self.dct_rgb_img:
             bag.write('rgb/' + key, self.dct_rgb_img[key])
