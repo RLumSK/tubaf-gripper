@@ -95,7 +95,6 @@ class EquipmentTask(object):
             self.dct_attempts[key] = [attempts]
             self.dct_rel_time[key] = [time]
 
-
     def pause(self):
         """
         Pause timing
@@ -151,21 +150,32 @@ class EquipmentTask(object):
         wait_duration = 0.05
         try:
             for key in self.dct_trajectory:
-                for item in self.dct_trajectory[key]:
-                    bag.write('trajectory/' + key, item)
-                    rospy.sleep(wait_duration)
-                for item in self.dct_planing_time[key]:
-                    bag.write('planing_time/' + key, Float(item))
-                    rospy.sleep(wait_duration)
-                for item in self.dct_rel_time[key]:
-                    bag.write('timing/' + key, Float(item))
-                    rospy.sleep(wait_duration)
-                for item in self.dct_planner[key]:
-                    bag.write('planner/' + key, String(item))
-                    rospy.sleep(wait_duration)
-                for item in self.dct_attempts[key]:
-                    bag.write('attempts/' + key, Int32(item))
-                    rospy.sleep(wait_duration)
+                try:
+                    for item in self.dct_trajectory[key]:
+                        bag.write('trajectory/' + key, item)
+                        rospy.sleep(wait_duration)
+                    for item in self.dct_planing_time[key]:
+                        bag.write('planing_time/' + key, Float(item))
+                        rospy.sleep(wait_duration)
+                    for item in self.dct_rel_time[key]:
+                        bag.write('timing/' + key, Float(item))
+                        rospy.sleep(wait_duration)
+                    for item in self.dct_planner[key]:
+                        bag.write('planner/' + key, String(item))
+                        rospy.sleep(wait_duration)
+                    for item in self.dct_attempts[key]:
+                        bag.write('attempts/' + key, Int32(item))
+                        rospy.sleep(wait_duration)
+                except KeyError as ke:
+                    rospy.logerr("[EvaluateEquipmentTask.write_bag()] KeyError: %s \n Allowed keys per dict:"
+                                 "\n\t %s: %s\n\t %s: %s\n\t %s: %s\n\t %s: %s\n\t %s: %s" %
+                                 (ke.message,
+                                  "dct_trajectory", self.dct_trajectory.keys(),
+                                  "dct_planing_time", self.dct_planing_time.keys(),
+                                  "dct_rel_time", self.dct_rel_time.keys(),
+                                  "dct_planner", self.dct_planner.keys(),
+                                  "dct_attempts", self.dct_attempts.keys()
+                                  ))
             for key in self.dct_rgb_img:
                 bag.write('rgb/' + key, self.dct_rgb_img[key])
                 bag.write('depth/' + key, self.dct_dpt_img[key])

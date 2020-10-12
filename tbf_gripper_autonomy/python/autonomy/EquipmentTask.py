@@ -612,14 +612,15 @@ class EquipmentTask(GraspTask):
             i += 1
 
         if self.evaluation:
+            self.evaluation.pause()
             try:
                 self.tf_listener.waitForTransform(arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
-                                                  rospy.Duration(4))
-                detected_ssb_pose_arm_frame = self.tf_listener.transformPose(target_frame=arm_frame, ps=detected_ssb_pose)
+                                                  rospy.Duration())
+                self.evaluation.sensed_pose_confidence = score
+                self.evaluation.sensed_set_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=detected_ssb_pose)
             except tf2_ros.tf2.ExtrapolationException as ex:
-                rospy.logerr("EquipmentTask.check_set_equipment_pose(): %s" %ex.message)
-            self.evaluation.sensed_set_pose = detected_ssb_pose_arm_frame
-            self.evaluation.sensed_pose_confidence = score
+                rospy.logerr("EquipmentTask.check_set_equipment_pose(): %s" % ex.message)
+            self.evaluation.resume()
 
         diff = self.compute_ssb_delta(detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
