@@ -407,10 +407,11 @@ class MoveitInterface(object):
             # We can't plan to the specified target
             return False
         if self.evaluation and plan_valid:
-            self.evaluation.dct_trajectory = {info: plan}
-            self.evaluation.dct_planing_time = {info: self.group.get_planning_time()}
-            self.evaluation.dct_attempts = {info: attempts}
-            self.evaluation.dct_rel_time = {info: self.evaluation.calc_time(now=rospy.Time.now())}
+            try:
+                self.evaluation.add_moveit_plan_information(info, plan, self.group.get_planning_time(),
+                                                            attempts, self.evaluation.calc_time(now=rospy.Time.now()))
+            except KeyError as ke:
+                rospy.logerr("[MoveitInterface.plan()] Evaluation - KeyError: %s" % ke)
         return plan
 
     def execute(self, plan):
@@ -506,6 +507,7 @@ class MoveitInterface(object):
                 plan = success
         except Exception as ex:
             rospy.logerr("[MoveitInterface.move_to_target] Exception %s", ex)
+            raise ex
         finally:
             self.group.set_planner_id(self.parameter["planner_id"])
         return False
