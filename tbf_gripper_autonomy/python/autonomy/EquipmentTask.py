@@ -721,6 +721,8 @@ if __name__ == '__main__':
                 rospy.logerr(ex.message)
             finally:
                 if obj.evaluation:
-                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/"+eq.name+".bag")
+                    n = eq.name.split(" ")
+                    secs = rospy.Time.now().secs
+                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/"+n+str(secs)[6:]+".bag")
             rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()

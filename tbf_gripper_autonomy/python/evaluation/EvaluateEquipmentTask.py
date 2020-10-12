@@ -39,6 +39,7 @@ from sensor_msgs.msg import Image as Image
 from std_msgs.msg import Float32 as Float
 from std_msgs.msg import String as String
 from std_msgs.msg import Int32 as Int32
+from moveit_msgs.msg import RobotTrajectory as RobotTrajectory
 
 
 class EquipmentTask(object):
@@ -167,7 +168,6 @@ class EquipmentTask(object):
             except Exception as ex:
                 rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] Exception %s" % ex.message)
 
-        from moveit_msgs.msg import RobotTrajectory as RobotTrajectory
         export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
         export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
@@ -213,5 +213,9 @@ if __name__ == '__main__':
     rospy.sleep(1.0)
     obj.resume()
     rospy.sleep(1.0)
+    p = RobotTrajectory()
+    obj.add_moveit_plan_information("test", p, 0.1, 1, 120.0)
+    rospy.sleep(1.0)
     obj.t_in_s = obj.calc_time()
-    obj.save_as_bag("~/test/unknown_dir/test.bag")
+    secs = rospy.Time.now().secs
+    obj.save_as_bag("~/bags/unknown_dir/test"+str(secs)[6:]+".bag")
