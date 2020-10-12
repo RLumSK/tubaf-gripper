@@ -213,16 +213,16 @@ class EquipmentTask(object):
                     bag.write('trajectory/' + key, item)
                     rospy.sleep(wait_duration)
                 for item in self.dct_planing_time[key]:
-                    bag.write('planing_time/' + key, item)
+                    bag.write('planing_time/' + key, Float(item))
                     rospy.sleep(wait_duration)
                 for item in self.dct_rel_time[key]:
-                    bag.write('timing/' + key, item)
+                    bag.write('timing/' + key, Float(item))
                     rospy.sleep(wait_duration)
                 for item in self.dct_planner[key]:
-                    bag.write('planner/' + key, item)
+                    bag.write('planner/' + key, String(item))
                     rospy.sleep(wait_duration)
                 for item in self.dct_attempts[key]:
-                    bag.write('attempts/' + key, item)
+                    bag.write('attempts/' + key, Int32(item))
                     rospy.sleep(wait_duration)
             for key in self.dct_rgb_img:
                 bag.write('rgb/' + key, self.dct_rgb_img[key])
