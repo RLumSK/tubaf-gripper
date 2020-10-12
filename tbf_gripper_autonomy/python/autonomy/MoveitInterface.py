@@ -407,10 +407,10 @@ class MoveitInterface(object):
             # We can't plan to the specified target
             return False
         if self.evaluation and plan_valid:
-            self.evaluation.dct_trajectory[info] = plan
-            self.evaluation.dct_planing_time[info] = self.group.get_planning_time()
-            self.evaluation.dct_attempts[info] = attempts
-            self.evaluation.dct_rel_time[info] = self.evaluation.calc_time(now=rospy.Time.now())
+            self.evaluation.dct_trajectory = {info: plan}
+            self.evaluation.dct_planing_time = {info: self.group.get_planning_time()}
+            self.evaluation.dct_attempts = {info: attempts}
+            self.evaluation.dct_rel_time = {info: self.evaluation.calc_time(now=rospy.Time.now())}
         return plan
 
     def execute(self, plan):
@@ -485,7 +485,7 @@ class MoveitInterface(object):
                 plan = self.plan(target, info, blind=blind, constraints=constraints)
                 if plan:
                     if self.evaluation:
-                        self.evaluation.dct_planner[info] = self.lst_planner[iplanner]
+                        self.evaluation.dct_planner = {info: self.lst_planner[iplanner]}
                     success = self.execute(plan)
                     rospy.loginfo("[MoveitInterface.move_to_target] Finished %s motion" % info)
                 if not endless or success:
