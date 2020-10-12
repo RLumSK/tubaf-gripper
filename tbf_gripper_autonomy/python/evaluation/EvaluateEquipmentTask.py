@@ -147,49 +147,43 @@ class EquipmentTask(object):
 
         file_path = check_path(file_path)
         bag = rosbag.Bag(file_path, 'w')
-        wait_duration = 0.05
-        try:
-            for key in self.dct_trajectory:
-                try:
-                    for item in self.dct_trajectory[key]:
-                        bag.write('trajectory/' + key, item)
-                        rospy.sleep(wait_duration)
-                    for item in self.dct_planing_time[key]:
-                        bag.write('planing_time/' + key, Float(item))
-                        rospy.sleep(wait_duration)
-                    for item in self.dct_rel_time[key]:
-                        bag.write('timing/' + key, Float(item))
-                        rospy.sleep(wait_duration)
-                    for item in self.dct_planner[key]:
-                        bag.write('planner/' + key, String(item))
-                        rospy.sleep(wait_duration)
-                    for item in self.dct_attempts[key]:
-                        bag.write('attempts/' + key, Int32(item))
-                        rospy.sleep(wait_duration)
-                except KeyError as ke:
-                    rospy.logerr("[EvaluateEquipmentTask.write_bag()] KeyError: %s \n Allowed keys per dict:"
-                                 "\n\t %s: %s\n\t %s: %s\n\t %s: %s\n\t %s: %s\n\t %s: %s" %
-                                 (ke.message,
-                                  "dct_trajectory", self.dct_trajectory.keys(),
-                                  "dct_planing_time", self.dct_planing_time.keys(),
-                                  "dct_rel_time", self.dct_rel_time.keys(),
-                                  "dct_planner", self.dct_planner.keys(),
-                                  "dct_attempts", self.dct_attempts.keys()
-                                  ))
-            for key in self.dct_rgb_img:
-                bag.write('rgb/' + key, self.dct_rgb_img[key])
-                bag.write('depth/' + key, self.dct_dpt_img[key])
-            import string
-            bag.write('traj_keys', String(";".join(self.dct_trajectory.keys())))
-            bag.write('img_keys', String(";".join(self.dct_rgb_img.keys())))
-            bag.write('pose/estimated', self.estimated_set_pose)
-            bag.write('pose/intermediate', self.intermediate_set_pose)
-            bag.write('pose/sensed', self.sensed_set_pose)
-            bag.write('grasp_relation', self.grasp_relation)
-            bag.write('sensed_pose_confidence', Float(self.sensed_pose_confidence))
-            bag.write('t_in_s', Float(self.t_in_s))
-        finally:
-            bag.close()
+
+        def export_dict(dct, bfile, dtype, prefix='none/', wait_duration=0.05):
+            try:
+                for k in dct:
+                    try:
+                        for item in dct[k]:
+                            bfile.write(prefix + k, dtype(item))
+                            rospy.sleep(wait_duration)
+                    except KeyError as ke:
+                        rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] KeyError: %s \n Allowed keys for "
+                                     "%s: %s" % (ke.message, prefix[:-1], self.dct_trajectory.keys()))
+
+            except TypeError as te:
+                rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] TypeError %s" % te.message)
+            except Exception as ex:
+                rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] Exception %s" % ex.message)
+
+        from moveit_msgs.msg import RobotTrajectory as RobotTrajectory
+        export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory')
+        export_dict(self.dct_planing_time, bag, Float, 'planing_time')
+        export_dict(self.dct_rel_time, bag, Float, 'timing')
+        export_dict(self.dct_planner, bag, String, 'planner')
+        export_dict(self.dct_attempts, bag, Int32, 'attempts')
+
+        for key in self.dct_rgb_img:
+            bag.write('rgb/' + key, self.dct_rgb_img[key])
+            bag.write('depth/' + key, self.dct_dpt_img[key])
+        import string
+        bag.write('traj_keys', String(";".join(self.dct_trajectory.keys())))
+        bag.write('img_keys', String(";".join(self.dct_rgb_img.keys())))
+        bag.write('pose/estimated', self.estimated_set_pose)
+        bag.write('pose/intermediate', self.intermediate_set_pose)
+        bag.write('pose/sensed', self.sensed_set_pose)
+        bag.write('grasp_relation', self.grasp_relation)
+        bag.write('sensed_pose_confidence', Float(self.sensed_pose_confidence))
+        bag.write('t_in_s', Float(self.t_in_s))
+        bag.close()
 
 
 def check_path(path):
