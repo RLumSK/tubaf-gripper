@@ -564,8 +564,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        #self.perform([0, 1, 2, 3, 4, 5, 6])
-        self.perform([6])
+        self.perform([0, 1, 2, 3, 4, 5, 6])
+        # self.perform([6])
         # self.perform([2])
 
     def check_set_equipment_pose(self):
