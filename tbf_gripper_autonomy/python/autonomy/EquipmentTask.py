@@ -388,7 +388,7 @@ class EquipmentTask(GraspTask):
             # Scan env
             i = 0
             for joint_target in self.env_sense_joints_poses:
-                title = "Scan"+str(i)
+                title = "Scan" + str(i)
                 self.moveit.move_to_target(joint_target, info=title, blind=True)
                 if self.evaluation:
                     self.evaluation.store_img(title)
@@ -488,7 +488,7 @@ class EquipmentTask(GraspTask):
 
             rospy.loginfo("STAGE 4: Move to Target Pose")
             debug_pose_pub.publish(target_pose)
-            self.moveit.move_to_set(target_pose, info="PlaceSet",  constraints=constraints)
+            self.moveit.move_to_set(target_pose, info="PlaceSet", constraints=constraints)
             if self.evaluation:
                 self.evaluation.store_img("PlaceSet")
 
@@ -524,7 +524,8 @@ class EquipmentTask(GraspTask):
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
                 debug_pose_pub.publish(release_pose)
                 i = 0
-                while not self.moveit.move_to_target(release_pose, info="PlaceRelease"+str(i), endless=False, blind=True):
+                while not self.moveit.move_to_target(release_pose, info="PlaceRelease" + str(i), endless=False,
+                                                     blind=True):
                     i += 1
                     release_pose.pose.position.x = release_pose.pose.position.x + 0.01
                     r_soll = r_soll * r_relative
@@ -538,12 +539,12 @@ class EquipmentTask(GraspTask):
                         release_pose.pose)
                     debug_pose_pub.publish(release_pose)
                     if self.evaluation:
-                        self.evaluation.store_img("PlaceRelease"+str(i))
+                        self.evaluation.store_img("PlaceRelease" + str(i))
                 self.hand_controller.closeHand(continue_image_service=False)
 
         if 6 in stages:
             rospy.loginfo("STAGE 7: Search for SSB")
-            self.moveit.move_to_target(self.watch_joint_values, info="SenseAfterwards")
+            self.moveit.move_to_target(self.watch_joint_values, info="SenseAfterwards", blind=True)
             if self.evaluation:
                 self.evaluation.store_img("SenseAfterwards")
                 self.evaluation.t_in_s = self.evaluation.calc_time()
@@ -563,7 +564,8 @@ class EquipmentTask(GraspTask):
         :return: -
         :rtype: -
         """
-        self.perform([0, 1, 2, 3, 4, 5, 6])
+        #self.perform([0, 1, 2, 3, 4, 5, 6])
+        self.perform([6])
         # self.perform([2])
 
     def check_set_equipment_pose(self):
@@ -585,9 +587,9 @@ class EquipmentTask(GraspTask):
                                           rospy.Duration(4))
         watch_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=ssb_pose)
         if self.evaluation:
-            self.evaluation.estimated_set_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=ssb_pose)
+            self.evaluation.estimated_set_pose = copy.deepcopy(watch_pose)
         watch_pose.pose.position.x = watch_pose.pose.position.x - 0.14
-        watch_pose.pose.position.z = 0.0
+        watch_pose.pose.position.z = 0.25
 
         from scipy.spatial.transform import Rotation as R
         r_yrot = R.from_euler('y', 90, degrees=True)
@@ -600,27 +602,50 @@ class EquipmentTask(GraspTask):
         watch_pose.pose.orientation.z = q[2]
         watch_pose.pose.orientation.w = q[3]
         detected_ssb_pose = None
-        i = 0
+        i_search = 0
+        score = -1.0
         while detected_ssb_pose is None:
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
-            title = "Search"+str(i)
+            title = "Search" + str(i_search)
             self.moveit.move_to_target(watch_pose, info=title, endless=True, blind=True)
-            detected_ssb_pose, score = object_detection()
-            watch_pose.pose.position.z += 0.1
+            detected_ssb_pose, score = object_detection()  # type: (PoseStamped, float)
+            watch_pose.pose.position.z += 0.25
             if self.evaluation:
                 self.evaluation.store_img(title)
-            i += 1
+            i_search += 1
+        rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected")
 
         if self.evaluation:
             self.evaluation.pause()
             self.evaluation.sensed_pose_confidence = score
-            try:
-                self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=detected_ssb_pose.header.frame_id,
-                                                  time=detected_ssb_pose.header.stamp, timeout=rospy.Duration())
-                self.evaluation.sensed_set_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=detected_ssb_pose)
-            except tf2_ros.tf2.ExtrapolationException as ee:
-                rospy.logerr("EquipmentTask.check_set_equipment_pose(): %s" % ee.message)
-                self.evaluation.sensed_set_pose = detected_ssb_pose
+            while True:
+                try:
+                    # https://answers.ros.org/question/188023/tf-lookup-would-require-extrapolation-into-the-past/
+                    self.tf_listener.waitForTransform(arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
+                                                      rospy.Duration(4))
+                    # rospy.sleep(0.5)
+                    rospy.loginfo("[EquipmentTask.check_set_equipment_pose(evaluation)] waitForTransform finished")
+                    # d_ps = detected_ssb_pose ExtrapolationException
+                    d_ps = PoseStamped()
+                    d_ps.header.frame_id = detected_ssb_pose.header.frame_id
+                    d_ps.pose = detected_ssb_pose.pose
+                    self.evaluation.sensed_set_pose = self.tf_listener.transformPose(target_frame=arm_frame,
+                                                                                     ps=d_ps)
+                    rospy.loginfo("[EquipmentTask.check_set_equipment_pose(evaluation)] sensed_set_pose %s"
+                                  % self.evaluation.sensed_set_pose)
+                    break
+                except tf.ExtrapolationException as ee:
+                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): ExtrapolationException %s" % ee.message)
+                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): Target frame %s" % arm_frame)
+                    rospy.logerr(
+                        "EquipmentTask.check_set_equipment_pose(): Source header %s" % detected_ssb_pose.header)
+                    self.evaluation.sensed_set_pose = detected_ssb_pose
+                except tf.LookupException as le:
+                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): LookupException %s" % le.message)
+                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): Target frame %s" % arm_frame)
+                    rospy.logerr(
+                        "EquipmentTask.check_set_equipment_pose(): Source header %s" % detected_ssb_pose.header)
+                    self.evaluation.sensed_set_pose = detected_ssb_pose
             self.evaluation.resume()
 
         diff = self.compute_ssb_delta(detected_ssb_pose)
@@ -683,8 +708,10 @@ def object_detection():
     request = LocateInCloudRequest()
     request.cloud_msg = pcl_msg
     response = locate_service(request)  # type: LocateInCloudResponse
-    rospy.loginfo("[object_detection] response :\n%s" % response)
-    if response is None or response.detection_score == 0.0:
+    # rospy.loginfo("[object_detection] response :\n%s" % response)
+    if response is None:
+        return None, -1.0
+    if response.detection_score == 0.0:
         return None, response.detection_score
     return response.object_pose, response.detection_score
 
@@ -723,6 +750,6 @@ if __name__ == '__main__':
                 if obj.evaluation:
                     n = eq.name.split(" ")
                     secs = rospy.Time.now().secs
-                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/"+n+str(secs)[6:]+".bag")
+                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
             rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()

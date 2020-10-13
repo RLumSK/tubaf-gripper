@@ -488,9 +488,9 @@ class MoveitInterface(object):
                     if self.evaluation:
                         try:
                             if info in self.evaluation.dct_planner:
-                                self.evaluation.dct_planner.append(self.lst_planner[iplanner])
+                                self.evaluation.dct_planner[info].append(self.lst_planner[iplanner])
                             else:
-                                self.evaluation.dct_planner = [self.lst_planner[iplanner]]
+                                self.evaluation.dct_planner[info] = [self.lst_planner[iplanner]]
                         except Exception as ex:
                             rospy.logerr("[MoveitInterface.move_to_target] Exception on evaluation %s" % ex.message)
                     success = self.execute(plan)

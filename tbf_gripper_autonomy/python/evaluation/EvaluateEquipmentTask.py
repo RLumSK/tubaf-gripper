@@ -160,18 +160,19 @@ class EquipmentTask(object):
                                 bfile.write(prefix + k, dtype(item))
                             rospy.sleep(wait_duration)
                     except KeyError as ke:
-                        rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] KeyError: %s \n Allowed keys for "
+                        rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] KeyError: %s \n Allowed keys for "
                                      "%s: %s" % (ke.message, prefix[:-1], self.dct_trajectory.keys()))
 
             except TypeError as te:
-                rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] TypeError %s" % te.message)
+                rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] TypeError %s" % te.message)
             except Exception as ex:
-                rospy.logerr("[EvaluateEquipmentTask.write_bag(export_dict)] Exception %s" % ex.message)
+                rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] Exception %s" % ex.message)
 
         export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
         export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
-        export_dict(self.dct_planner, bag, String, 'planner/')
+        print self.dct_planner
+        export_dict(self.dct_planner, bag, String, 'planner/') #Error
         export_dict(self.dct_attempts, bag, Int32, 'attempts/')
 
         for key in self.dct_rgb_img:
