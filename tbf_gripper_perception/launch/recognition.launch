@@ -39,9 +39,9 @@
         <param name="config_path" value="$(find object_detector)/config/"/>
         <param name="detection_model" value="resnet101_100_31790.pb"/>
         <param name="depth_width" value="640" />
-        <param name="depth_height" value="80" />
-        <param name="visualize_image" value="False"/>
-        <param name="visualize_pointcloud" value="False"/>
+        <param name="depth_height" value="480" />
+        <param name="visualize_image" value="True"/>
+        <param name="visualize_pointcloud" value="True"/>
         <param name="test" value="False"/>
         <param name="min_detection_score" value="0.5"/>
         <param name="service_name" value="$(arg service_name)"/>
