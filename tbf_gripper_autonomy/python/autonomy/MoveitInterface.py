@@ -37,7 +37,9 @@ import moveit_commander
 import moveit_msgs.msg
 from moveit_commander import RobotState, RobotTrajectory
 from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene
-from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse, \
+    GetPositionFK, GetPositionFKRequest, GetPositionFKResponse
+from std_srvs.srv import Empty
 import numpy as np
 
 from shape_msgs.msg import Mesh
@@ -51,7 +53,7 @@ from tbf_gripper_tools.SmartEquipment import SmartEquipment
 import pyassimp
 from pyassimp.errors import AssimpError
 
-from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
+# from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
 
 
 def convert_angle(ist, sol, interval=360.0):
@@ -430,6 +432,15 @@ class MoveitInterface(object):
         rospy.loginfo("MoveitInterface.execute(): Executing ...")
         return self.group.execute(plan)
 
+    @staticmethod
+    def clear_octomap():
+        """
+        Call the 'clear_octomap' Service of the move_group node
+        :return:
+        """
+        clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
+        clear_octomap()
+
     def move_to_set(self, target, info, endless=True, constraints=None):
         """
         Same as move_to_target() but while ignoring the planing scene
@@ -445,7 +456,6 @@ class MoveitInterface(object):
         """
         from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene, GetPlanningSceneResponse
         from moveit_msgs.msg import PlanningSceneComponents
-        from std_srvs.srv import Empty
 
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
         apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
@@ -456,8 +466,7 @@ class MoveitInterface(object):
         current_octomap.is_diff = True  # keeps robot_state, since we will only add the old octomap
         rospy.logdebug("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
             current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
-        clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
-        clear_octomap()
+        MoveitInterface.clear_octomap()
         self.move_to_target(target, info, endless, constraints=constraints)
         success = apply_planning_scene(current_octomap)
         rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
@@ -843,12 +852,55 @@ class MoveitInterface(object):
             return None
         return self._filter_joint_states(response.solution.joint_state.name, response.solution.joint_state.position)
 
+    def get_fk(self, joint_values, fk_link_name="gripper_robotiq_palm_planning"):
+        """
+        Get Pose of the Endeffe
+        :param joint_values:
+        :return: PoseStamped
+        """
+        rospy.logdebug("[MoveitInterface.get_fk()] Starting joint_values: %s" % joint_values)
+        ps = PoseStamped()
+        ps.header.stamp = rospy.Time.now()
+        srv_name = 'compute_fk'
+        rospy.wait_for_service(srv_name)
+        response = GetPositionFKResponse()
+        request = GetPositionFKRequest()
+        for attempt in range(self.max_attempts):
+            try:
+                srv_call = rospy.ServiceProxy(srv_name, GetPositionFK)
+                request.header.frame_id = self.group.get_pose_reference_frame()
+                request.header.stamp = rospy.Time.now()
+                request.fk_link_names = [fk_link_name]
+                request.robot_state = self.robot.get_current_state()
+                request.robot_state.joint_state.position = joint_values
+                rospy.logdebug("[MoveitInterface.get_fk()] Request: \n%s" % request)
+                response = srv_call(request)  # type: GetPositionFKResponse
+            except rospy.ServiceException as e:
+                rospy.logwarn("MoveitInterface.get_fk(): Service call failed: %s", e)
+            if response.error_code.val != 1:
+                rospy.logwarn("MoveitInterface.get_fk(): Failed with error: %s (%s/%s)" % (
+                              MoveitInterface.dct_moveit_error[response.error_code.val], attempt, self.max_attempts))
+                rospy.logdebug("MoveitInterface.get_fk(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
+                    request.robot_state.robot_state.joint_state.name,
+                    request.robot_state.robot_state.joint_state.position)))
+                rospy.logdebug("MoveitInterface.get_fk(): Response was:\n%s", response)
+            else:
+                break
+        ps = response.pose_stamped[0]
+        ps.header.stamp = request.header.stamp
+        rospy.logdebug("[MoveitInterface.get_fk()] Finished with pose: %s" % ps)
+        return ps
+
 
 if __name__ == '__main__':
-    rospy.init_node("MoveIt_Interface", log_level=rospy.INFO)
+    rospy.init_node("MoveIt_Interface", log_level=rospy.DEBUG)
     # Init Moveit
     obj = MoveitInterface("~moveit")
     # Equipment Parameter
-    for equip in rospy.get_param("~smart_equipment"):
-        eq = SmartEquipment(equip)
-        obj.add_equipment(eq)
+    # for equip in rospy.get_param("~smart_equipment"):
+    #     eq = SmartEquipment(equip)
+    #     obj.add_equipment(eq)
+    rospy.logdebug("hi")
+    obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    rospy.spin()
+
