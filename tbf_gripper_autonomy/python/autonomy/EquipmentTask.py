@@ -36,6 +36,7 @@ import tf
 import tf2_ros
 import message_filters
 import numpy as np
+from scipy.spatial.transform.rotation import Rotation as R
 
 from geometry_msgs.msg import PoseStamped
 from moveit_msgs.msg import Constraints, OrientationConstraint
@@ -268,6 +269,8 @@ class EquipmentTask(GraspTask):
         self.watch_joint_values = rospy.get_param("~arm/watch_joint_values", [-180, -90, 0.0, -90, 0.00, 0.0])
         self.env_sense_joints_poses = rospy.get_param("~arm/env_scan_joint_poses", [])
 
+        self.arm_frame = rospy.get_param("~arm_frame", "gripper_ur5_base_link")
+
         # @All parameters were imported@
         super(EquipmentTask, self).__init__(js_t=rospy.get_param("~arm/joint_states_topic", "/ur5/joint_states"),
                                             bu_pos=self.backup_joint_values,
@@ -329,7 +332,7 @@ class EquipmentTask(GraspTask):
         constraints.name = "SSB_handling_constraint"
         constraints.orientation_constraints.append(c_orientation)
 
-    def sense(self, arm_frame):
+    def sense(self):
         """
         Sense for a pose to set the equipment
         :return:
@@ -339,12 +342,12 @@ class EquipmentTask(GraspTask):
         while not approved:
             target_on_floor = sense()  # type: PoseStamped
             # Assume that the base_link doesn't move, so we can save the pose relative to it
-            self.tf_listener.waitForTransform(target_frame=arm_frame, source_frame=target_on_floor.header.frame_id,
+            self.tf_listener.waitForTransform(target_frame=self.arm_frame, source_frame=target_on_floor.header.frame_id,
                                               time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
-            candidate_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=target_on_floor)
+            candidate_pose = self.tf_listener.transformPose(target_frame=self.arm_frame, ps=target_on_floor)
             if self.evaluation:
                 self.evaluation.pause()
-            marker_at_ps(candidate_pose)
+            self.selected_equipment.get_int_marker(candidate_pose)
             rospy.loginfo("EquipmentTask.sense(): Please confirm the pose using the interactive marker on topic: "
                           "'/confirm_set_pose/markers/update'")
             approved = wait_for_confirmation(service_ns="~confirm_set_pose", timeout=20)
@@ -373,7 +376,7 @@ class EquipmentTask(GraspTask):
         target_pose = None
         intermediate_pose = None
         constraints = None
-        arm_frame = "gripper_ur5_base_link"
+
         if 0 in stages:
             rospy.loginfo("STAGE 0: Initialize")
             rospy.logdebug("EquipmentTask.perform([0]): Equipment handling started - Robot starting at HOME position")
@@ -400,7 +403,7 @@ class EquipmentTask(GraspTask):
             if self.evaluation:
                 self.evaluation.store_img("Sense")
             # Sense for target_pose
-            self.selected_equipment.place_ps = self.sense(arm_frame)
+            self.selected_equipment.place_ps = self.sense()
             rospy.logdebug("EquipmentTask.perform([1]): Sensed for target_pose %s" % self.selected_equipment.place_ps)
 
         # 2. Pick Up Equipment
@@ -427,15 +430,15 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             rospy.logdebug("EquipmentTask.perform(3): Attach equipment to end effector")
             # Transform all coordinates relevant in <arm_frame>
-            self.tf_listener.waitForTransform(arm_frame, self.selected_equipment.ps.header.frame_id,
+            self.tf_listener.waitForTransform(self.arm_frame, self.selected_equipment.ps.header.frame_id,
                                               rospy.Time(0),
                                               rospy.Duration(4))
-            self.selected_equipment.ps = self.tf_listener.transformPose(target_frame=arm_frame,
+            self.selected_equipment.ps = self.tf_listener.transformPose(target_frame=self.arm_frame,
                                                                         ps=self.selected_equipment.ps)
-            self.tf_listener.waitForTransform(arm_frame, self.selected_equipment.place_ps.header.frame_id,
+            self.tf_listener.waitForTransform(self.arm_frame, self.selected_equipment.place_ps.header.frame_id,
                                               rospy.Time(0),
                                               rospy.Duration(4))
-            self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=arm_frame,
+            self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=self.arm_frame,
                                                                               ps=self.selected_equipment.place_ps)
 
             # Adjust SSB rotation
@@ -444,7 +447,7 @@ class EquipmentTask(GraspTask):
                                                                        tf_listener=self.tf_listener, save_relation=True,
                                                                        use_relation=False).pose)
             n_aTs = optimize_ssb_z_rotation(oTs=aTs, sTg=sTg)
-            self.selected_equipment.place_ps.header.frame_id = arm_frame
+            self.selected_equipment.place_ps.header.frame_id = self.arm_frame
             self.selected_equipment.place_ps.pose = array_to_pose(n_aTs)
             # TODO: Fix Internal error. <Mesh filter handle 85 not found> from move_group node, STILL relevant?
             self.moveit.attach_equipment(self.selected_equipment)
@@ -452,7 +455,7 @@ class EquipmentTask(GraspTask):
             # self.selected_equipment.place_ps was set earlier
             target_pose = copy.deepcopy(self.selected_equipment.place_ps)  # target pose is in arm_frame
             target_pose.pose = array_to_pose(np.matmul(pose_to_array(self.selected_equipment.place_ps.pose), sTg))
-            marker_at_ps(self.selected_equipment.place_ps, gripper_pose=target_pose)
+            int_marker = self.selected_equipment.get_int_marker(self.selected_equipment.place_ps, gripper_pose=target_pose)
 
             if self.evaluation:
                 self.evaluation.grasp_relation = array_to_pose(sTg)
@@ -554,17 +557,18 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 7: Return to watch pose")
             # Plan back to home station
             self.moveit.move_to_target(self.home_joint_values, info="HOME")
-            # self.moveit.remove_equipment(self.selected_equipment.name)
 
         rospy.loginfo("EquipmentTask.perform(): Finished")
+        return self.selected_equipment
 
-    def start(self):
+    def start(self, stages=range(8)):
         """
         Start the equipment handle task
         :return: -
         :rtype: -
         """
-        self.perform([0, 1, 2, 3, 4, 5, 6])
+        self.perform(stages)
+        # self.perform([0, 1, 2, 3, 4, 5, 6])
         # self.perform([6])
         # self.perform([2])
 
@@ -579,13 +583,12 @@ class EquipmentTask(GraspTask):
         self.hand_controller.closeHand(mode="basic")
         ssb_pose = self.selected_equipment.place_ps
         # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
-        arm_frame = "gripper_ur5_base_link"
         # camera_frame = rospy.get_param("camera_frame", default="rs_gripper_d435_color_optical_frame")
         # self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
         #                                   timeout=rospy.Duration(10.0))
-        self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, rospy.Time(0),
+        self.tf_listener.waitForTransform(self.arm_frame, ssb_pose.header.frame_id, rospy.Time(0),
                                           rospy.Duration(4))
-        watch_pose = self.tf_listener.transformPose(target_frame=arm_frame, ps=ssb_pose)
+        watch_pose = self.tf_listener.transformPose(target_frame=self.arm_frame, ps=ssb_pose)
         if self.evaluation:
             self.evaluation.estimated_set_pose = copy.deepcopy(watch_pose)
         watch_pose.pose.position.x = watch_pose.pose.position.x - 0.14
@@ -608,7 +611,9 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
             title = "Search" + str(i_search)
             self.moveit.move_to_target(watch_pose, info=title, endless=True, blind=True)
-            detected_ssb_pose, score = object_detection()  # type: (PoseStamped, float)
+            response = self.object_detection()
+            # TODO: adjust_object_detection
+            detected_ssb_pose = response.object_pose
             watch_pose.pose.position.z += 0.25
             if self.evaluation:
                 self.evaluation.store_img(title)
@@ -621,7 +626,7 @@ class EquipmentTask(GraspTask):
             while True:
                 try:
                     # https://answers.ros.org/question/188023/tf-lookup-would-require-extrapolation-into-the-past/
-                    self.tf_listener.waitForTransform(arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
+                    self.tf_listener.waitForTransform(self.arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
                                                       rospy.Duration(4))
                     # rospy.sleep(0.5)
                     rospy.loginfo("[EquipmentTask.check_set_equipment_pose(evaluation)] waitForTransform finished")
@@ -629,20 +634,20 @@ class EquipmentTask(GraspTask):
                     d_ps = PoseStamped()
                     d_ps.header.frame_id = detected_ssb_pose.header.frame_id
                     d_ps.pose = detected_ssb_pose.pose
-                    self.evaluation.sensed_set_pose = self.tf_listener.transformPose(target_frame=arm_frame,
+                    self.evaluation.sensed_set_pose = self.tf_listener.transformPose(target_frame=self.arm_frame,
                                                                                      ps=d_ps)
                     rospy.loginfo("[EquipmentTask.check_set_equipment_pose(evaluation)] sensed_set_pose %s"
                                   % self.evaluation.sensed_set_pose)
                     break
                 except tf.ExtrapolationException as ee:
                     rospy.logerr("EquipmentTask.check_set_equipment_pose(): ExtrapolationException %s" % ee.message)
-                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): Target frame %s" % arm_frame)
+                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): Target frame %s" % self.arm_frame)
                     rospy.logerr(
                         "EquipmentTask.check_set_equipment_pose(): Source header %s" % detected_ssb_pose.header)
                     self.evaluation.sensed_set_pose = detected_ssb_pose
                 except tf.LookupException as le:
                     rospy.logerr("EquipmentTask.check_set_equipment_pose(): LookupException %s" % le.message)
-                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): Target frame %s" % arm_frame)
+                    rospy.logerr("EquipmentTask.check_set_equipment_pose(): Target frame %s" % self.arm_frame)
                     rospy.logerr(
                         "EquipmentTask.check_set_equipment_pose(): Source header %s" % detected_ssb_pose.header)
                     self.evaluation.sensed_set_pose = detected_ssb_pose
@@ -688,48 +693,205 @@ class EquipmentTask(GraspTask):
 
         return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
 
+    def pick_after_place(self, equipment, stages=range(3)):
+        """
+        After the equipment is set into the environment, forget about its pose and grasp it again
+            0. Initialize Task
+            1. Sense for equipment
+            2. Move Arm to equipment
+            3. Grasp and lift it
+            4. Try to set it onto robot
+            5. Move to Home
+        :return:
+        """
+        if 0 in stages:
+            rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 0: Initializing - Clearing Moveit, HOME Pose, Collision Model")
+            self.moveit.remove_equipment(self.selected_equipment.name)
+            MoveitInterface.clear_octomap()
+            self.selected_equipment = equipment
+            # self.perform([0, 1])
 
-def object_detection():
-    """
-    Connect to <~service_name> and request a <LocateInCloud> for the next point cloud on <~cloud_topic>
-    :return: Response from service call
-    :rtype: PoseStamped, float
-    """
-    from sensor_msgs.msg import PointCloud2
-    pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
-                                     PointCloud2, 10)
-    if pcl_msg is None:
-        return None, -2.0
-    service_name = rospy.get_param("~ssb_detection_service_name", default='locate_ssb_in_cloud')
-    rospy.wait_for_service(service_name)
-    locate_service = rospy.ServiceProxy(service_name, LocateInCloud)
-    if locate_service is None:
-        return None, -1.0
-    request = LocateInCloudRequest()
-    request.cloud_msg = pcl_msg
-    response = locate_service(request)  # type: LocateInCloudResponse
-    # rospy.loginfo("[object_detection] response :\n%s" % response)
-    if response is None:
-        return None, -1.0
-    if response.detection_score == 0.0:
-        return None, response.detection_score
-    return response.object_pose, response.detection_score
+        if 1 in stages:
+            rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 1: Sensing for Smart Equipment")
+            self.moveit.move_to_target(self.watch_joint_values, info="Sense", blind=True)
+            watch_pose = self.moveit.get_fk(self.watch_joint_values)
+            if self.evaluation:
+                self.evaluation.store_img("SenseAgain")
+
+            detected_pose, score, name = self.adjust_object_detection(self.object_detection(),
+                                                                      offset=self.selected_equipment.detection_offset)
+            i_search = 0
+            while detected_pose is None or score < rospy.get_param("~min_detection_score", 0.95):
+                rospy.loginfo("EquipmentTask.pick_after_place(): No SSB detected")
+                title = "SearchAgain" + str(i_search)
+                self.moveit.move_to_target(watch_pose, info=title, endless=True, blind=True)
+                detected_pose, score, name = self.adjust_object_detection(self.object_detection(),
+                                                                          offset=self.selected_equipment.detection_offset)
+                watch_pose.pose.position.z += 0.1
+                if self.evaluation:
+                    self.evaluation.store_img(title)
+                i_search += 1
+                if watch_pose.pose.position.z > 1.0:
+                    rospy.loginfo("EquipmentTask.pick_after_place(): wont find anything")
+                    return -1  # -1: PoseNotFound
+            self.selected_equipment.ps = detected_pose
+            # Add SSB to scene
+            self.moveit.add_equipment(self.selected_equipment)
+
+        if 2 in stages:
+            rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 2: Move Arm to Equipment")
+            # Compute Grasp offset
+            # self.selected_equipment.place_ps was set earlier
+            target_pose = PoseStamped()
+            target_pose.header = self.selected_equipment.ps.header
+            target_pose.pose = array_to_pose(
+                np.matmul(pose_to_array(self.selected_equipment.ps.pose), self.selected_equipment.ssb_T_gripper)
+            )
+            int_marker = self.selected_equipment.get_int_marker(self.selected_equipment.ps, gripper_pose=target_pose)
+
+            self.hand_controller.openHand()
+            self.hand_controller.closeHand(mode="scissor")
+
+            if not self.moveit.move_to_target(target=target_pose, info="GraspFromFloor"):
+                return -2  # -2: EquipmentNotPicked
+
+        if 3 in stages:
+            rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 3: Grasp and lift Equipment")
+            self.hand_controller.openHand(mode="scissor")
+            self.hand_controller.closeHand()
+            self.moveit.attach_equipment(self.selected_equipment)
+            # TODO: Evaluate Grasp based on finger position
+            lift_pose = copy.deepcopy(target_pose)  # type: PoseStamped
+            lift_pose.pose.position.z += 0.3
+            if not self.moveit.move_to_target(target=lift_pose, info="LiftFromFloor"):
+                return -3  # -2: EquipmentNotLifted
+
+        if 4 in stages:
+            rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 4: Set station onto robot")
+
+            if not self.moveit.move_to_target(target=self.selected_equipment.pickup_waypoints["post_grasp"],
+                                              info="LiftOntoRobot"):
+                return -4  # -2: EquipmentNotSet
+
+            if not self.moveit.move_to_target(target=self.selected_equipment.pickup_waypoints["grasp"],
+                                              info="SetOntoRobot"):
+                return -4  # -2: EquipmentNotSet
+            self.moveit.detach_equipment()
+            self.hand_controller.openHand()
+            self.hand_controller.closeHand(mode="scissor")
+
+            if not self.moveit.move_to_target(target=self.selected_equipment.pickup_waypoints["pre_grasp"],
+                                              info="FreeGripper"):
+                return -4  # -2: EquipmentNotSet
+
+        if 5 in stages:
+            rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 4: Set station onto robot")
+            self.perform([0])
+
+    def object_detection(self):
+        """
+        Connect to <~service_name> and request a <LocateInCloud> for the next point cloud on <~cloud_topic>
+        :param offset: Offset as xyzrpy list
+        :type offset: list
+        :return: Response from service call
+        :rtype: PoseStamped, float
+        """
+        from sensor_msgs.msg import PointCloud2
+        pcl_msg = rospy.wait_for_message(rospy.get_param("~cloud_topic", default="/gripper_d435/depth_registered/points"),
+                                         PointCloud2, 10)
+        if pcl_msg is None:
+            return None, -2.0
+        service_name = rospy.get_param("~ssb_detection_service_name", default='locate_ssb_in_cloud')
+        rospy.wait_for_service(service_name)
+        locate_service = rospy.ServiceProxy(service_name, LocateInCloud)
+        if locate_service is None:
+            return None, -1.0
+        request = LocateInCloudRequest()
+        request.cloud_msg = pcl_msg
+        response = locate_service(request)  # type: LocateInCloudResponse
+        # rospy.loginfo("[object_detection] response :\n%s" % response)
+        return response
+
+    def adjust_object_detection(self, response, offset=np.zeros(6)):
+        """
+        Correct the static offset for the given detection
+        :param offset: offset between the coordinate_frame trained to the detection algorithm and the coordinate_frame
+         used by the mesh given in the smart equipment description
+         :type offset: list
+        :param response: response from the object detection algorithm
+        :type response: LocateInCloudResponse
+        :return: (corrected pose as PoseStamped, detection score as float, class as str)
+        """
+        # pub_response = rospy.Publisher('/debug/ps/detection_response', PoseStamped, queue_size=1)
+        # pub_transformed = rospy.Publisher('/debug/ps/dr_in_arm_frame', PoseStamped, queue_size=1)
+        # pub_with_offset = rospy.Publisher('/debug/ps/dr_with_offset', PoseStamped, queue_size=1)
+        rospy.sleep(0.5)
+        # pub_response.publish(response.object_pose)
+        name = "unknown"
+        for e in self.lst_equipment:
+            if e.name in response.object_name:
+                name = e.name
+                break
+        # Pose in robot coordinate frame
+        # rospy.loginfo("EquipmentTask.adjust_object_detection() offset %s" % offset)
+        # rospy.loginfo("EquipmentTask.adjust_object_detection() response \n %s" % response)
+        # response.object_pose.header.frame_id = "rs_gripper_d435_depth_optical_frame"
+        detected_ps = transform_ps(response.object_pose, self.arm_frame, self.tf_listener)
+        # pub_transformed.publish(copy.deepcopy(detected_ps))
+        dT = pose_to_array(detected_ps.pose)
+        dO = np.eye(4)
+        dO[:3,  3] = offset[:3]
+        dO[:3, :3] = R.from_euler('xyz', offset[3:]).as_dcm()
+        detected_ps.pose = array_to_pose(np.matmul(dT, dO))
+        rospy.logdebug("[EquipmentTask.adjust_object_detection()] score: %s\npose: \n%s" %
+                       (response.detection_score, detected_ps))
+        # pub_with_offset.publish(detected_ps)
+        return detected_ps, response.detection_score, name
 
 
-def marker_at_ps(ps_marker, gripper_pose=None):
+def transform_ps(ps, target_frame, tf_listener=None):
     """
-    visualize a interactive marker at the given ps
-    :param gripper_pose: if given mark an arrow there
-    :param ps_marker: pose of the marker
-    :return: interactive marker
+    :param ps: PoseStamped
+    :param target_frame: str
+    :param tf_listener: tf.TransformListener
+    :return: ps in target_frame as PoseStamped
     """
-    if gripper_pose is None:
-        int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="")
-    else:
-        int_marker = marker.SSBGraspedMarker(name="debug_grasped_marker", pose=ps_marker, gripper_pose=gripper_pose,
-                                             controls="")
-    int_marker.enable_marker()
-    return int_marker
+    if tf_listener is None:
+        tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
+    while True:
+        try:
+            # https://answers.ros.org/question/188023/tf-lookup-would-require-extrapolation-into-the-past/
+            tf_listener.waitForTransform(target_frame, ps.header.frame_id, rospy.Time(0), rospy.Duration(4))
+            tmp_ps = PoseStamped()
+            tmp_ps.header.frame_id = ps.header.frame_id
+            tmp_ps.pose = ps.pose
+            return tf_listener.transformPose(target_frame, ps=tmp_ps)
+        except tf.ExtrapolationException as ee:
+            rospy.logerr("transform_ps: ExtrapolationException %s" % ee.message)
+            rospy.logerr("transform_ps: Target frame %s" % target_frame)
+            rospy.logerr("transform_ps: Source header %s" % ps.header)
+            return ps
+        except tf.LookupException as le:
+            rospy.logerr("EquipmentTask.check_set_equipment_pose(): LookupException %s" % le.message)
+            rospy.logerr("transform_ps: Target frame %s" % target_frame)
+            rospy.logerr("transform_ps: Source header %s" % ps.header)
+            return ps
+#
+#
+# def marker_at_ps(ps_marker, gripper_pose=None):
+#     """
+#     visualize a interactive marker at the given ps
+#     :param gripper_pose: if given mark an arrow there
+#     :param ps_marker: pose of the marker
+#     :return: interactive marker
+#     """
+#     if gripper_pose is None:
+#         int_marker = marker.SSBMarker("debug_marker", pose=ps_marker, controls="")
+#     else:
+#         int_marker = marker.SSBGraspedMarker(name="debug_grasped_marker", pose=ps_marker, gripper_pose=gripper_pose,
+#                                              controls="")
+#     int_marker.enable_marker()
+#     return int_marker
 
 
 if __name__ == '__main__':
@@ -742,14 +904,21 @@ if __name__ == '__main__':
     for i in range(0, len(obj.lst_equipment)):
         eq = obj.lst_equipment[i]  # type: SmartEquipment
         if obj.select_equipment(eq.name):
-            try:
-                obj.start()
-            except Exception as ex:
-                rospy.logerr(ex.message)
-            finally:
-                if obj.evaluation:
-                    n = eq.name.split(" ")
-                    secs = rospy.Time.now().secs
-                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
+            # try:
+                # obj.start()
+                # Object is set on the floor
+            obj.hand_controller.closeHand()
+            score = -1.0
+            while not rospy.is_shutdown() :  # and score < 0.99:
+                # detected_pose, score, name = obj.adjust_object_detection(obj.object_detection(), eq.detection_offset)
+                # eq.get_int_marker(detected_pose)
+                obj.pick_after_place(eq, stages=[0, 1, 2])
+            # except Exception as ex:
+            #     rospy.logerr(ex.message)
+            # finally:
+            #     if obj.evaluation:
+            #         n = eq.name.split(" ")
+            #         secs = rospy.Time.now().secs
+            #         obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
             rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()

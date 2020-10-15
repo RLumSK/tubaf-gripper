@@ -32,7 +32,7 @@ import os
 import copy
 import rospy
 import rospkg
-from geometry_msgs.msg import PoseStamped, TransformStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped, Pose
 from tf import TransformListener, transformations as tft
 import numpy as np
 from tubaf_tools.help import array_to_pose, pose_to_array
@@ -64,13 +64,17 @@ class SmartEquipment:
     def __init__(self, entry={'name': "Empty", 'pose': {'frame': "/base_link",
                                                         'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
                                                         'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
-                              'mesh': {'pkg': "tbf_gripper_tools", 'path': ['resources', 'mesh', 'water_station.stl']},
+                              'mesh': {'pkg': "tbf_gripper_tools", 'path': ['resources', 'mesh', 'water_station.stl'], 'rgba': [0., 0. , 0., 1.]},
                               'pickup_waypoints': {'pre_grasp': [], 'grasp': [], 'lift': [], 'post_grasp': []},
                               'place_waypoints': {'pre_set': [], 'set': [], 'lift': [], 'post_set': []},
                               'place_pose': {'frame': "/gripper_ur5_base_link",
                                              'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
                                              'oientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
-                              'hold_on_set': 0.0
+                              'hold_on_set': 0.0,
+                              'gripper_equipment_pose': {
+                                                         'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+                                                         'oientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
+                              'detection_offset': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                               }):
         """
         Default Constructor, may give an dict() with parameters
@@ -90,6 +94,7 @@ class SmartEquipment:
         self.ps.pose.orientation.w = entry["pose"]["orientation"]["w"]
         self.mesh_pkg = entry['mesh']['pkg']
         self.mesh_rel_path = os.path.join(*entry['mesh']['path'])
+        self.mesh_color = entry['mesh']['rgba']
         self.mesh_path = os.path.join(rospkg.RosPack().get_path(self.mesh_pkg), *entry['mesh']['path'])
         self.pickup_waypoints = entry["pickup_waypoints"]
         self.place_waypoints = entry["place_waypoints"]
@@ -104,8 +109,17 @@ class SmartEquipment:
         self.place_ps.pose.orientation.z = entry["place_pose"]["orientation"]["z"]
         self.place_ps.pose.orientation.w = entry["place_pose"]["orientation"]["w"]
         self.hold_on_set = entry["hold_on_set"]
-        self.ssb_T_gripper = np.eye(4)  # type: np.ndarray   # description: Affine transformation from mesh origin to
-        # gripper pose
+        self.detection_offset = entry["detection_offset"]
+        p = Pose()
+        p.position.x = entry["gripper_equipment_pose"]["position"]["x"]
+        p.position.y = entry["gripper_equipment_pose"]["position"]["y"]
+        p.position.z = entry["gripper_equipment_pose"]["position"]["z"]
+        p.orientation.x = entry["gripper_equipment_pose"]["orientation"]["x"]
+        p.orientation.y = entry["gripper_equipment_pose"]["orientation"]["y"]
+        p.orientation.z = entry["gripper_equipment_pose"]["orientation"]["z"]
+        p.orientation.w = entry["gripper_equipment_pose"]["orientation"]["w"]
+        self.ssb_T_gripper = pose_to_array(p)  # type: np.ndarray   # description: Affine transformation from
+        # mesh origin to gripper pose
         # rospy.logwarn("[SmartEquipment.__init__] %s has mesh-path: %s" % (self.name, self.mesh_path))
 
     @classmethod
@@ -121,7 +135,11 @@ class SmartEquipment:
         ret_lst = []  # type: list
         for entry in rospy.get_param(group_name, default=[]):
             # rospy.logdebug("%s", entry)
-            ret_lst.append(SmartEquipment(entry))
+            try:
+                ret_lst.append(SmartEquipment(entry))
+            except KeyError as ke:
+                rospy.logwarn("[SmartEquipment.from_parameter_server()] Key Error: %s" % ke.message)
+                rospy.logwarn("[SmartEquipment.from_parameter_server()] Entry: %s" % entry)
         return ret_lst
 
     def __str__(self):
@@ -207,6 +225,7 @@ class SmartEquipment:
             ssb_T_gripper = self.ssb_T_gripper
         if save_relation:
             self.ssb_T_gripper = ssb_T_gripper
+            rospy.loginfo("SmartEquipment.get_grasp_pose(): gp.pose=\n%s" % array_to_pose(self.ssb_T_gripper))
 
         if object_pose_stamped is not None:
             if tf_listener is None:
@@ -223,6 +242,22 @@ class SmartEquipment:
         gp.pose = array_to_pose(ssb_T_gripper)
         rospy.logdebug("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", gp)
         return gp
+
+    def get_int_marker(self, ps=None, gripper_pose=None):
+        """
+        Get an interactive marker for this object
+        :return:
+        """
+        import tbf_gripper_rviz.ssb_marker as marker
+        if ps is None:
+            ps = self.ps
+        if gripper_pose is None:
+            int_marker = marker.SSBMarker.from_SmartEquipment(self, ps)
+        else:
+            int_marker = marker.SSBGraspedMarker(name=self.name+"/debug_grasped_marker", pose=ps, gripper_pose=gripper_pose,
+                                                 controls="", mesh=self.mesh_path, color=self.mesh_color)
+        int_marker.enable_marker()
+        return int_marker
 
 
 if __name__ == '__main__':

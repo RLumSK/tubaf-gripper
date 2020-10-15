@@ -79,15 +79,19 @@ class SSBMarker(InteractiveMarker):
     Class for the smart sensor box interactive marker
     """
 
-    def __init__(self, name="~", pose=None, mesh=None, controls="xyr"):
+    def __init__(self, name="~", pose=None, mesh=None, controls="xyr", color=None):
         """
         Default constructor
         @:param name: name of this marker
         @:type name: str
         @:param pose: initial pose of the marker
         @:type pose: geometry_msgs.msg.PoseStamped
+        @:param color: [rgba] as float [0.0;1.0]
         """
         super(SSBMarker, self).__init__()
+
+        if color is None:
+            color = [0., 0., 1., 1.]
 
         # ROS
         self.pose_topic = "/ssb_pose"
@@ -108,7 +112,6 @@ class SSBMarker(InteractiveMarker):
             self._reference_frame = "base_footprint"
         else:
             self._reference_frame = pose.header.frame_id
-        # rospy.loginfo(pose)
         self.pose = pose.pose
         self.header.frame_id = self._reference_frame
 
@@ -120,10 +123,10 @@ class SSBMarker(InteractiveMarker):
         self._mesh_marker.scale.x = 1.0
         self._mesh_marker.scale.y = 1.0
         self._mesh_marker.scale.z = 1.0
-        self._mesh_marker.color.r = 0.0
-        self._mesh_marker.color.g = 0.0
-        self._mesh_marker.color.b = 1.0
-        self._mesh_marker.color.a = 1.0
+        self._mesh_marker.color.r = color[0]
+        self._mesh_marker.color.g = color[1]
+        self._mesh_marker.color.b = color[2]
+        self._mesh_marker.color.a = color[3]
 
         self._mesh_cntrl = InteractiveMarkerControl()
         self._mesh_cntrl.always_visible = True
@@ -164,19 +167,21 @@ class SSBMarker(InteractiveMarker):
 
         # rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
         # rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
-        # rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
+        rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
         # rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
 
     @classmethod
-    def from_SmartEquipment(cls, se, marker_pose):
+    def from_SmartEquipment(cls, se, marker_pose,  controls=""):
         """
         Constructor using Smart Equipment
+        :param controls: controls as in dof, eg 'xyr'
         :param marker_pose: pose where the marker should appear
         :type marker_pose: PoseStamped
         :param se: equipment
         :type se: SmartEquipment
         """
-        return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path))
+        return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
+                   color=se.mesh_color, controls=controls)
 
     def getMeshResourcePath(self):
         """
@@ -319,8 +324,8 @@ class SSBGraspedMarker(SSBMarker):
     Add a Hand to the Station to visualize a grasped SSB
     """
 
-    def __init__(self, name="~", pose=None, mesh=None, gripper_pose=None, ns="~", controls="xyr"):
-        super(SSBGraspedMarker, self).__init__(name=name, pose=pose, mesh=mesh, controls=controls)
+    def __init__(self, name="~", pose=None, mesh=None, gripper_pose=None, ns="~", controls="xyr", color=None):
+        super(SSBGraspedMarker, self).__init__(name=name, pose=pose, mesh=mesh, controls=controls, color=color)
 
         gripper_marker = Marker()
         # gripper_marker.type = Marker.MESH_RESOURCE
@@ -376,7 +381,7 @@ class SSBGraspedMarker(SSBMarker):
         return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
                    gripper_pose=se.get_grasp_pose(object_pose_stamped=marker_pose, tf_listener=tf_listener,
                                                   save_relation=save_relation, use_relation=use_relation),
-                   ns="~", controls="")
+                   ns="~", controls="", color=se.mesh_color)
 
 
 class SSBGraspMarker(object):
