@@ -113,6 +113,7 @@ class SSBMarker(InteractiveMarker):
         else:
             self._reference_frame = pose.header.frame_id
         self.pose = pose.pose
+        self.header.stamp = pose.header.stamp
         self.header.frame_id = self._reference_frame
 
         self._mesh_marker = Marker()
@@ -167,11 +168,11 @@ class SSBMarker(InteractiveMarker):
 
         # rospy.logdebug("ssb_marker.SSBMarker(): Header: %s", self.header)
         # rospy.logdebug("ssb_marker.SSBMarker(): Pose of the Marker is\n%s", self.pose)
-        rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
+        # rospy.logdebug("ssb_marker.SSBMarker(): Mesh: %s", mesh)
         # rospy.logdebug("ssb_marker.SSBMarker(): Initialized")
 
     @classmethod
-    def from_SmartEquipment(cls, se, marker_pose,  controls=""):
+    def from_SmartEquipment(cls, se, marker_pose, controls=""):
         """
         Constructor using Smart Equipment
         :param controls: controls as in dof, eg 'xyr'
@@ -342,13 +343,13 @@ class SSBGraspedMarker(SSBMarker):
         else:
             gripper_marker.pose = gripper_pose.pose
             gripper_marker.header = gripper_pose.header
-        rospy.loginfo("SSBGraspedMarker.__init__() gripper_maker.pose %s" % gripper_marker.pose)
+        # rospy.loginfo("SSBGraspedMarker.__init__() gripper_maker.pose %s" % gripper_marker.pose)
 
         gripper_marker.color.r = 0.0
         gripper_marker.color.g = 1.0
         gripper_marker.color.b = 0.0
-        gripper_marker.color.a = 1.0
-        rospy.logdebug("SSBGraspedMarker.__init__() gripper_maker.pose %s" % gripper_marker.pose)
+        gripper_marker.color.a = 0.75
+        # rospy.logdebug("SSBGraspedMarker.__init__() gripper_maker.pose %s" % gripper_marker.pose)
 
         # Create an empty control
         gripper_control = InteractiveMarkerControl()
@@ -362,26 +363,20 @@ class SSBGraspedMarker(SSBMarker):
         self.gripper_pose = gripper_pose
 
     @classmethod
-    def from_SmartEquipment(cls, se, marker_pose, tf_listener=None, save_relation=False, use_relation=False):
+    def from_SmartEquipment(cls, se, marker_pose, gp=None):
         """
         Constructor using Smart Equipment
+        :param gp: gripper pose
+        :type gp: PoseStamped
         :param marker_pose: pose where the marker should appear
         :type marker_pose: PoseStamped
-        :param use_relation: use the ssb-gripper relation
-        :param save_relation: save the ssb-gripper relation
-        :param tf_listener: Transform listener should only run once per application
         :param se: equipment
         :type se: SmartEquipment
         """
         # rospy.logdebug("%s", se)
-        if tf_listener is None:
-            tf_listener = TransformListener()
-            rospy.sleep(2.0)
-        rospy.loginfo(se.name)
-        return cls(name=se.name, pose=marker_pose, mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
-                   gripper_pose=se.get_grasp_pose(object_pose_stamped=marker_pose, tf_listener=tf_listener,
-                                                  save_relation=save_relation, use_relation=use_relation),
-                   ns="~", controls="", color=se.mesh_color)
+        return cls(name=se.name + "/with_gripper", pose=marker_pose,
+                   mesh=os.path.join("package://" + se.mesh_pkg, se.mesh_rel_path),
+                   gripper_pose=gp, controls="", color=se.mesh_color)
 
 
 class SSBGraspMarker(object):
@@ -525,6 +520,57 @@ class SSBGraspMarker(object):
 
         return int_marker
 
+
+class GripperMarker(InteractiveMarker):
+    def __init__(self, name="", pose=None):
+        super(GripperMarker, self).__init__()
+        self.name = name + "_gripper"
+        self.description = name + "-Gripper"
+
+        if pose is None:
+            pose = geometry_msgs.msg.PoseStamped()
+            self._reference_frame = "base_footprint"
+        else:
+            self._reference_frame = pose.header.frame_id
+
+        self.pose = pose.pose
+        self.header.stamp = pose.header.stamp
+        self.header.frame_id = self._reference_frame
+
+        self._marker = Marker()
+        self._marker.type = Marker.ARROW
+        self._marker.scale.x = 0.1
+        self._marker.scale.y = 0.01
+        self._marker.scale.z = 0.05
+
+        self._marker.color.r = 0.0
+        self._marker.color.g = 1.0
+        self._marker.color.b = 0.0
+        self._marker.color.a = 0.75
+
+        self._gripper_cntrl = InteractiveMarkerControl()
+        self._gripper_cntrl.always_visible = True
+        self._gripper_cntrl.markers.append(self._marker)
+        self._gripper_cntrl.interaction_mode = InteractiveMarkerControl.NONE
+        self.controls.append(self._gripper_cntrl)
+
+    def enable_marker(self):
+        """
+        Visualize the marker
+        :return: -
+        :rtype: -
+        """
+        MarkerServerSingleton.get_instance().insert(self)
+        MarkerServerSingleton.get_instance().applyChanges()
+
+    def disable_marker(self):
+        """
+        Disable/Hide the marker
+        :return: -
+        :rtype: -
+        """
+        MarkerServerSingleton.get_instance().clear()
+        MarkerServerSingleton.get_instance().applyChanges()
 
 if __name__ == '__main__':
     rospy.init_node("SSBGraspMarker", log_level=rospy.INFO)

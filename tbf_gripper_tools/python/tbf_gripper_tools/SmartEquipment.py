@@ -64,7 +64,8 @@ class SmartEquipment:
     def __init__(self, entry={'name': "Empty", 'pose': {'frame': "/base_link",
                                                         'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
                                                         'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
-                              'mesh': {'pkg': "tbf_gripper_tools", 'path': ['resources', 'mesh', 'water_station.stl'], 'rgba': [0., 0. , 0., 1.]},
+                              'mesh': {'pkg': "tbf_gripper_tools", 'path': ['resources', 'mesh', 'water_station.stl'],
+                                       'rgba': [0., 0., 0., 1.]},
                               'pickup_waypoints': {'pre_grasp': [], 'grasp': [], 'lift': [], 'post_grasp': []},
                               'place_waypoints': {'pre_set': [], 'set': [], 'lift': [], 'post_set': []},
                               'place_pose': {'frame': "/gripper_ur5_base_link",
@@ -72,8 +73,8 @@ class SmartEquipment:
                                              'oientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
                               'hold_on_set': 0.0,
                               'gripper_equipment_pose': {
-                                                         'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
-                                                         'oientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
+                                  'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+                                  'oientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
                               'detection_offset': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                               }):
         """
@@ -119,6 +120,11 @@ class SmartEquipment:
         p.orientation.z = entry["gripper_equipment_pose"]["orientation"]["z"]
         p.orientation.w = entry["gripper_equipment_pose"]["orientation"]["w"]
         self.ssb_T_gripper = pose_to_array(p)  # type: np.ndarray   # description: Affine transformation from
+
+        if "T_alter" not in entry.keys():
+            self.T_alter = None
+        else:
+            self.T_alter = np.asarray(entry["T_alter"])
         # mesh origin to gripper pose
         # rospy.logwarn("[SmartEquipment.__init__] %s has mesh-path: %s" % (self.name, self.mesh_path))
 
@@ -204,6 +210,35 @@ class SmartEquipment:
         rospy.logdebug("SmartEquipment.calculate_transformations(): ssb_T_gripper=?\n%s" % ssb_T_gripper)
         return [base_T_ssb, ssb_T_gripper, base_T_gripper]
 
+    def calculate_relative_offset(self, ssb_T_gripper=None):
+        """
+        Given an offset as Pose calculate the resulting PoseStamped based on the current ps
+        :param ssb_T_gripper: offset as PoseStamped, Pose, or np.ndarray
+        :return: PoseStamped
+        """
+        if ssb_T_gripper is None:
+            ssb_T_gripper = self.ssb_T_gripper
+        if ssb_T_gripper is PoseStamped:
+            ssb_T_gripper = ssb_T_gripper.pose
+        if ssb_T_gripper is Pose:
+            ssb_T_gripper = pose_to_array(ssb_T_gripper)
+
+        base_Tt_ssb = tft.translation_matrix([self.ps.pose.position.x,
+                                              self.ps.pose.position.y,
+                                              self.ps.pose.position.z])
+        base_Tr_ssb = tft.quaternion_matrix([self.ps.pose.orientation.x,
+                                             self.ps.pose.orientation.y,
+                                             self.ps.pose.orientation.z,
+                                             self.ps.pose.orientation.w])
+        base_T_ssb = np.dot(base_Tt_ssb, base_Tr_ssb)
+
+        base_T_gripper = np.dot(base_T_ssb, ssb_T_gripper)
+
+        ret_ps = PoseStamped()
+        ret_ps.header = self.ps.header
+        ret_ps.pose = array_to_pose(base_T_gripper)
+        return ret_ps
+
     def get_grasp_pose(self, object_pose_stamped=None, tf_listener=None, gripper_frame="gripper_robotiq_palm_planning",
                        save_relation=False, use_relation=False):
         """
@@ -238,7 +273,7 @@ class SmartEquipment:
         else:
             object_pose_stamped = self.ps
         gp = copy.deepcopy(object_pose_stamped)
-        gp.header.frame_id = self.name
+        # gp.header.frame_id = self.name
         gp.pose = array_to_pose(ssb_T_gripper)
         rospy.logdebug("SmartEquipment.get_grasp_pose(): Calculated Pose:\n%s", gp)
         return gp
@@ -246,18 +281,32 @@ class SmartEquipment:
     def get_int_marker(self, ps=None, gripper_pose=None):
         """
         Get an interactive marker for this object
-        :return:
+        :return: marker.SSBMarker
         """
         import tbf_gripper_rviz.ssb_marker as marker
         if ps is None:
             ps = self.ps
-        if gripper_pose is None:
-            int_marker = marker.SSBMarker.from_SmartEquipment(self, ps)
-        else:
-            int_marker = marker.SSBGraspedMarker(name=self.name+"/debug_grasped_marker", pose=ps, gripper_pose=gripper_pose,
-                                                 controls="", mesh=self.mesh_path, color=self.mesh_color)
+        int_marker = marker.SSBMarker.from_SmartEquipment(self, ps)
         int_marker.enable_marker()
+        if type(gripper_pose) is PoseStamped:
+            # rospy.logdebug("SmartEquipment.get_int_marker(): Printing gripper at \n %s" % gripper_pose)
+            gripper = marker.GripperMarker(name=self.name, pose=gripper_pose)
+            gripper.enable_marker()
         return int_marker
+
+    def set_alternative_pose(self):
+        """
+        if the equipment is symetric, detection algorithms can be tricked since observations cant determine a deterministic geometric pose
+        switch to alternative - depends on class
+        :return:
+        """
+        # TODO: Generalize
+        if self.T_alter is None:
+            rospy.loginfo("[SmartEquipment.set_alternative_pose()] No alternative present for %s" % self.name)
+            return
+        self.ps.pose = array_to_pose(np.matmul(pose_to_array(self.ps.pose), self.T_alter))
+        rospy.loginfo("[SmartEquipment.set_alternative_pose()] alternative set \n %s" % self.ps)
+        return
 
 
 if __name__ == '__main__':

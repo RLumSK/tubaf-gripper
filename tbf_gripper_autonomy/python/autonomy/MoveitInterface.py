@@ -276,27 +276,29 @@ class MoveitInterface(object):
         """
         start = rospy.get_time()
         seconds = rospy.get_time()
-        timeout = 5.0
+        timeout = 15.0
+        rospy.loginfo("[MoveitInterface.wait_till_updated()] " + str(seconds - start))
         while (seconds - start < timeout) and not rospy.is_shutdown():
             # Test if the box is in attached objects
             attached_objects = self.scene.get_attached_objects([obj_name])
             is_attached = len(attached_objects.keys()) > 0
-            rospy.logdebug("[wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
 
             # Test if the box is in the scene.
             # Note that attaching the box will remove it from known_objects
             is_known = obj_name in self.scene.get_known_object_names()
-            rospy.logdebug("[wait_till_updated()] Known Objects: %s" % self.scene.get_known_object_names())
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Known Objects: %s" % self.scene.get_known_object_names())
 
             # Test if we are in the expected state
             if (attached == is_attached) and (known == is_known):
                 return True
 
             # Sleep so that we give other threads time on the processor
-            rospy.logdebug("[wait_till_updated()] Waiting for %s to be updated at planning scene ..." % obj_name)
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Waiting for %s to be updated at planning scene ..." % obj_name)
             rospy.sleep(1.0)
             seconds = rospy.get_time()
-        rospy.logwarn("[wait_till_updated(%s, attached=%s, known=%s)] Timeout reached" % (obj_name, attached, known))
+            rospy.loginfo("[MoveitInterface.wait_till_updated()] " + str(seconds - start))
+        rospy.logwarn("[MoveitInterface.wait_till_updated(%s, attached=%s, known=%s)] Timeout reached" % (obj_name, attached, known))
         return False
 
     def plan(self, target, info="", blind=False, constraints=None):
@@ -533,6 +535,7 @@ class MoveitInterface(object):
         :param size:
         :return:
         """
+        # rospy.logdebug("MoveitInterface.add_mesh_to_scene(): Adding %s to the scene", name)
         ### From Moveit_commander.planing_scene_interface.py PlanningSceneInterface.__make_mesh()
         scale = size
         co = CollisionObject()
@@ -610,11 +613,14 @@ class MoveitInterface(object):
         try:
             rospy.logdebug("MoveitInterface.add_equipment(): Adding %s to the scene", equipment.name)
             scale = self.ssb_scale
-            while not wait_till_updated(self.scene, equipment.name, attached=False, known=True):
-                self.add_mesh_to_scene(name=equipment.name, pose=pose, filename=equipment.mesh_path,
-                                    size=(scale, scale, scale))
-                # self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path,
-                #                     size=(scale, scale, scale))
+            # self.scene.add_mesh(equipment.name, pose, equipment.mesh_path, size=(scale, scale, scale))
+            self.add_mesh_to_scene(name=equipment.name, pose=pose, filename=equipment.mesh_path,
+                                   size=(scale, scale, scale))
+            # while not wait_till_updated(self.scene, equipment.name, attached=False, known=True):
+            #     self.add_mesh_to_scene(name=equipment.name, pose=pose, filename=equipment.mesh_path,
+            #                            size=(scale, scale, scale))
+            #     # self.scene.add_mesh(name=equipment.name, pose=pose, filename=equipment.mesh_path,
+            #     #                     size=(scale, scale, scale))
         except AssimpError as ex:
             rospy.logwarn("MoveitInterface.add_equipment(): Exception of type: %s says: %s" % (type(ex), ex.message))
             rospy.logwarn("MoveitInterface.add_equipment(): Can't add %s with mesh_url: %s" % (
@@ -839,13 +845,14 @@ class MoveitInterface(object):
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)
             if response.error_code.val != 1:
-                rospy.logwarn("MoveitInterface.get_ik(): Failed with error: %s (%s/%s)" % (
-                              MoveitInterface.dct_moveit_error[response.error_code.val], attempt, self.max_attempts))
-                rospy.logdebug("MoveitInterface.get_ik(): Target Pose was:\n%s", request.ik_request.pose_stamped)
-                rospy.logdebug("MoveitInterface.get_ik(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
-                    request.ik_request.robot_state.joint_state.name,
-                    request.ik_request.robot_state.joint_state.position)))
-                rospy.logdebug("MoveitInterface.get_ik(): Response was:\n%s", response)
+                # rospy.logwarn("MoveitInterface.get_ik(): Failed with error: %s (%s/%s)" % (
+                #               MoveitInterface.dct_moveit_error[response.error_code.val], attempt, self.max_attempts))
+                # rospy.logwarn("MoveitInterface.get_ik(): Target Pose was:\n%s", request.ik_request.pose_stamped)
+                # rospy.logwarn("MoveitInterface.get_ik(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
+                #     request.ik_request.robot_state.joint_state.name,
+                #     request.ik_request.robot_state.joint_state.position)))
+                # rospy.logwarn("MoveitInterface.get_ik(): Response was:\n%s", response)
+                pass
             else:
                 break
         if response.error_code.val != 1:
@@ -858,7 +865,7 @@ class MoveitInterface(object):
         :param joint_values:
         :return: PoseStamped
         """
-        rospy.logdebug("[MoveitInterface.get_fk()] Starting joint_values: %s" % joint_values)
+        # rospy.logdebug("[MoveitInterface.get_fk()] Starting joint_values: %s" % joint_values)
         ps = PoseStamped()
         ps.header.stamp = rospy.Time.now()
         srv_name = 'compute_fk'
@@ -873,22 +880,22 @@ class MoveitInterface(object):
                 request.fk_link_names = [fk_link_name]
                 request.robot_state = self.robot.get_current_state()
                 request.robot_state.joint_state.position = joint_values
-                rospy.logdebug("[MoveitInterface.get_fk()] Request: \n%s" % request)
+                # rospy.logdebug("[MoveitInterface.get_fk()] Request: \n%s" % request)
                 response = srv_call(request)  # type: GetPositionFKResponse
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_fk(): Service call failed: %s", e)
             if response.error_code.val != 1:
                 rospy.logwarn("MoveitInterface.get_fk(): Failed with error: %s (%s/%s)" % (
                               MoveitInterface.dct_moveit_error[response.error_code.val], attempt, self.max_attempts))
-                rospy.logdebug("MoveitInterface.get_fk(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
+                rospy.logwarn("MoveitInterface.get_fk(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
                     request.robot_state.robot_state.joint_state.name,
                     request.robot_state.robot_state.joint_state.position)))
-                rospy.logdebug("MoveitInterface.get_fk(): Response was:\n%s", response)
+                rospy.logwarn("MoveitInterface.get_fk(): Response was:\n%s", response)
             else:
                 break
         ps = response.pose_stamped[0]
         ps.header.stamp = request.header.stamp
-        rospy.logdebug("[MoveitInterface.get_fk()] Finished with pose: %s" % ps)
+        # rospy.logdebug("[MoveitInterface.get_fk()] Finished with pose: %s" % ps)
         return ps
 
 
@@ -897,10 +904,10 @@ if __name__ == '__main__':
     # Init Moveit
     obj = MoveitInterface("~moveit")
     # Equipment Parameter
-    # for equip in rospy.get_param("~smart_equipment"):
-    #     eq = SmartEquipment(equip)
-    #     obj.add_equipment(eq)
-    rospy.logdebug("hi")
-    obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    for equip in rospy.get_param("/equipment_handler/smart_equipment"):
+        eq = SmartEquipment(equip)
+        obj.add_equipment(eq)
+    # rospy.logdebug("hi")
+    # obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     rospy.spin()
 

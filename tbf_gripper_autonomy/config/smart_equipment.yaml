@@ -1,5 +1,5 @@
 smart_equipment:
-  - name: "[SSB] Henkel"
+  - name: "Henkel"
     pose:
       frame: "base_footprint"
       position:
@@ -36,21 +36,27 @@ smart_equipment:
         w: 0.7071
     gripper_equipment_pose:
       position:
-        x: 0.08
-        y: -0.08
-        z: 0.17
+        x: 0.07738452674022196
+        y: 0.03834010224451201
+        z: 0.18503289794834443
       orientation:
-        x: -0.013860884269969797
-        y: 0.01916070308922996
-        z: 0.6948774074865957
-        w: 0.7187392655957295
+        x: 0.016511695063765944
+        y: 0.014798306421819318
+        z: -0.6937871260527699
+        w: 0.7198387303949443
+#    detection_offset: [0.0, 0.0, 0.0, 0.0, 0.0, -3.1416]  # offset between the coordinate frame of the mesh and the one
     detection_offset: [0.0, 0.0, 0.061, 0.0, 0.0, 1.5708]  # offset between the coordinate frame of the mesh and the one
                                                       # referred to by the detecting algorithm: xyzrpy
+    T_alter:
+      - [ -1.0, 0.0, 0.0, 0.0 ]
+      - [ 0.0, -1.0, 0.0, 0.0 ]
+      - [ 0.0, 0.0, 1.0, 0.0 ]
+      - [ 0.0, 0.0, 0.0, 1.0 ]
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
 
   - name:
-      "[SSB] Knauf" # station_new
+      "Knauf" # station_new
     pose:
       frame:
         "base_footprint"
@@ -69,8 +75,8 @@ smart_equipment:
       rgba: [ 0., 0., 1.0, 0.8 ]
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
-      grasp: [-174.5, -85.0, 46.4, -106.6, -84.9, 35.8]
-      post_grasp: [-170.3, -95.4, 45.9, -96.2, -93.3, 47.2]
+      grasp: [-166.8, -83.4, 47.1, -107.5, -109.5, 35.8]
+      post_grasp: [-158.9, -91.8, 38.3, -88.2, -115.9, 41.1]
     place_waypoints:
       pre_set: [ 0.0, -110.0, 135.0, -169.5, -92.9, 47.0]
       set: [ 0.3, -17.0, 116.9, -244.3, -92.7, 47.6]
@@ -87,10 +93,22 @@ smart_equipment:
         y: 0.0
         z: -0.7071
         w: 0.7071
+    gripper_equipment_pose:
+      position:
+        x: 0.
+        y: 0.
+        z: 0.
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+    detection_offset: [ 0.0, 0.0, 0.061, 0.0, 0.0, 1.5708 ]  # offset between the coordinate frame of the mesh and the one
+    # referred to by the detecting algorithm: xyzrpy
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
   - name:
-      "[SSB] Kugel"
+      "Kugel"
     pose:
       frame:
         "base_footprint"
@@ -109,8 +127,8 @@ smart_equipment:
       rgba: [ 0., 0., 1.0, 0.6 ]
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-185.0, -122.0, 87.0, 30.0, 90.0, 230.0]
-      grasp: [-179.8, -95.6, 69.9, 25.7, 102.8, 227.4]
-      post_grasp: [-171.4, -97.3, 56.0, 25.8, 102.8, 227.4]
+      grasp: [-194.58, -98.65, 72.34, 26.43, 72.75.8, 227.25]
+      post_grasp: [-185.4, -100.2, 50.7, 49.6, 82.1, 227.25]
     place_waypoints:
       pre_set: [ -23.6, -76.2, 94.8, -27.1, 94.9, 233.7]
       set: [ -23.5, -8.1, 90.4, -90.8, 94.9, 234.2]
@@ -127,10 +145,22 @@ smart_equipment:
         y: 0.0
         z: -0.7071
         w: 0.7071
+    gripper_equipment_pose:
+      position:
+        x: 0.
+        y: 0.
+        z: 0.
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+    detection_offset: [ 0.0, 0.0, 0.061, 0.0, 0.0, 1.5708 ]  # offset between the coordinate frame of the mesh and the one
+    # referred to by the detecting algorithm: xyzrpy
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
 
   - name:
-      "[SSB] Wassersonde"
+      "Wassersonde"
     pose:
       frame: "water_sample_station_mount_link"
       position:
@@ -167,6 +197,18 @@ smart_equipment:
         y: 0.0
         z: 0.0
         w: 0.7071
+    gripper_equipment_pose:
+      position:
+        x: 0.
+        y: 0.
+        z: 0.
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+    detection_offset: [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]  # offset between the coordinate frame of the mesh and the one
+    # referred to by the detecting algorithm: xyzrpy
     hold_on_set: 25.0  # 0 is release, else is Duration in seconds
 
 ### General Information ###
