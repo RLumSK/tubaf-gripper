@@ -789,7 +789,7 @@ def sense(tf_listener=None, evaluation=None):
     tf_listener.waitForTransform(bf, ps.header.frame_id, rospy.Time(0), rospy.Duration.from_sec(15.0))
     ret_ps = tf_listener.transformPose(bf, ps)
 
-    if evaluation is not None:
+    if evaluation:
         evaluation.sense_result(identify_floor_req.planes, request.floor, request.obstacles, ret_ps)
 
     ret_ps.pose.position.z = 0
