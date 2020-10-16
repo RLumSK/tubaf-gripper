@@ -715,7 +715,7 @@ def continue_by_topic(topic=None):
     return cache.getLast().data
 
 
-def sense(tf_listener=None):
+def sense(tf_listener=None, evaluation=None):
     """
     Sense for a suitable pose in a set of clusters in a plane
     :return: determined pose
@@ -788,6 +788,10 @@ def sense(tf_listener=None):
     bf = "base_footprint"
     tf_listener.waitForTransform(bf, ps.header.frame_id, rospy.Time(0), rospy.Duration.from_sec(15.0))
     ret_ps = tf_listener.transformPose(bf, ps)
+
+    if evaluation is not None:
+        evaluation.sense_result(identify_floor_req.planes, request.floor, request.obstacles, ret_ps)
+
     ret_ps.pose.position.z = 0
     return ret_ps
 
@@ -912,12 +916,15 @@ if __name__ == '__main__':
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
     obj.hand_controller.closeHand(continue_image_service=False)
-    for i in range(0, len(obj.lst_equipment)):
-        eq = obj.lst_equipment[i]  # type: SmartEquipment
-        if obj.select_equipment(eq.name):
+
+    eq = obj.lst_equipment[0]  # type: SmartEquipment
+    if obj.select_equipment(eq.name):
+        while not rospy.is_shutdown():
             try:
+                rospy.loginfo("### Set %s ###" % eq.name)
                 obj.start()
-                obj.pick_after_place(eq, stages=[0, 1, 2, 3, 4, 5])
+                rospy.loginfo("### Picking %s ###" % eq.name)
+                obj.pick_after_place(eq)
             except Exception as ex:
                 rospy.logerr(ex.message)
             finally:
@@ -925,5 +932,20 @@ if __name__ == '__main__':
                     n = eq.name.split(" ")
                     secs = rospy.Time.now().secs
                     obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
-            rospy.loginfo("### Finished %s ###" % eq.name)
+        rospy.loginfo("### Finished %s ###" % eq.name)
+
+    # for i in range(0, len(obj.lst_equipment)):
+    #     eq = obj.lst_equipment[i]  # type: SmartEquipment
+    #     if obj.select_equipment(eq.name):
+    #         try:
+    #             obj.start(stages=[3])
+    #             # obj.pick_after_place(eq, stages=[0, 1, 2, 3, 4, 5])
+    #         except Exception as ex:
+    #             rospy.logerr(ex.message)
+    #         finally:
+    #             if obj.evaluation:
+    #                 n = eq.name.split(" ")
+    #                 secs = rospy.Time.now().secs
+    #                 obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
+    #         rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()

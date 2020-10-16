@@ -40,6 +40,9 @@ from std_msgs.msg import Float32 as Float
 from std_msgs.msg import String as String
 from std_msgs.msg import Int32 as Int32
 from moveit_msgs.msg import RobotTrajectory as RobotTrajectory
+from object_recognition_msgs.msg import TableArray as TableArray
+from object_recognition_msgs.msg import Table as Table
+from visualization_msgs.msg import MarkerArray as MarkerArray
 
 
 class EquipmentTask(object):
@@ -63,6 +66,11 @@ class EquipmentTask(object):
         self.sensed_pose_confidence = 0.0
         self.grasp_relation = Pose()
 
+        self.planes = TableArray()
+        self.floor = Table()
+        self.sense_obstacles = MarkerArray()
+        self.sense_ps = PoseStamped()
+
         self.dct_rgb_img = {}
         self.dct_dpt_img = {}
 
@@ -77,14 +85,14 @@ class EquipmentTask(object):
 
     def add_moveit_plan_information(self, key, plan, duration, attempts, time):
         """
-        Store information from MoveIt for a given key
-        :param key: key for the dictionaries
-        :param plan: RobotTrajectory
-        :param duration: given planing time
-        :param attempts: used number of attempts
-        :param time: Time
-        :return:
-        """
+          Store information from MoveIt for a given key
+          :param key: key for the dictionaries
+          :param plan: RobotTrajectory
+          :param duration: given planing time
+          :param attempts: used number of attempts
+          :param time: Time
+          :return:
+          """
         if key in self.dct_trajectory:
             self.dct_trajectory[key].append(plan)
             self.dct_planing_time[key].append(duration)
@@ -95,7 +103,7 @@ class EquipmentTask(object):
             self.dct_planing_time[key] = [duration]
             self.dct_attempts[key] = [attempts]
             self.dct_rel_time[key] = [time]
-
+    
     def pause(self):
         """
         Pause timing
@@ -138,6 +146,20 @@ class EquipmentTask(object):
         self.dct_rgb_img[key] = rospy.wait_for_message(self._rgb_topic, Image)
         self.dct_dpt_img[key] = rospy.wait_for_message(self._dpt_topic, Image)
 
+    def sense_result(self, planes, floor, obstacles, found_ps):
+        """
+        Save floor plane and set position as PoseStamped
+        :type planes: TableArray
+        :type floor: Table
+        :type obstacles: MarkerArray
+        :type found_ps: PoseStamped
+        :return:
+        """
+        self.planes = planes
+        self.floor = floor
+        self.sense_obstacles = obstacles
+        self.sense_ps = found_ps
+
     def save_as_bag(self, file_path):
         """
         Save all information in a bag file under the given path
@@ -160,8 +182,9 @@ class EquipmentTask(object):
                                 bfile.write(prefix + k, dtype(item))
                             rospy.sleep(wait_duration)
                     except KeyError as ke:
-                        rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] KeyError: %s \n Allowed keys for "
-                                     "%s: %s" % (ke.message, prefix[:-1], self.dct_trajectory.keys()))
+                        rospy.logerr(
+                            "[EvaluateEquipmentTask.save_as_bag(export_dict)] KeyError: %s \n Allowed keys for "
+                            "%s: %s" % (ke.message, prefix[:-1], self.dct_trajectory.keys()))
 
             except TypeError as te:
                 rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] TypeError %s" % te.message)
@@ -171,7 +194,7 @@ class EquipmentTask(object):
         export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
         export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
-        export_dict(self.dct_planner, bag, String, 'planner/') #Error
+        export_dict(self.dct_planner, bag, String, 'planner/')  # Error
         export_dict(self.dct_attempts, bag, Int32, 'attempts/')
 
         for key in self.dct_rgb_img:
@@ -186,6 +209,12 @@ class EquipmentTask(object):
         bag.write('grasp_relation', self.grasp_relation)
         bag.write('sensed_pose_confidence', Float(self.sensed_pose_confidence))
         bag.write('t_in_s', Float(self.t_in_s))
+
+        bag.write('sense/planes', self.planes)
+        bag.write('sense/floor', self.floor)
+        bag.write('sense/obstacles', self.sense_obstacles)
+        bag.write('sense/ps', self.sense_ps)
+
         bag.close()
 
 
@@ -218,4 +247,4 @@ if __name__ == '__main__':
     rospy.sleep(1.0)
     obj.t_in_s = obj.calc_time()
     secs = rospy.Time.now().secs
-    obj.save_as_bag("~/bags/unknown_dir/test"+str(secs)[6:]+".bag")
+    obj.save_as_bag("~/bags/unknown_dir/test" + str(secs)[6:] + ".bag")
