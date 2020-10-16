@@ -38,7 +38,9 @@ from autonomy.MoveitInterface import MoveitInterface
 if __name__ == "__main__":
     rospy.init_node("SSB_marker", log_level=rospy.DEBUG)
     lst_equipment = SmartEquipment.from_parameter_server(group_name="~smart_equipment")
-    for se in lst_equipment:  # type: SmartEquipment
-        se.set_alternative_pose()
-        se.get_int_marker(se.ps, se.calculate_relative_offset(se.ssb_T_gripper))
+    while not rospy.is_shutdown():
+        for se in lst_equipment:  # type: SmartEquipment
+            se.set_alternative_pose()
+            se.get_int_marker(se.ps, se.calculate_relative_offset(se.ssb_T_gripper))
+        rospy.sleep(5.0)
     rospy.spin()

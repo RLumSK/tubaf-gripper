@@ -171,7 +171,6 @@ class EquipmentTask(object):
         export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
         export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
-        print self.dct_planner
         export_dict(self.dct_planner, bag, String, 'planner/') #Error
         export_dict(self.dct_attempts, bag, Int32, 'attempts/')
 
