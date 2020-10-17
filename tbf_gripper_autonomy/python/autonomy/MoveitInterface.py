@@ -279,7 +279,7 @@ class MoveitInterface(object):
         start = rospy.get_time()
         seconds = rospy.get_time()
         timeout = 15.0
-        rospy.loginfo("[MoveitInterface.wait_till_updated(%s, %s)] %d" % (attached, known, str(seconds - start)))
+        rospy.loginfo("[MoveitInterface.wait_till_updated(%s, %s)] %s" % (attached, known, str(seconds - start)))
         while (seconds - start < timeout) and not rospy.is_shutdown():
             # Test if the box is in attached objects
             attached_objects = self.scene.get_attached_objects([obj_name])
