@@ -36,10 +36,12 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 from moveit_commander import RobotState, RobotTrajectory
-from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene
-from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse, \
-    GetPositionFK, GetPositionFKRequest, GetPositionFKResponse
+from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene, PlanningSceneComponents
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse,\
+        GetPositionFK, GetPositionFKRequest, GetPositionFKResponse,\
+        GetPlanningScene, GetPlanningSceneResponse
 from std_srvs.srv import Empty
+
 import numpy as np
 
 from shape_msgs.msg import Mesh
@@ -412,8 +414,10 @@ class MoveitInterface(object):
             return False
         if self.evaluation and plan is not None:
             try:
+                scene = MoveitInterface.get_planing_scene().scene
                 self.evaluation.add_moveit_plan_information(info, plan, self.group.get_planning_time(),
-                                                            attempts, self.evaluation.calc_time(now=rospy.Time.now()))
+                                                            attempts, self.evaluation.calc_time(now=rospy.Time.now()),
+                                                            scene, start)
             except KeyError as ke:
                 rospy.logerr("[MoveitInterface.plan()] Evaluation - KeyError: %s" % ke)
         return plan
@@ -443,6 +447,18 @@ class MoveitInterface(object):
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
         clear_octomap()
 
+    @staticmethod
+    def get_planing_scene(comp=767):
+        """
+        Get the current planing scene from the move_group using the service interface
+        :param comp: components identifier see: http://docs.ros.org/en/melodic/api/moveit_msgs/html/msg/PlanningSceneComponents.html
+        :type comp: int
+        :return: GetPlanningSceneResponse
+        """
+
+        get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
+        return get_planning_scene( components=PlanningSceneComponents( components=comp))  # type: GetPlanningSceneResponse
+
     def move_to_set(self, target, info, endless=True, constraints=None):
         """
         Same as move_to_target() but while ignoring the planing scene
@@ -456,14 +472,11 @@ class MoveitInterface(object):
         :return: success
         :rtype: bool
         """
-        from moveit_msgs.srv import GetPlanningScene, ApplyPlanningScene, GetPlanningSceneResponse
+        from moveit_msgs.srv import ApplyPlanningScene
         from moveit_msgs.msg import PlanningSceneComponents
 
-        get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
+        response = MoveitInterface.get_planing_scene(PlanningSceneComponents.OCTOMAP)
         apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
-        response = get_planning_scene(
-            components=PlanningSceneComponents(
-                components=PlanningSceneComponents.OCTOMAP))  # type: GetPlanningSceneResponse
         current_octomap = response.scene  # type:PlanningScene
         current_octomap.is_diff = True  # keeps robot_state, since we will only add the old octomap
         rospy.logdebug("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (

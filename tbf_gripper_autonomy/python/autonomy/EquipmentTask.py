@@ -932,20 +932,7 @@ if __name__ == '__main__':
                     n = eq.name.split(" ")
                     secs = rospy.Time.now().secs
                     obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
-        rospy.loginfo("### Finished %s ###" % eq.name)
-
-    # for i in range(0, len(obj.lst_equipment)):
-    #     eq = obj.lst_equipment[i]  # type: SmartEquipment
-    #     if obj.select_equipment(eq.name):
-    #         try:
-    #             obj.start(stages=[3])
-    #             # obj.pick_after_place(eq, stages=[0, 1, 2, 3, 4, 5])
-    #         except Exception as ex:
-    #             rospy.logerr(ex.message)
-    #         finally:
-    #             if obj.evaluation:
-    #                 n = eq.name.split(" ")
-    #                 secs = rospy.Time.now().secs
-    #                 obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
-    #         rospy.loginfo("### Finished %s ###" % eq.name)
+                    obj.evaluation = Evaluation()
+                    obj.moveit.evaluation = obj.evaluation
+            rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()

@@ -39,7 +39,7 @@ from sensor_msgs.msg import Image as Image
 from std_msgs.msg import Float32 as Float
 from std_msgs.msg import String as String
 from std_msgs.msg import Int32 as Int32
-from moveit_msgs.msg import RobotTrajectory as RobotTrajectory
+from moveit_msgs.msg import RobotTrajectory, PlanningScene, RobotState
 from object_recognition_msgs.msg import TableArray as TableArray
 from object_recognition_msgs.msg import Table as Table
 from visualization_msgs.msg import MarkerArray as MarkerArray
@@ -55,6 +55,8 @@ class EquipmentTask(object):
         """
         Default constructor
         """
+        self.dct_planning_scene = {}
+        self.dct_robot_state = {}
         self.dct_trajectory = {}
         self.dct_planing_time = {}
         self.dct_planner = {}
@@ -83,22 +85,29 @@ class EquipmentTask(object):
         self._rgb_topic = rospy.get_param("~rgb_topic", "/gripper_d435/color/image_rect_color")
         self._dpt_topic = rospy.get_param("~depth_topic", "/gripper_d435/depth/image_rect_raw")
 
-    def add_moveit_plan_information(self, key, plan, duration, attempts, time):
+    def add_moveit_plan_information(self, key, plan, duration, attempts, time, planing_scene, robot_state):
         """
-          Store information from MoveIt for a given key
-          :param key: key for the dictionaries
-          :param plan: RobotTrajectory
-          :param duration: given planing time
-          :param attempts: used number of attempts
-          :param time: Time
-          :return:
-          """
+        Store information from MoveIt for a given key
+        :param key: key for the dictionaries
+        :param plan: RobotTrajectory
+        :param duration: given planing time
+        :param attempts: used number of attempts
+        :param time: Time
+        :param planing_scene: MoveIt! planing scene (full)
+        :param robot_state: robot state before
+        :param
+        :return:
+        """
         if key in self.dct_trajectory:
+            self.dct_planning_scene[key].append(planing_scene)
+            self.dct_robot_state[key].append(robot_state)
             self.dct_trajectory[key].append(plan)
             self.dct_planing_time[key].append(duration)
             self.dct_attempts[key].append(attempts)
             self.dct_rel_time[key].append(time)
         else:
+            self.dct_planning_scene[key] = [planing_scene]
+            self.dct_robot_state[key] = [robot_state]
             self.dct_trajectory[key] = [plan]
             self.dct_planing_time[key] = [duration]
             self.dct_attempts[key] = [attempts]
@@ -191,10 +200,12 @@ class EquipmentTask(object):
             except Exception as ex:
                 rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] Exception %s" % ex.message)
 
+        export_dict(self.dct_planning_scene, bag, PlanningScene, 'scene/')
+        export_dict(self.dct_robot_state, bag, RobotState, 'pre_state/')
         export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
         export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
-        export_dict(self.dct_planner, bag, String, 'planner/')  # Error
+        export_dict(self.dct_planner, bag, String, 'planner/')
         export_dict(self.dct_attempts, bag, Int32, 'attempts/')
 
         for key in self.dct_rgb_img:
