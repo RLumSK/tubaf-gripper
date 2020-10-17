@@ -56,7 +56,6 @@ class EquipmentTask(object):
         Default constructor
         """
         self.dct_planning_scene = {}
-        self.dct_robot_state = {}
         self.dct_trajectory = {}
         self.dct_planing_time = {}
         self.dct_planner = {}
@@ -85,7 +84,7 @@ class EquipmentTask(object):
         self._rgb_topic = rospy.get_param("~rgb_topic", "/gripper_d435/color/image_rect_color")
         self._dpt_topic = rospy.get_param("~depth_topic", "/gripper_d435/depth/image_rect_raw")
 
-    def add_moveit_plan_information(self, key, plan, duration, attempts, time, planing_scene, robot_state):
+    def add_moveit_plan_information(self, key, plan, duration, attempts, time, planing_scene):
         """
         Store information from MoveIt for a given key
         :param key: key for the dictionaries
@@ -94,20 +93,17 @@ class EquipmentTask(object):
         :param attempts: used number of attempts
         :param time: Time
         :param planing_scene: MoveIt! planing scene (full)
-        :param robot_state: robot state before
         :param
         :return:
         """
         if key in self.dct_trajectory:
             self.dct_planning_scene[key].append(planing_scene)
-            self.dct_robot_state[key].append(robot_state)
             self.dct_trajectory[key].append(plan)
             self.dct_planing_time[key].append(duration)
             self.dct_attempts[key].append(attempts)
             self.dct_rel_time[key].append(time)
         else:
             self.dct_planning_scene[key] = [planing_scene]
-            self.dct_robot_state[key] = [robot_state]
             self.dct_trajectory[key] = [plan]
             self.dct_planing_time[key] = [duration]
             self.dct_attempts[key] = [attempts]
@@ -185,7 +181,7 @@ class EquipmentTask(object):
                 for k in dct:
                     try:
                         for item in dct[k]:
-                            if dtype is RobotTrajectory:
+                            if dtype in [RobotTrajectory, PlanningScene, RobotState]:
                                 bfile.write(prefix + k, item)
                             else:
                                 bfile.write(prefix + k, dtype(item))
@@ -196,12 +192,11 @@ class EquipmentTask(object):
                             "%s: %s" % (ke.message, prefix[:-1], self.dct_trajectory.keys()))
 
             except TypeError as te:
-                rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] TypeError %s" % te.message)
+                rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict[%s])] TypeError %s" % (k, te.message))
             except Exception as ex:
-                rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict)] Exception %s" % ex.message)
+                rospy.logerr("[EvaluateEquipmentTask.save_as_bag(export_dict[%s])] Exception %s" % (k, ex.message))
 
         export_dict(self.dct_planning_scene, bag, PlanningScene, 'scene/')
-        export_dict(self.dct_robot_state, bag, RobotState, 'pre_state/')
         export_dict(self.dct_trajectory, bag, RobotTrajectory, 'trajectory/')
         export_dict(self.dct_planing_time, bag, Float, 'planing_time/')
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
@@ -254,7 +249,7 @@ if __name__ == '__main__':
     obj.resume()
     rospy.sleep(1.0)
     p = RobotTrajectory()
-    obj.add_moveit_plan_information("test", p, 0.1, 1, 120.0)
+    obj.add_moveit_plan_information("test", p, 0.1, 1, 120.0, PlanningScene(), RobotState())
     rospy.sleep(1.0)
     obj.t_in_s = obj.calc_time()
     secs = rospy.Time.now().secs

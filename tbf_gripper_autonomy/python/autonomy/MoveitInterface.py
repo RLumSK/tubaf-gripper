@@ -279,17 +279,19 @@ class MoveitInterface(object):
         start = rospy.get_time()
         seconds = rospy.get_time()
         timeout = 15.0
-        rospy.loginfo("[MoveitInterface.wait_till_updated()] " + str(seconds - start))
+        rospy.loginfo("[MoveitInterface.wait_till_updated(%s, %s)] %d" % (attached, known, str(seconds - start)))
         while (seconds - start < timeout) and not rospy.is_shutdown():
             # Test if the box is in attached objects
             attached_objects = self.scene.get_attached_objects([obj_name])
             is_attached = len(attached_objects.keys()) > 0
             rospy.logdebug("[MoveitInterface.wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Attached met: %s" % attached == is_attached)
 
             # Test if the box is in the scene.
             # Note that attaching the box will remove it from known_objects
             is_known = obj_name in self.scene.get_known_object_names()
             rospy.logdebug("[MoveitInterface.wait_till_updated()] Known Objects: %s" % self.scene.get_known_object_names())
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Known met: %s" % known == is_known)
 
             # Test if we are in the expected state
             if (attached == is_attached) and (known == is_known):
@@ -414,10 +416,10 @@ class MoveitInterface(object):
             return False
         if self.evaluation and plan is not None:
             try:
-                scene = MoveitInterface.get_planing_scene().scene
+                # response = MoveitInterface.get_planing_scene()
                 self.evaluation.add_moveit_plan_information(info, plan, self.group.get_planning_time(),
                                                             attempts, self.evaluation.calc_time(now=rospy.Time.now()),
-                                                            scene, start)
+                                                            PlanningScene())
             except KeyError as ke:
                 rospy.logerr("[MoveitInterface.plan()] Evaluation - KeyError: %s" % ke)
         return plan
@@ -511,11 +513,11 @@ class MoveitInterface(object):
                 if plan:
                     if self.evaluation:
                         try:
-                            curent_planer_id = self.group.get_planner_id()
+                            current_planer_id = self.lst_planner[iplanner]
                             if info in self.evaluation.dct_planner:
-                                self.evaluation.dct_planner[info].append(curent_planer_id)
+                                self.evaluation.dct_planner[info].append(current_planer_id)
                             else:
-                                self.evaluation.dct_planner[info] = [curent_planer_id]
+                                self.evaluation.dct_planner[info] = [current_planer_id]
                         except Exception as ex:
                             rospy.logerr("[MoveitInterface.move_to_target] Exception on evaluation %s" % ex.message)
                     success = self.execute(plan)

@@ -926,6 +926,7 @@ if __name__ == '__main__':
                 rospy.loginfo("### Picking %s ###" % eq.name)
                 obj.pick_after_place(eq)
             except Exception as ex:
+                # rospy.logerr(type(ex).__str__())
                 rospy.logerr(ex.message)
             finally:
                 if obj.evaluation:
