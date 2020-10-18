@@ -278,20 +278,20 @@ class MoveitInterface(object):
         """
         start = rospy.get_time()
         seconds = rospy.get_time()
-        timeout = 15.0
-        rospy.loginfo("[MoveitInterface.wait_till_updated(%s, %s)] %s" % (attached, known, str(seconds - start)))
+        timeout = 1.0
+        rospy.loginfo("[MoveitInterface.wait_till_updated(attached=%s, known=%s)] %s" % (attached, known, str(seconds - start)))
         while (seconds - start < timeout) and not rospy.is_shutdown():
             # Test if the box is in attached objects
             attached_objects = self.scene.get_attached_objects([obj_name])
             is_attached = len(attached_objects.keys()) > 0
             rospy.logdebug("[MoveitInterface.wait_till_updated()] Attached Objects: %s" % attached_objects.keys())
-            rospy.logdebug("[MoveitInterface.wait_till_updated()] Attached met: %s" % attached == is_attached)
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Attached met: %s" % str(attached == is_attached))
 
             # Test if the box is in the scene.
             # Note that attaching the box will remove it from known_objects
             is_known = obj_name in self.scene.get_known_object_names()
             rospy.logdebug("[MoveitInterface.wait_till_updated()] Known Objects: %s" % self.scene.get_known_object_names())
-            rospy.logdebug("[MoveitInterface.wait_till_updated()] Known met: %s" % known == is_known)
+            rospy.logdebug("[MoveitInterface.wait_till_updated()] Known met: %s" % str(known == is_known))
 
             # Test if we are in the expected state
             if (attached == is_attached) and (known == is_known):
@@ -832,7 +832,7 @@ class MoveitInterface(object):
                 ret_values.append(js_pos)
         return ret_values
 
-    def get_ik(self, ps, ik_link_name="gripper_robotiq_palm_planning"):
+    def get_ik(self, ps, ik_link_name="gripper_robotiq_palm_planning", max_attempts=0):
         """
         Compute an inverse kinematic using the service provided by MoveIt!
         :param ps: Desired pose of the end-effector
@@ -847,7 +847,9 @@ class MoveitInterface(object):
         rospy.wait_for_service(srv_name)
         response = GetPositionIKResponse()
         request = GetPositionIKRequest()  # type: GetPositionIKRequest
-        for attempt in range(self.max_attempts):
+        if max_attempts < 1:
+            max_attempts = self.max_attempts
+        for attempt in range(max_attempts):
             try:
                 srv_call = rospy.ServiceProxy(srv_name, GetPositionIK)
                 request.ik_request.group_name = self.group.get_name()
@@ -855,14 +857,14 @@ class MoveitInterface(object):
                 request.ik_request.avoid_collisions = True
                 request.ik_request.ik_link_name = ik_link_name
                 request.ik_request.pose_stamped = ps
-                request.ik_request.timeout = rospy.Duration(attempt * attempt)
+                request.ik_request.timeout = rospy.Duration(attempt + attempt + 1)
                 request.ik_request.attempts = 0  # each attempt get the timeout, so total time = timeout * attempts
                 response = srv_call(request)  # type: GetPositionIKResponse
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)
             if response.error_code.val != 1:
-                # rospy.logwarn("MoveitInterface.get_ik(): Failed with error: %s (%s/%s)" % (
-                #               MoveitInterface.dct_moveit_error[response.error_code.val], attempt, self.max_attempts))
+                rospy.logwarn("MoveitInterface.get_ik(): Failed with error: %s (%s/%s)" % (
+                              MoveitInterface.dct_moveit_error[response.error_code.val], attempt+1, max_attempts))
                 # rospy.logwarn("MoveitInterface.get_ik(): Target Pose was:\n%s", request.ik_request.pose_stamped)
                 # rospy.logwarn("MoveitInterface.get_ik(): Joint States were:%s", np.rad2deg(self._filter_joint_states(
                 #     request.ik_request.robot_state.joint_state.name,

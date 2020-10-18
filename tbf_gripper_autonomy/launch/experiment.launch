@@ -1,0 +1,33 @@
+<launch>
+<!--    START AT julius_util-->
+    <arg name="record"              default="false" />
+    <arg name="experiment"          default="set" />
+    <arg name="object"              default="Henkel" />
+<!--    str_exp = rospy.get_param("~experiment", "set_and_pick") -->
+<!--    object_names = rospy.get_param("~object", ["Henkel", "Knauf", "Kugel"])-->
+    <arg name="node_name"           default="experiment_set_ssb" />
+
+    <node name="$(arg node_name)" pkg="tbf_gripper_autonomy" type="exp_set_ssb.py" respawn="false" output="screen">
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
+        <param name="ssb_detection_service_name" value="locate_ssb_in_cloud"/>
+        <param name="cloud_topic" value="/gripper_d435/depth_registered/points"/>
+        <param name="experiment" value="$(arg experiment)"/>
+        <param name="object" value="$(arg object)"/>
+    </node>
+
+    <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_plan_marker" respawn="false" output="screen">
+        <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_move_planning.yaml"/>
+        <param name="service_ns" value="/$(arg node_name)/confirm_plan"/>
+    </node>
+
+<!--    <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_set_pose_marker" respawn="false" output="screen">-->
+<!--        <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_pose.yaml"/>-->
+<!--        <param name="service_ns" value="/equipment_handler/confirm_set_pose"/>-->
+<!--    </node>-->
+
+    <include file="$(find tbf_gripper_launch)/launch/bag_equipment_handling.launch" if="$(arg record)" />
+</launch>

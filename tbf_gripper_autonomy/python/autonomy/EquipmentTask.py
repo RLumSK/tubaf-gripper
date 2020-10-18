@@ -52,7 +52,6 @@ from tf import TransformListener
 
 from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
 from std_msgs.msg import Float32
-
 from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
 
 
@@ -162,21 +161,64 @@ class EquipmentTask(GraspTask):
         """
         approved = False
         candidate_pose = None
-        while not approved:
+        while not approved or rospy.is_shutdown():
             target_on_floor = sense()  # type: PoseStamped
             # Assume that the base_link doesn't move, so we can save the pose relative to it
             self.tf_listener.waitForTransform(target_frame=self.arm_frame, source_frame=target_on_floor.header.frame_id,
                                               time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
             candidate_pose = self.tf_listener.transformPose(target_frame=self.arm_frame, ps=target_on_floor)
             self.z_floor_in_arm_frame = candidate_pose.pose.position.z
-            if self.evaluation:
-                self.evaluation.pause()
-            self.selected_equipment.get_int_marker(candidate_pose)
-            rospy.loginfo("EquipmentTask.sense(): Please confirm the pose using the interactive marker on topic: "
-                          "'/confirm_set_pose/markers/update'")
-            approved = wait_for_confirmation(service_ns="~confirm_set_pose", timeout=20)
-            if self.evaluation:
-                self.evaluation.resume()
+
+            # Adjust SSB rotation using the predefined gripper to station transformation
+            n_aTs = optimize_ssb_z_rotation(oTs=pose_to_array(candidate_pose.pose),
+                                            sTg=self.selected_equipment.ssb_T_gripper)
+            candidate_pose.pose = array_to_pose(n_aTs)
+
+            # We have a desired pose, now check if the arm can go there
+            target_pose = SmartEquipment.calculate_pose2pose_offset(candidate_pose,
+                                                                    self.selected_equipment.ssb_T_gripper)
+            self.selected_equipment.get_int_marker(candidate_pose, target_pose)
+            if target_pose is None:
+                rospy.logwarn("[EquipmentTask.sense():] Couldn't calculate offset for %s" %
+                              self.selected_equipment.name)
+                rospy.logwarn("[EquipmentTask.sense():] pose: %s" %
+                              candidate_pose)
+                rospy.logwarn("[EquipmentTask.sense():] offset: %s" %
+                              self.selected_equipment.ssb_T_gripper)
+                approved = False
+                continue
+
+            target_ik = self.moveit.get_ik(target_pose, max_attempts=2)
+            if target_ik is None:
+                approved = False
+                rospy.logwarn("[EquipmentTask.sense():] Couldn't find valid pose for %s - IK failed" %
+                              self.selected_equipment.name)
+                continue
+            else:
+                rospy.logdebug("[EquipmentTask.sense():] Found valid target pose for %s:\n%s" %
+                               (self.selected_equipment.name, target_ik))
+
+            intermediate_pose = copy.deepcopy(target_pose)
+            intermediate_pose.pose.position.z += 0.3
+            intermediate_ik = self.moveit.get_ik(intermediate_pose, max_attempts=2)
+            if intermediate_ik is None:
+                approved = False
+                rospy.logwarn("[EquipmentTask.sense():] Couldn't find valid pose for %s - IK failed for intermediate" %
+                              self.selected_equipment.name)
+                continue
+            else:
+                rospy.logdebug("[EquipmentTask.sense():] Found valid intermediate pose for %s:\n%s" %
+                               (self.selected_equipment.name, intermediate_ik))
+            self.selected_equipment.get_int_marker(candidate_pose, target_pose)
+            approved = True
+            # if self.evaluation:
+            #     self.evaluation.pause()
+            # self.selected_equipment.get_int_marker(candidate_pose)
+            # rospy.loginfo("EquipmentTask.sense(): Please confirm the pose using the interactive marker on topic: "
+            #               "'/confirm_set_pose/markers/update'")
+            # approved = wait_for_confirmation(service_ns="~confirm_set_pose", timeout=20)
+            # if self.evaluation:
+            #     self.evaluation.resume()
         return candidate_pose
 
     def perform(self, stages=None):
@@ -386,7 +428,7 @@ class EquipmentTask(GraspTask):
             if self.evaluation:
                 self.evaluation.store_img("SenseAfterwards")
                 self.evaluation.t_in_s = self.evaluation.calc_time()
-            obj.check_set_equipment_pose()
+            self.check_set_equipment_pose()
 
         if 7 in stages:
             rospy.loginfo("STAGE 7: Return to watch pose")
@@ -749,9 +791,9 @@ def sense(tf_listener=None, evaluation=None):
     # As client
     # use: PcaPoseGenerator, MinimalDensityEstimatePoseGenerator, DelaunayPoseGenerator
     pose_generation_service_name = rospy.get_param("~sense_service_name", "DelaunayPoseGenerator_service")
-    rospy.loginfo("[sense()] pose_generation_service_name: %s" % pose_generation_service_name)
+    rospy.logdebug("[sense()] pose_generation_service_name: %s" % pose_generation_service_name)
     rospy.wait_for_service(pose_generation_service_name)
-    rospy.loginfo("[sense()] %s available" % pose_generation_service_name)
+    rospy.logdebug("[sense()] %s available" % pose_generation_service_name)
     pose_generation_service = rospy.ServiceProxy(pose_generation_service_name, GenerateSetPose)
 
     request = GenerateSetPoseRequest()
@@ -774,8 +816,7 @@ def sense(tf_listener=None, evaluation=None):
             request.obstacles = _obstacle_cache.getLast()
             # rospy.logdebug("[sense()] Request:\n%s" % request)
             reply = pose_generation_service(request)
-            rospy.loginfo("[sense()] %s suggests %s" % (pose_generation_service_name, reply))
-
+            # rospy.loginfo("[sense()] %s suggests %s" % (pose_generation_service_name, reply))
             ps = reply.set_pose
 
         except rospy.ServiceException as e:
@@ -911,7 +952,8 @@ def transform_ps(ps, target_frame, tf_listener=None):
 
 if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
-    obj = EquipmentTask(evaluation=Evaluation())
+    # obj = EquipmentTask(evaluation=Evaluation())
+    obj = EquipmentTask(evaluation=None)
 
     obj.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
@@ -922,9 +964,9 @@ if __name__ == '__main__':
         while not rospy.is_shutdown():
             try:
                 rospy.loginfo("### Set %s ###" % eq.name)
-                obj.start()
-                rospy.loginfo("### Picking %s ###" % eq.name)
-                obj.pick_after_place(eq)
+                obj.start([2])
+                # rospy.loginfo("### Picking %s ###" % eq.name)
+                # obj.pick_after_place(eq)
             except Exception as ex:
                 # rospy.logerr(type(ex).__str__())
                 rospy.logerr(ex.message)
