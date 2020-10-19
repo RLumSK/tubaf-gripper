@@ -28,7 +28,7 @@ moveit:
     - SPARStwokConfigDefault
   planner_time: 1.0  # was 20
   planner_attempts: 100  # was 100
-  max_attempts: 5
+  max_attempts: 2  # 5
   reference_frame: "gripper_ur5_base_link"
   workspace: [-1.6, -1.2, 0.0, 0.25, 1.2, 1.7]
   tolerance: 0.005

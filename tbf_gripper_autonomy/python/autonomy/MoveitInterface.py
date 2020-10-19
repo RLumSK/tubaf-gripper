@@ -200,6 +200,7 @@ class MoveitInterface(object):
             self.ssb_scale = self.parameter["ssb_scale"]
             # https://groups.google.com/g/moveit-users/c/h75nDpwOKLk/m/1-IytpO_BQAJ?pli=1
             self.use_approximate_ik = self.parameter["use_approximate_ik"]
+            self.confirm_service_ns = rospy.get_param("confirm_plan_service_ns", "~confirm_plan")
         else:
             self.group = moveit_commander.MoveGroupCommander("UR5")
             self.group.set_planner_id("KPIECEkConfigDefault")
@@ -222,9 +223,11 @@ class MoveitInterface(object):
                                                                 queue_size=10)
             self.eef_link = "gripper_robotiq_palm_planning"
             self.touch_links = []
-            self.max_attempts = 5
+            self.max_attempts = 3
             self.ssb_scale = 1.0
             self.use_approximate_ik = False
+
+        self.confirm_plan_service_ns = rospy.get_param("~confirm_plan_service_ns", "/confirm_plan")
         self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
         self.attached_equipment = None
 
@@ -402,16 +405,17 @@ class MoveitInterface(object):
                 rospy.loginfo("MoveitInterface.plan(" + info + "): Not waiting for confirmation")
                 break
             rospy.loginfo("MoveitInterface.plan(): Please confirm the plan using the interactive marker on "
-                          "topic: '/confirm_plan_marker/markers/update'")
+                          "topic: '%s/markers/update'" % self.confirm_plan_service_ns)
             if self.evaluation:
                 self.evaluation.pause()
-            plan_valid = wait_for_confirmation(service_ns="~confirm_plan", timeout=60)
+            plan_valid = wait_for_confirmation(service_ns=self.confirm_plan_service_ns, timeout=60)
+            rospy.loginfo("MoveitInterface.plan(): User returned %s" % plan_valid)
             if self.evaluation:
                 self.evaluation.resume()
 
         self.group.set_planning_time(self.parameter["planner_time"])
         self.group.set_num_planning_attempts(self.parameter["planner_attempts"])
-        if attempts >= self.max_attempts:
+        if attempts > self.max_attempts:
             # We can't plan to the specified target
             return False
         if self.evaluation and plan is not None:

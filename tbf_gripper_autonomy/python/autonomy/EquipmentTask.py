@@ -71,6 +71,7 @@ class EquipmentTask(GraspTask):
         self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         self.tfBuffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tfBuffer)
+        self.debug_pose_pub = rospy.Publisher("debug_pose", PoseStamped)
         # Init Moveit
         self.moveit = MoveitInterface("~moveit", self.tf_listener, evaluation=self.evaluation)  # type: MoveitInterface
         rospy.loginfo("EquipmentTask.__init__(): Moveit initialized")
@@ -238,7 +239,6 @@ class EquipmentTask(GraspTask):
         if stages is None:
             stages = range(6)
         stages = frozenset(stages)
-        debug_pose_pub = rospy.Publisher("debug_target_pose", PoseStamped)
         target_pose = None
         int_marker = None
         constraints = None
@@ -355,7 +355,7 @@ class EquipmentTask(GraspTask):
             intermediate_pose.pose.position.z += 0.3
             if self.evaluation:
                 self.evaluation.intermediate_set_pose = intermediate_pose
-            debug_pose_pub.publish(intermediate_pose)
+            self.debug_pose_pub.publish(intermediate_pose)
             rospy.logdebug("EquipmentTask.perform([4]): Intermediate Pose published")
             while not self.moveit.move_to_target(intermediate_pose, info="Place0Intermediate", endless=False,
                                                  constraints=constraints):
@@ -363,7 +363,7 @@ class EquipmentTask(GraspTask):
             if self.evaluation:
                 self.evaluation.store_img("Place0Intermediate")
             rospy.loginfo("STAGE 4: Move to Target Pose")
-            debug_pose_pub.publish(target_pose)
+            self.debug_pose_pub.publish(target_pose)
             self.moveit.move_to_set(target_pose, info="Place1Set", constraints=constraints)
             if self.evaluation:
                 self.evaluation.store_img("Place1Set")
@@ -400,7 +400,7 @@ class EquipmentTask(GraspTask):
                 r_relative = R.from_euler('z', -20, degrees=True)
                 r_soll = r_is
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
-                debug_pose_pub.publish(release_pose)
+                self.debug_pose_pub.publish(release_pose)
                 i = 0
                 while not self.moveit.move_to_target(release_pose, info="Place2Release" + str(i), endless=False,
                                                      blind=True):
@@ -415,7 +415,7 @@ class EquipmentTask(GraspTask):
                     rospy.logdebug(
                         "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" %
                         release_pose.pose)
-                    debug_pose_pub.publish(release_pose)
+                    self.debug_pose_pub.publish(release_pose)
                     if i > 3:
                         rospy.logwarn("[EquipmentTask.perform([5])] Release pose not reached, continue")
                         break
@@ -452,23 +452,16 @@ class EquipmentTask(GraspTask):
         # self.perform([6])
         # self.perform([3])
 
-    def check_set_equipment_pose(self):
+    def pose_over_ssb(self):
         """
-        Move the camera to observe the previous set smart equipment and the query the object detector via service call
-        :return:
+        Get a pose for the eef that looks down on the SSB, it hovers over it orthogonal to the floor
+        :return: Pose Stamped
         """
-        from sensor_msgs.msg import PointCloud2
-        pcl_pub = rospy.Publisher("/result/pointcloud", PointCloud2, queue_size=10)
-        diff_pub = rospy.Publisher("/result/ssb_delta", Float32, queue_size=10)
-        self.hand_controller.closeHand(mode="basic")
         ssb_pose = self.selected_equipment.place_ps
-        # self.moveit.move_to_target(self.watch_joint_values, info="Watch Pose")
-        # camera_frame = rospy.get_param("camera_frame", default="rs_gripper_d435_color_optical_frame")
-        # self.tf_listener.waitForTransform(arm_frame, ssb_pose.header.frame_id, ssb_pose.header.stamp,
-        #                                   timeout=rospy.Duration(10.0))
         self.tf_listener.waitForTransform(self.arm_frame, ssb_pose.header.frame_id, rospy.Time(0),
                                           rospy.Duration(4))
         watch_pose = self.tf_listener.transformPose(target_frame=self.arm_frame, ps=ssb_pose)
+
         if self.evaluation:
             self.evaluation.estimated_set_pose = copy.deepcopy(watch_pose)
         watch_pose.pose.position.x = watch_pose.pose.position.x - 0.14
@@ -484,6 +477,62 @@ class EquipmentTask(GraspTask):
         watch_pose.pose.orientation.y = q[1]
         watch_pose.pose.orientation.z = q[2]
         watch_pose.pose.orientation.w = q[3]
+
+        return watch_pose
+
+    def pose_towards_ssb(self, frame=None):
+        """
+        Get a pose for the eef that looks towards the SSB from the current pose - only change eef orientation
+        :return: PoseStamped
+        """
+        eef_pose = PoseStamped()
+        if frame is None:
+            frame = self.moveit.eef_link
+        eef_pose.header.frame_id = frame
+        ssb_pose = transform_ps(self.selected_equipment.place_ps, frame, self.tf_listener)
+        eef_pose = transform_ps(eef_pose, self.arm_frame, self.tf_listener)
+        # from: https://github.com/UTNuclearRoboticsPublic/look_at_pose/blob/kinetic/nodes/test_client
+        from look_at_pose.srv import LookAtPose
+        from geometry_msgs.msg import Vector3Stamped
+        # new_pose = new_cam_pose(pt_of_interest)
+        initial_cam_pose = PoseStamped()
+        initial_cam_pose.header.stamp = rospy.Time.now()
+        initial_cam_pose.header.frame_id = frame
+        initial_cam_pose.pose.position.x = 0
+        initial_cam_pose.pose.position.y = 0
+        initial_cam_pose.pose.position.z = 0
+        initial_cam_pose.pose.orientation.x = 0
+        initial_cam_pose.pose.orientation.y = 0
+        initial_cam_pose.pose.orientation.z = 0
+        initial_cam_pose.pose.orientation.w = 1
+
+        up_vector= Vector3Stamped()
+        up_vector.header.frame_id = frame
+        up_vector.header.stamp = rospy.Time.now()
+        up_vector.vector.x = 0
+        up_vector.vector.y = 0
+        up_vector.vector.z = 1
+        up_vector.vector.z = 1
+        rospy.wait_for_service('look_at_pose')
+        look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
+        response = look_at_pose_client(initial_cam_pose, ssb_pose, up_vector)
+        return response.new_cam_pose
+
+    def check_set_equipment_pose(self):
+        """
+        Move the camera to observe the previous set smart equipment and the query the object detector via service call
+        :return:
+        """
+        from sensor_msgs.msg import PointCloud2
+        pcl_pub = rospy.Publisher("/result/pointcloud", PointCloud2, queue_size=10)
+        diff_pub = rospy.Publisher("/result/ssb_delta", Float32, queue_size=10)
+        self.hand_controller.closeHand(mode="basic")
+
+        # Current pose known from set algorithm
+        # self.selected_equipment.get_int_marker(self.selected_equipment.place_ps)
+        # watch_pose = self.pose_over_ssb()
+        watch_pose = self.pose_towards_ssb(frame="rs_gripper_d435_depth_optical_frame")
+        # self.debug_pose_pub.publish(watch_pose)
         detected_ssb_pose = None
         i_search = 0
         score = -1.0
@@ -611,7 +660,7 @@ class EquipmentTask(GraspTask):
             i_search = 0
             min_score = rospy.get_param("~min_detection_score", 0.95)
             decrement = rospy.get_param("~mdetection_score_decrement", 0.2)
-            while detected_pose is None or score < min_score-i_search*decrement:
+            while detected_pose is None or score < min_score - i_search * decrement:
                 rospy.loginfo("EquipmentTask.pick_after_place(): No SSB detected (score=%s)" % score)
                 title = "SearchAgain" + str(i_search)
                 self.moveit.move_to_target(watch_pose, info=title, endless=False, blind=True)
@@ -965,20 +1014,21 @@ if __name__ == '__main__':
     eq = obj.lst_equipment[0]  # type: SmartEquipment
     if obj.select_equipment(eq.name):
         while not rospy.is_shutdown():
-            try:
-                rospy.loginfo("### Set %s ###" % eq.name)
-                obj.start([2])
+            # try:
+                # rospy.loginfo("### Set %s ###" % eq.name)
+                # obj.start([2])
                 # rospy.loginfo("### Picking %s ###" % eq.name)
                 # obj.pick_after_place(eq)
-            except Exception as ex:
+                obj.check_set_equipment_pose()
+            # except Exception as ex:
                 # rospy.logerr(type(ex).__str__())
-                rospy.logerr(ex.message)
-            finally:
-                if obj.evaluation:
-                    n = eq.name.split(" ")
-                    secs = rospy.Time.now().secs
-                    obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
-                    obj.evaluation = Evaluation()
-                    obj.moveit.evaluation = obj.evaluation
-            rospy.loginfo("### Finished %s ###" % eq.name)
+                # rospy.logerr(ex.message)
+            # finally:
+            #     if obj.evaluation:
+            #         n = eq.name.split(" ")
+            #         secs = rospy.Time.now().secs
+            #         obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
+            #         obj.evaluation = Evaluation()
+            #         obj.moveit.evaluation = obj.evaluation
+            # rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()
