@@ -277,21 +277,21 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("STAGE 3: Pickup Equipment")
             self.hand_controller._set_image_and_info_service(False)
             # TODO: Select Equipment
-            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"], info="PrePick",
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["pre_grasp"], info="Pick0Pre",
                                                  blind=True):
                 rospy.logdebug("EquipmentTask.perform([2]): Try to plan pre-grasping again")
             if self.evaluation:
-                self.evaluation.store_img("PrePick")
+                self.evaluation.store_img("Pick0Pre")
             self.hand_controller.openHand()
             self.hand_controller.closeHand("scissor", continue_image_service=False)
 
-            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="PickClose",
+            while not self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["grasp"], info="Pick1Done",
                                                  blind=True):
                 rospy.logdebug("EquipmentTask.perform([3]): Try to plan grasping again")
             # Grasp station
             self.hand_controller.closeHand("basic", continue_image_service=False)
             if self.evaluation:
-                self.evaluation.store_img("PickClose")
+                self.evaluation.store_img("Pick1Done")
             # Update Planning Scene - Attach collision object to end effector
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             # Transform all coordinates relevant in <arm_frame>
@@ -334,10 +334,10 @@ class EquipmentTask(GraspTask):
                                            constraints=constraints)
                 if self.evaluation:
                     self.evaluation.store_img("Lift")
-            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="PostPick",
+            self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="Pick2Post",
                                        constraints=constraints)
             if self.evaluation:
-                self.evaluation.store_img("PostPick")
+                self.evaluation.store_img("Pick2Post")
             if type(int_marker) is marker.SSBMarker:
                 int_marker.enable_marker()
 
@@ -357,16 +357,16 @@ class EquipmentTask(GraspTask):
                 self.evaluation.intermediate_set_pose = intermediate_pose
             debug_pose_pub.publish(intermediate_pose)
             rospy.logdebug("EquipmentTask.perform([4]): Intermediate Pose published")
-            while not self.moveit.move_to_target(intermediate_pose, info="PlaceIntermediate", endless=False,
+            while not self.moveit.move_to_target(intermediate_pose, info="Place0Intermediate", endless=False,
                                                  constraints=constraints):
                 rospy.logdebug("EquipmentTask.perform([4]): Intermediate Pose not reached - Trying again")
             if self.evaluation:
-                self.evaluation.store_img("PlaceIntermediate")
+                self.evaluation.store_img("Place0Intermediate")
             rospy.loginfo("STAGE 4: Move to Target Pose")
             debug_pose_pub.publish(target_pose)
-            self.moveit.move_to_set(target_pose, info="PlaceSet", constraints=constraints)
+            self.moveit.move_to_set(target_pose, info="Place1Set", constraints=constraints)
             if self.evaluation:
-                self.evaluation.store_img("PlaceSet")
+                self.evaluation.store_img("Place1Set")
             if type(int_marker) is marker.SSBMarker:
                 int_marker.enable_marker()
 
@@ -402,7 +402,7 @@ class EquipmentTask(GraspTask):
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
                 debug_pose_pub.publish(release_pose)
                 i = 0
-                while not self.moveit.move_to_target(release_pose, info="PlaceRelease" + str(i), endless=False,
+                while not self.moveit.move_to_target(release_pose, info="Place2Release" + str(i), endless=False,
                                                      blind=True):
                     i += 1
                     release_pose.pose.position.x = release_pose.pose.position.x + 0.01
@@ -416,24 +416,27 @@ class EquipmentTask(GraspTask):
                         "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" %
                         release_pose.pose)
                     debug_pose_pub.publish(release_pose)
+                    if i > 3:
+                        rospy.logwarn("[EquipmentTask.perform([5])] Release pose not reached, continue")
+                        break
                     if self.evaluation:
-                        self.evaluation.store_img("PlaceRelease" + str(i))
+                        self.evaluation.store_img("Place2Release" + str(i))
                 if self.evaluation:
-                    self.evaluation.store_img("PlaceRelease" + str(i))
+                    self.evaluation.store_img("Place2Release" + str(i))
                 self.hand_controller.closeHand(continue_image_service=False)
 
         if 6 in stages:
             rospy.loginfo("STAGE 7: Search for SSB")
-            self.moveit.move_to_target(self.watch_joint_values, info="SenseAfterwards", blind=True)
+            self.moveit.move_to_target(self.watch_joint_values, info="Look", blind=True)
             if self.evaluation:
-                self.evaluation.store_img("SenseAfterwards")
+                self.evaluation.store_img("Look")
                 self.evaluation.t_in_s = self.evaluation.calc_time()
             self.check_set_equipment_pose()
 
         if 7 in stages:
             rospy.loginfo("STAGE 7: Return to watch pose")
             # Plan back to home station
-            self.moveit.move_to_target(self.home_joint_values, info="HOME")
+            self.moveit.move_to_target(self.home_joint_values, info="END")
 
         rospy.loginfo("EquipmentTask.perform(): Finished")
         return self.selected_equipment
