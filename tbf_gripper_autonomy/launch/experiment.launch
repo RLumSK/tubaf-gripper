@@ -30,7 +30,7 @@
 <!--        <param name="service_ns" value="/equipment_handler/confirm_set_pose"/>-->
 <!--    </node>-->
 
-    <node pkg="look_at_pose" type="look_at_pose_server" name="look_at_pose_server"/>
+    <node pkg="look_at_pose" type="look_at_pose_server" name="look_at_pose_server" respawn="true"/>
 
     <include file="$(find tbf_gripper_launch)/launch/bag_equipment_handling.launch" if="$(arg record)" />
 </launch>

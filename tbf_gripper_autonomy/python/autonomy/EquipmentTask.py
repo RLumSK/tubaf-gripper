@@ -335,7 +335,7 @@ class EquipmentTask(GraspTask):
                 if self.evaluation:
                     self.evaluation.store_img("Lift")
             self.moveit.move_to_target(self.selected_equipment.pickup_waypoints["post_grasp"], info="Pick2Post",
-                                       constraints=constraints)
+                                       constraints=constraints, blind=True)
             if self.evaluation:
                 self.evaluation.store_img("Pick2Post")
             if type(int_marker) is marker.SSBMarker:
@@ -506,17 +506,25 @@ class EquipmentTask(GraspTask):
         initial_cam_pose.pose.orientation.z = 0
         initial_cam_pose.pose.orientation.w = 1
 
-        up_vector= Vector3Stamped()
+        up_vector = Vector3Stamped()
         up_vector.header.frame_id = frame
         up_vector.header.stamp = rospy.Time.now()
         up_vector.vector.x = 0
         up_vector.vector.y = 0
         up_vector.vector.z = 1
         up_vector.vector.z = 1
-        rospy.wait_for_service('look_at_pose')
-        look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
-        response = look_at_pose_client(initial_cam_pose, ssb_pose, up_vector)
-        return response.new_cam_pose
+
+        new_pose = eef_pose
+        try:
+            rospy.wait_for_service('look_at_pose')
+            look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
+            rospy.sleep(1.0)
+            response = look_at_pose_client(initial_cam_pose, ssb_pose, up_vector)
+            new_pose = response.new_cam_pose
+        except rospy.TransportException as te:
+            rospy.logerr("[EquipmentTask.pose_towards_ssb()] TransportException during Service call")
+            rospy.logerr("[EquipmentTask.pose_towards_ssb()] service: %s" % look_at_pose_client.resolved_name)
+        return new_pose
 
     def check_set_equipment_pose(self):
         """
@@ -531,7 +539,10 @@ class EquipmentTask(GraspTask):
         # Current pose known from set algorithm
         # self.selected_equipment.get_int_marker(self.selected_equipment.place_ps)
         # watch_pose = self.pose_over_ssb()
-        watch_pose = self.pose_towards_ssb(frame="rs_gripper_d435_depth_optical_frame")
+        try:
+            watch_pose = self.pose_towards_ssb(frame="rs_gripper_d435_depth_optical_frame")
+        except:
+            watch_pose = self.pose_over_ssb()
         # self.debug_pose_pub.publish(watch_pose)
         detected_ssb_pose = None
         i_search = 0
@@ -1015,20 +1026,20 @@ if __name__ == '__main__':
     if obj.select_equipment(eq.name):
         while not rospy.is_shutdown():
             # try:
-                # rospy.loginfo("### Set %s ###" % eq.name)
-                # obj.start([2])
-                # rospy.loginfo("### Picking %s ###" % eq.name)
-                # obj.pick_after_place(eq)
-                obj.check_set_equipment_pose()
-            # except Exception as ex:
-                # rospy.logerr(type(ex).__str__())
-                # rospy.logerr(ex.message)
-            # finally:
-            #     if obj.evaluation:
-            #         n = eq.name.split(" ")
-            #         secs = rospy.Time.now().secs
-            #         obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
-            #         obj.evaluation = Evaluation()
-            #         obj.moveit.evaluation = obj.evaluation
-            # rospy.loginfo("### Finished %s ###" % eq.name)
+            # rospy.loginfo("### Set %s ###" % eq.name)
+            # obj.start([2])
+            # rospy.loginfo("### Picking %s ###" % eq.name)
+            # obj.pick_after_place(eq)
+            obj.check_set_equipment_pose()
+        # except Exception as ex:
+        # rospy.logerr(type(ex).__str__())
+        # rospy.logerr(ex.message)
+        # finally:
+        #     if obj.evaluation:
+        #         n = eq.name.split(" ")
+        #         secs = rospy.Time.now().secs
+        #         obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
+        #         obj.evaluation = Evaluation()
+        #         obj.moveit.evaluation = obj.evaluation
+        # rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()
