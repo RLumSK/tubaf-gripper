@@ -47,7 +47,6 @@ from autonomy.MoveitInterface import MoveitInterface
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
 from tubaf_tools import array_to_pose, pose_to_array
 import tbf_gripper_rviz.ssb_marker as marker
-from tubaf_tools.confirm_service import wait_for_confirmation
 from tf import TransformListener
 
 from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
@@ -661,7 +660,7 @@ class EquipmentTask(GraspTask):
             self.moveit.move_to_target(self.watch_joint_values, info="Sense", blind=True)
             watch_pose = self.moveit.get_fk(self.watch_joint_values)  # type: PoseStamped
             if self.evaluation:
-                self.evaluation.store_img("SenseAgain")
+                self.evaluation.store_img("Sense")
 
             detected_pose, score, name = self.adjust_object_detection(self.object_detection(),
                                                                       offset=self.selected_equipment.detection_offset)
@@ -670,11 +669,12 @@ class EquipmentTask(GraspTask):
                                                    self.selected_equipment.calculate_relative_offset())
             i_search = 0
             min_score = rospy.get_param("~min_detection_score", 0.95)
-            decrement = rospy.get_param("~mdetection_score_decrement", 0.2)
+            decrement = rospy.get_param("~detection_score_decrement", 0.2)
             while detected_pose is None or score < min_score - i_search * decrement:
                 rospy.loginfo("EquipmentTask.pick_after_place(): No SSB detected (score=%s)" % score)
-                title = "SearchAgain" + str(i_search)
-                self.moveit.move_to_target(watch_pose, info=title, endless=False, blind=True)
+                title = "Look" + str(i_search)
+                while not self.moveit.move_to_target(watch_pose, info=title, endless=False, blind=True):
+                    rospy.logdebug("EquipmentTask.pick_after_place(): Target not reached")
                 detected_pose, score, name = self.adjust_object_detection(self.object_detection(),
                                                                           offset=self.selected_equipment.detection_offset)
                 self.selected_equipment.ps = detected_pose
@@ -695,13 +695,14 @@ class EquipmentTask(GraspTask):
             # Compute Grasp offset
             # self.selected_equipment.place_ps was set earlier
             target_pose = self.selected_equipment.calculate_relative_offset()
+            self.selected_equipment.get_int_marker(self.selected_equipment.ps,  target_pose)
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor")
 
             if self.moveit.get_ik(target_pose) is None:
                 self.selected_equipment.set_alternative_pose()
-                self.selected_equipment.get_int_marker(self.selected_equipment.ps,
-                                                       self.selected_equipment.calculate_relative_offset())
+                target_pose = self.selected_equipment.calculate_relative_offset()
+                self.selected_equipment.get_int_marker(self.selected_equipment.ps,  target_pose)
                 if self.moveit.get_ik(target_pose) is None:
                     return -2  # -2: EquipmentNotPicked
 
@@ -1025,12 +1026,13 @@ if __name__ == '__main__':
     eq = obj.lst_equipment[0]  # type: SmartEquipment
     if obj.select_equipment(eq.name):
         while not rospy.is_shutdown():
+            obj.sense()
             # try:
             # rospy.loginfo("### Set %s ###" % eq.name)
             # obj.start([2])
             # rospy.loginfo("### Picking %s ###" % eq.name)
             # obj.pick_after_place(eq)
-            obj.check_set_equipment_pose()
+            # obj.check_set_equipment_pose()
         # except Exception as ex:
         # rospy.logerr(type(ex).__str__())
         # rospy.logerr(ex.message)
