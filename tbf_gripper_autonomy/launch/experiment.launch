@@ -6,9 +6,10 @@
 <!--    str_exp = rospy.get_param("~experiment", "set_and_pick") -->
 <!--    object_names = rospy.get_param("~object", ["Henkel", "Knauf", "Kugel"])-->
     <arg name="node_name"           default="experiment_set_ssb" />
+    <arg name="equipment_yaml" default="smart_equipment" />
 
     <node name="$(arg node_name)" pkg="tbf_gripper_autonomy" type="exp_set_ssb.py" respawn="false" output="screen">
-        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/$(arg equipment_yaml).yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
