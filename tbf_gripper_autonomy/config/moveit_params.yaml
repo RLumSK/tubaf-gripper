@@ -4,10 +4,10 @@ moveit:
   planner_id: "KPIECEkConfigDefault" # for parameter see the ompl_planning.yaml at julius_moveit
   planner:
 #    - SBLkConfigDefault
-    - ESTkConfigDefault
-#    - LBKPIECEkConfigDefault
+    - LBKPIECEkConfigDefault
     - BKPIECEkConfigDefault
     - KPIECEkConfigDefault
+    - ESTkConfigDefault
     - RRTkConfigDefault
     - RRTConnectkConfigDefault
     - RRTstarkConfigDefault

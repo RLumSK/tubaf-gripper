@@ -36,7 +36,7 @@ from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
+    rospy.init_node("EquipmentTask", log_level=rospy.INFO)
     et = EquipmentTask(evaluation=Evaluation())  # type: EquipmentTask
     et.hand_controller.openHand()
     rospy.sleep(rospy.Duration(1))
