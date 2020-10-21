@@ -31,27 +31,29 @@
 # Author: grehl
 import copy
 
-import rospy
-import tf
-import tf2_ros
 import message_filters
 import numpy as np
-from scipy.spatial.transform.rotation import Rotation as R
-
-from geometry_msgs.msg import PoseStamped
-from moveit_msgs.msg import Constraints, OrientationConstraint
+import rospy
 import std_msgs.msg
-
-from autonomy.Task import GraspTask
-from autonomy.MoveitInterface import MoveitInterface
-from tbf_gripper_tools.SmartEquipment import SmartEquipment
-from tubaf_tools import array_to_pose, pose_to_array
 import tbf_gripper_rviz.ssb_marker as marker
-from tf import TransformListener
-
-from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
-from std_msgs.msg import Float32
+import tf
+import tf2_ros
+from autonomy.MoveitInterface import MoveitInterface
+from autonomy.Task import GraspTask
 from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
+from geometry_msgs.msg import PoseStamped
+from message_filters import Subscriber, Cache
+from moveit_msgs.msg import Constraints, OrientationConstraint
+from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
+from object_recognition_msgs.msg import TableArray
+from scipy.spatial.transform.rotation import Rotation as R
+from std_msgs.msg import Float32
+from std_msgs.msg import Header
+from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
+from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest, IdentifyFloorResponse
+from tbf_gripper_tools.SmartEquipment import SmartEquipment
+from tubaf_tools import array_to_pose, pose_to_array, transform_ps
+from visualization_msgs.msg import MarkerArray
 
 
 class EquipmentTask(GraspTask):
@@ -164,9 +166,7 @@ class EquipmentTask(GraspTask):
         while not approved or rospy.is_shutdown():
             target_on_floor = sense()  # type: PoseStamped
             # Assume that the base_link doesn't move, so we can save the pose relative to it
-            self.tf_listener.waitForTransform(target_frame=self.arm_frame, source_frame=target_on_floor.header.frame_id,
-                                              time=target_on_floor.header.stamp, timeout=rospy.Duration(15))
-            candidate_pose = self.tf_listener.transformPose(target_frame=self.arm_frame, ps=target_on_floor)
+            candidate_pose = transform_ps(target_on_floor, self.arm_frame, self.tf_listener)
             self.z_floor_in_arm_frame = candidate_pose.pose.position.z
 
             # Adjust SSB rotation using the predefined gripper to station transformation
@@ -294,16 +294,9 @@ class EquipmentTask(GraspTask):
             # Update Planning Scene - Attach collision object to end effector
             rospy.loginfo("STAGE 3: Update scene, Attach object")
             # Transform all coordinates relevant in <arm_frame>
-            self.tf_listener.waitForTransform(self.arm_frame, self.selected_equipment.ps.header.frame_id,
-                                              rospy.Time(0),
-                                              rospy.Duration(4))
-            self.selected_equipment.ps = self.tf_listener.transformPose(target_frame=self.arm_frame,
-                                                                        ps=self.selected_equipment.ps)
-            self.tf_listener.waitForTransform(self.arm_frame, self.selected_equipment.place_ps.header.frame_id,
-                                              rospy.Time(0),
-                                              rospy.Duration(4))
-            self.selected_equipment.place_ps = self.tf_listener.transformPose(target_frame=self.arm_frame,
-                                                                              ps=self.selected_equipment.place_ps)
+            self.selected_equipment.ps = transform_ps(self.selected_equipment.ps, self.arm_frame, self.tf_listener)
+            self.selected_equipment.place_ps = transform_ps(self.selected_equipment.place_ps, self.arm_frame,
+                                                            self.tf_listener)
 
             # Adjust SSB rotation
             aTs = pose_to_array(self.selected_equipment.place_ps.pose)  # in Arm coordinates, ie relative to <arm_frame>
@@ -386,12 +379,9 @@ class EquipmentTask(GraspTask):
                 self.hand_controller.closeHand(mode="scissor", continue_image_service=False)
 
                 hand_frame = "gripper_robotiq_palm_planning"  # = self.moveit.group.get_planning_frame()
-                self.tf_listener.waitForTransform(hand_frame, target_pose.header.frame_id, rospy.Time(0),
-                                                  rospy.Duration(4))
-                release_pose = self.tf_listener.transformPose(target_frame=hand_frame, ps=target_pose)
-                # release_pose = self.tfBuffer.transform(target_pose, target_frame=hand_frame,
-                #                                        timeout=rospy.Duration(10))  # type: PoseStamped
+                release_pose = transform_ps(target_pose, hand_frame, self.tf_listener)
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose was: \n %s" % release_pose)
+
                 release_pose.pose.position.x = release_pose.pose.position.z - 0.15
                 from scipy.spatial.transform import Rotation as R
                 r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
@@ -458,10 +448,7 @@ class EquipmentTask(GraspTask):
         Get a pose for the eef that looks down on the SSB, it hovers over it orthogonal to the floor
         :return: Pose Stamped
         """
-        ssb_pose = self.selected_equipment.place_ps
-        self.tf_listener.waitForTransform(self.arm_frame, ssb_pose.header.frame_id, rospy.Time(0),
-                                          rospy.Duration(4))
-        watch_pose = self.tf_listener.transformPose(target_frame=self.arm_frame, ps=ssb_pose)
+        watch_pose = transform_ps(self.selected_equipment.place_ps, self.arm_frame, self.tf_listener)
 
         if self.evaluation:
             self.evaluation.estimated_set_pose = copy.deepcopy(watch_pose)
@@ -566,17 +553,7 @@ class EquipmentTask(GraspTask):
             self.evaluation.sensed_pose_confidence = score
             while True:
                 try:
-                    # https://answers.ros.org/question/188023/tf-lookup-would-require-extrapolation-into-the-past/
-                    self.tf_listener.waitForTransform(self.arm_frame, detected_ssb_pose.header.frame_id, rospy.Time(0),
-                                                      rospy.Duration(4))
-                    # rospy.sleep(0.5)
-                    rospy.loginfo("[EquipmentTask.check_set_equipment_pose(evaluation)] waitForTransform finished")
-                    # d_ps = detected_ssb_pose ExtrapolationException
-                    d_ps = PoseStamped()
-                    d_ps.header.frame_id = detected_ssb_pose.header.frame_id
-                    d_ps.pose = detected_ssb_pose.pose
-                    self.evaluation.sensed_set_pose = self.tf_listener.transformPose(target_frame=self.arm_frame,
-                                                                                     ps=d_ps)
+                    self.evaluation.sensed_set_pose = transform_ps(detected_ssb_pose, self.arm_frame, self.tf_listener)
                     rospy.loginfo("[EquipmentTask.check_set_equipment_pose(evaluation)] sensed_set_pose %s"
                                   % self.evaluation.sensed_set_pose)
                     break
@@ -617,9 +594,7 @@ class EquipmentTask(GraspTask):
             ps_1.header.seq = 0
             rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Placed Pose:\n%s" % ps_0)
             rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Observed Pose:\n%s" % ps_1)
-            self.tf_listener.waitForTransform(ps_0.header.frame_id, ps_1.header.frame_id, rospy.Time(0),
-                                              rospy.Duration.from_sec(15.0))
-            ps1 = self.tf_listener.transformPose(ps_0.header.frame_id, ps_1)
+            ps1 = transform_ps(ps_1, ps_0.header.frame_id, self.tf_listener)
             # ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
         except Exception as ex:
             rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
@@ -697,14 +672,14 @@ class EquipmentTask(GraspTask):
             # Compute Grasp offset
             # self.selected_equipment.place_ps was set earlier
             target_pose = self.selected_equipment.calculate_relative_offset()
-            self.selected_equipment.get_int_marker(self.selected_equipment.ps,  target_pose)
+            self.selected_equipment.get_int_marker(self.selected_equipment.ps, target_pose)
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor")
 
             if self.moveit.get_ik(target_pose) is None:
                 self.selected_equipment.set_alternative_pose()
                 target_pose = self.selected_equipment.calculate_relative_offset()
-                self.selected_equipment.get_int_marker(self.selected_equipment.ps,  target_pose)
+                self.selected_equipment.get_int_marker(self.selected_equipment.ps, target_pose)
                 if self.moveit.get_ik(target_pose) is None:
                     return -2  # -2: EquipmentNotPicked
 
@@ -829,12 +804,6 @@ def sense(tf_listener=None, evaluation=None):
     :return: determined pose
     :rtype: PoseStamped
     """
-    from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
-    from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest, IdentifyFloorResponse
-    from std_msgs.msg import Header
-    from message_filters import Subscriber, Cache
-    from object_recognition_msgs.msg import TableArray
-    from visualization_msgs.msg import MarkerArray
 
     # Identify the floor
     floor_identify_service_name = rospy.get_param("~floor_identify_service", "/ork/identify_floor_plane")
@@ -890,11 +859,7 @@ def sense(tf_listener=None, evaluation=None):
             ps = None
 
     # Adjust z-coordinate to fit to ground
-    if tf_listener is None:
-        tf_listener = TransformListener(rospy.Duration.from_sec(15.0))
-    bf = "base_footprint"
-    tf_listener.waitForTransform(bf, ps.header.frame_id, rospy.Time(0), rospy.Duration.from_sec(15.0))
-    ret_ps = tf_listener.transformPose(bf, ps)
+    ret_ps = transform_ps(ps, "base_footprint", tf_listener)
 
     if evaluation:
         evaluation.sense_result(identify_floor_req.planes, request.floor, request.obstacles, ret_ps)
@@ -985,35 +950,6 @@ def optimize_ssb_z_rotation(oTs, sTg):
     n_wRs = Rotation.from_euler('XYZ', [alpha, beta, gamma], degrees=False)
     oTs[:3, :3] = n_wRs.as_dcm()
     return oTs
-
-
-def transform_ps(ps, target_frame, tf_listener=None):
-    """
-    :param ps: PoseStamped
-    :param target_frame: str
-    :param tf_listener: tf.TransformListener
-    :return: ps in target_frame as PoseStamped
-    """
-    if tf_listener is None:
-        tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
-    while True:
-        try:
-            # https://answers.ros.org/question/188023/tf-lookup-would-require-extrapolation-into-the-past/
-            tf_listener.waitForTransform(target_frame, ps.header.frame_id, rospy.Time(0), rospy.Duration(4))
-            tmp_ps = PoseStamped()
-            tmp_ps.header.frame_id = ps.header.frame_id
-            tmp_ps.pose = ps.pose
-            return tf_listener.transformPose(target_frame, ps=tmp_ps)
-        except tf.ExtrapolationException as ee:
-            rospy.logerr("transform_ps: ExtrapolationException %s" % ee.message)
-            rospy.logerr("transform_ps: Target frame %s" % target_frame)
-            rospy.logerr("transform_ps: Source header %s" % ps.header)
-            return ps
-        except tf.LookupException as le:
-            rospy.logerr("EquipmentTask.check_set_equipment_pose(): LookupException %s" % le.message)
-            rospy.logerr("transform_ps: Target frame %s" % target_frame)
-            rospy.logerr("transform_ps: Source header %s" % ps.header)
-            return ps
 
 
 if __name__ == '__main__':

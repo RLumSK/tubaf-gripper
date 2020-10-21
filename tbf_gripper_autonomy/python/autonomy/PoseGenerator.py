@@ -429,15 +429,18 @@ class PoseGeneratorRosInterface:
         :return: pose, distances
         :rtype: GenerateSetPoseResponse
         """
-        if not self.check_messages(request.obstacles, request.floor):
-            rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] Messages seem to be faulty")
-
         from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest, GenerateSetPoseResponse
         response = GenerateSetPoseResponse()
-        response.set_pose = self.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
-        response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.obs_points, mode="PP")
-        response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.hull_points,
-                                                                                mode="PL")
+        if not self.check_messages(request.obstacles, request.floor):
+            rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] Messages seem to be faulty")
+            response.set_pose.pose = request.floor.pose
+            response.set_pose.header.frame_id = request.floor.header.frame_id
+            # response.set_pose.header.stamp = request.floor.header.stamp
+        else:
+            response.set_pose = self.once(obstacles_msg=request.obstacles, floor_msg=request.floor)
+            response.nn_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.obs_points, mode="PP")
+            response.hull_distance, _ = PoseGeneratorRosInterface.calc_min_distance(self.result, self.hull_points,
+                                                                                    mode="PL")
 
         if request.print_evaluation:
             rospy.logwarn("[PoseGeneratorRosInterface.handle_service_request()] print_evaluation is deprecated")
@@ -505,7 +508,7 @@ class PoseGeneratorRosInterface:
                     ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg.tables[0])
                 elif type(floor_msg) is Table:
                     ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg)
-            ps.header.stamp = t
+            # ps.header.stamp = t
 
         # rospy.logdebug("[PoseGeneratorRosInterface.once()] Received data")
         if not self.check_messages(obstacles_msg, floor_msg):
@@ -581,12 +584,12 @@ class PoseGeneratorRosInterface:
         """
         Publish the center of the floor as pose
         :param floor_message: floor
-        :type floor_message: TableArray
+        :type floor_message: Table
         :return: pose
         :rtype: PoseStamped
         """
         ps = PoseStamped()
-        ps.pose = floor_message.tables[0].pose
+        ps.pose = floor_message.pose
         if self.ros:
             ps.header = floor_message.header
             ps.header.stamp = rospy.Time.now()
@@ -619,7 +622,7 @@ class PoseGeneratorRosInterface:
             rospy.logwarn("[PoseGeneratorRosInterface.check_messages()]  Linear hull of the floor is to small (%g/%g)"
                           % (len(flr.convex_hull), PoseGeneratorRosInterface.HULL_THRESHOLD))
             return False
-        self.publish_default(flr_msg)
+        self.publish_default(flr)
         if len(obs_msg.markers) != 0:
             for marker in obs_msg.markers:  # type: Marker
                 if len(marker.points) > 0:
