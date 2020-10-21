@@ -206,6 +206,10 @@ class FloorFilterServer(object):
         if floor is not None:
             response.floor = floor
             response.success = True
+            floor_msg = TableArray()
+            floor_msg.header = floor.header
+            floor_msg.tables.append(floor)
+            floor_filter._floor_publisher.publish(floor_msg)
         else:
             response.success = False
         rospy.logdebug("[FloorFilterServer.handle_request()] Finished")
