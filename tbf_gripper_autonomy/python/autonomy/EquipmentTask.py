@@ -530,13 +530,15 @@ class EquipmentTask(GraspTask):
         # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] Start adjusting pose")
         try:
             watch_pose = self.pose_towards_ssb(frame="rs_gripper_d435_depth_optical_frame")
-        except:
+        except Exception as ex:
+            rospy.loginfo("EquipmentTask.check_set_equipment_pose(): using pose_over_ssb() due to %s" % ex.message)
             watch_pose = self.pose_over_ssb()
         # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] new Pose:\n%s" % watch_pose)
         self.debug_pose_pub.publish(watch_pose)
         detected_ssb_pose = None
-        i_search = 0
+        i_search = 1
         score = -1.0
+        z = watch_pose.pose.position.z
         while detected_ssb_pose is None or score < rospy.get_param("~min_detection_score", 0.75):
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected - score: %s" % score)
             title = "Search" + str(i_search)
@@ -547,8 +549,11 @@ class EquipmentTask(GraspTask):
             watch_pose.pose.position.z += 0.05
             if self.evaluation:
                 self.evaluation.store_img(title)
+            if not (i_search % 5):
+                watch_pose.pose.position.z = z
             i_search += 1
-        rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected")
+
+        rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected - score: %s" % score)
 
         if self.evaluation:
             self.evaluation.pause()
