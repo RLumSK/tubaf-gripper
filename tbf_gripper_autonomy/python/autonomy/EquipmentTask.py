@@ -72,7 +72,7 @@ class EquipmentTask(GraspTask):
         self.tf_listener = tf.TransformListener(rospy.Duration.from_sec(15.0))
         self.tfBuffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tfBuffer)
-        self.debug_pose_pub = rospy.Publisher("debug_pose", PoseStamped)
+        self.debug_pose_pub = rospy.Publisher("/debug_pose", PoseStamped)
         # Init Moveit
         self.moveit = MoveitInterface("~moveit", self.tf_listener, evaluation=self.evaluation)  # type: MoveitInterface
         rospy.loginfo("EquipmentTask.__init__(): Moveit initialized")
@@ -508,7 +508,7 @@ class EquipmentTask(GraspTask):
             look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
             rospy.sleep(1.0)
             response = look_at_pose_client(initial_cam_pose, ssb_pose, up_vector)
-            new_pose = response.new_cam_pose
+            new_pose.orientation = response.new_cam_pose.orientation
         except rospy.TransportException as te:
             rospy.logerr("[EquipmentTask.pose_towards_ssb()] TransportException during Service call")
             rospy.logerr("[EquipmentTask.pose_towards_ssb()] service: %s" % look_at_pose_client.resolved_name)
@@ -527,16 +527,18 @@ class EquipmentTask(GraspTask):
         # Current pose known from set algorithm
         # self.selected_equipment.get_int_marker(self.selected_equipment.place_ps)
         # watch_pose = self.pose_over_ssb()
+        # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] Start adjusting pose")
         try:
             watch_pose = self.pose_towards_ssb(frame="rs_gripper_d435_depth_optical_frame")
         except:
             watch_pose = self.pose_over_ssb()
-        # self.debug_pose_pub.publish(watch_pose)
+        # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] new Pose:\n%s" % watch_pose)
+        self.debug_pose_pub.publish(watch_pose)
         detected_ssb_pose = None
         i_search = 0
         score = -1.0
-        while detected_ssb_pose is None or score < rospy.get_param("~min_detection_score", 0.95):
-            rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected")
+        while detected_ssb_pose is None or score < rospy.get_param("~min_detection_score", 0.75):
+            rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected - score: %s" % score)
             title = "Search" + str(i_search)
             self.moveit.move_to_target(watch_pose, info=title, endless=True, blind=True)
             detected_ssb_pose, score, eq_type = self.adjust_object_detection(self.object_detection(),
@@ -964,7 +966,9 @@ if __name__ == '__main__':
     eq = obj.lst_equipment[0]  # type: SmartEquipment
     if obj.select_equipment(eq.name):
         while not rospy.is_shutdown():
-            obj.sense()
+            # obj.sense()
+            rospy.loginfo("start")
+            obj.check_set_equipment_pose()
             # try:
             # rospy.loginfo("### Set %s ###" % eq.name)
             # obj.start([2])
