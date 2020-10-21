@@ -861,8 +861,9 @@ class MoveitInterface(object):
                 request.ik_request.avoid_collisions = True
                 request.ik_request.ik_link_name = ik_link_name
                 request.ik_request.pose_stamped = ps
-                request.ik_request.timeout = rospy.Duration(attempt + attempt + 1)
-                request.ik_request.attempts = 0  # each attempt get the timeout, so total time = timeout * attempts
+                # request.ik_request.timeout = rospy.Duration(attempt + attempt + 1)
+                request.ik_request.timeout = rospy.Duration(1)
+                request.ik_request.attempts = attempt  # each attempt get the timeout, so total time = timeout * attempts
                 response = srv_call(request)  # type: GetPositionIKResponse
             except rospy.ServiceException as e:
                 rospy.logwarn("MoveitInterface.get_ik(): Service call failed: %s", e)

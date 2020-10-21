@@ -401,25 +401,27 @@ class EquipmentTask(GraspTask):
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
                 self.debug_pose_pub.publish(release_pose)
                 i = 0
-                while not self.moveit.move_to_target(release_pose, info="Place2Release" + str(i), endless=False,
-                                                     blind=True):
-                    i += 1
-                    release_pose.pose.position.x = release_pose.pose.position.x + 0.01
-                    r_soll = r_soll * r_relative
-                    q = r_soll.as_quat()
-                    release_pose.pose.orientation.x = q[0]
-                    release_pose.pose.orientation.y = q[1]
-                    release_pose.pose.orientation.z = q[2]
-                    release_pose.pose.orientation.w = q[3]
-                    rospy.logdebug(
-                        "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" %
-                        release_pose.pose)
-                    self.debug_pose_pub.publish(release_pose)
-                    if i > 3:
-                        rospy.logwarn("[EquipmentTask.perform([5])] Release pose not reached, continue")
-                        break
-                    if self.evaluation:
-                        self.evaluation.store_img("Place2Release" + str(i))
+                # while not self.moveit.move_to_target(release_pose, info="Place2Release" + str(i), endless=False,
+                #                                      blind=True):
+                #     i += 1
+                #     release_pose.pose.position.x = release_pose.pose.position.x + 0.01
+                #     r_soll = r_soll * r_relative
+                #     q = r_soll.as_quat()
+                #     release_pose.pose.orientation.x = q[0]
+                #     release_pose.pose.orientation.y = q[1]
+                #     release_pose.pose.orientation.z = q[2]
+                #     release_pose.pose.orientation.w = q[3]
+                #     rospy.logdebug(
+                #         "EquipmentTask.perform([5]): Release Pose not reached - Trying again with \n %s" %
+                #         release_pose.pose)
+                #     self.debug_pose_pub.publish(release_pose)
+                #     if i > 3:
+                #         rospy.logwarn("[EquipmentTask.perform([5])] Release pose not reached, continue")
+                #         break
+                #     if self.evaluation:
+                #         self.evaluation.store_img("Place2Release" + str(i))
+                if not self.moveit.move_to_target(release_pose, info="Place2Release", endless=False, blind=True):
+                    rospy.logwarn("EquipmentTask.perform([5]): Release Pose not reached - continue with Look")
                 if self.evaluation:
                     self.evaluation.store_img("Place2Release" + str(i))
                 self.hand_controller.closeHand(continue_image_service=False)
