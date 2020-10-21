@@ -412,13 +412,15 @@ class EquipmentTask(GraspTask):
                 #         self.evaluation.store_img("Place2Release" + str(i))
                 if not self.moveit.move_to_target(release_pose, info="Place2Release", endless=False, blind=True):
                     rospy.logwarn("EquipmentTask.perform([5]): Release Pose not reached - continue with Look")
+                else:
+                    self.hand_controller.closeHand(continue_image_service=False)
                 if self.evaluation:
                     self.evaluation.store_img("Place2Release" + str(i))
-                self.hand_controller.closeHand(continue_image_service=False)
 
         if 6 in stages:
             rospy.loginfo("STAGE 7: Search for SSB")
             self.moveit.move_to_target(self.watch_joint_values, info="Look", blind=True)
+            self.hand_controller.closeHand(continue_image_service=False)
             if self.evaluation:
                 self.evaluation.store_img("Look")
                 self.evaluation.t_in_s = self.evaluation.calc_time()
