@@ -458,7 +458,7 @@ class PoseGeneratorRosInterface:
         :return: -
         :rtype: -
         """
-        while True:
+        while not rospy.is_shutdown():
             rospy.logdebug("[PoseGeneratorRosInterface.perform] %s is alive" % self.get_name())
             self.pub.publish(self.once())
 
@@ -492,6 +492,7 @@ class PoseGeneratorRosInterface:
         t = current_time
         ps = PoseStamped()
         if self.ros and (obstacles_msg is None or floor_msg is None):
+            # rospy.logdebug("[PoseGeneratorRosInterface.once()] Waiting ...")
             while t is None:
                 t = self._obstacle_cache.getLatestTime()
             if obstacles_msg is None:
@@ -506,10 +507,20 @@ class PoseGeneratorRosInterface:
                     ps = PoseGeneratorRosInterface._as_pose_stamped([], floor_msg)
             ps.header.stamp = t
 
+        # rospy.logdebug("[PoseGeneratorRosInterface.once()] Received data")
         if not self.check_messages(obstacles_msg, floor_msg):
-            rospy.loginfo("[PoseGeneratorRosInterface.once()] messages not suitable\n%s\n---\n%s" %
-                          (obstacles_msg, floor_msg))
+            rospy.loginfo("[PoseGeneratorRosInterface.once()] messages not suitable")
+            if type(floor_msg) == TableArray:
+                floor = floor_msg.tables[0]
+            else:
+                floor = floor_msg
+            ps.header.frame_id = floor.header.frame_id
+            ps.pose = floor.pose
+            # rospy.logdebug("[PoseGeneratorRosInterface.once()] %s\n---\n%s" %
+            #               (obstacles_msg, floor_msg))
+            rospy.logdebug("[PoseGeneratorRosInterface.once()] returning \n %s" % ps)
             return ps
+        rospy.logdebug("[PoseGeneratorRosInterface.once()] Messages seem valid")
         if type(floor_msg) == TableArray:
             flr = floor_msg.tables[0]
         else:
@@ -608,12 +619,12 @@ class PoseGeneratorRosInterface:
             rospy.logwarn("[PoseGeneratorRosInterface.check_messages()]  Linear hull of the floor is to small (%g/%g)"
                           % (len(flr.convex_hull), PoseGeneratorRosInterface.HULL_THRESHOLD))
             return False
+        self.publish_default(flr_msg)
         if len(obs_msg.markers) != 0:
             for marker in obs_msg.markers:  # type: Marker
                 if len(marker.points) > 0:
                     return True
         rospy.logwarn("[PoseGeneratorRosInterface.check_messages()] No Obstacles given")
-        self.publish_default(flr_msg)
         return False
 
     def unregister(self):
@@ -1220,3 +1231,17 @@ class MonteCarloPoseGenerator(PoseGeneratorRosView):
         self.lines = [[hp, ret_pos], [ret_pos, obs]]
 
         return ret_pos
+
+
+if __name__ == '__main__':
+    rospy.init_node("PoseGenerators", log_level=rospy.DEBUG)
+    # Init
+    dln = DelaunayPoseGenerator()
+    kde = MinimalDensityEstimatePoseGenerator()
+    pca = PcaPoseGenerator()
+    mcp = MonteCarloPoseGenerator()
+
+    dln.perform()
+    # kde.perform()
+    # pca.perform()
+    # mcp.perform()
