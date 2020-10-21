@@ -17,7 +17,7 @@ arm:
 #    - [-2.00, -90, 0.0, -90, 0.00, 0.0]
   backup_joint_values: [-180, -90, 0.0, -90, 0.00, 0.0]
   home_joint_values:   [-2.00, -90, 0.0, -90, 0.00, 0.0]
-  watch_joint_values:  [-176.4, -84.16, -89.01, -97.11, 92.1, 138.52]
+  watch_joint_values:  [-197.1, -97.13, -73.70, -108.71, 89.83, 117.15]
   linear_tcp_speed: 0.10
   linear_tcp_acceleration: 0.04
   joint_speed: 15.0
