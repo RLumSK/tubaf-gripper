@@ -342,8 +342,6 @@ class EquipmentTask(GraspTask):
             current_grasp = self.get_current_grasp()
             EquipmentTask.compare_grasp(current_grasp, self.selected_equipment.grasp)
             self.selected_equipment.grasp = self.get_current_grasp()
-            if self.evaluation:
-                self.evaluation.grasp = current_grasp
 
             # Adjust SSB rotation
             aTs = pose_to_array(self.selected_equipment.place_ps.pose)  # in Arm coordinates, ie relative to <arm_frame>
@@ -365,6 +363,7 @@ class EquipmentTask(GraspTask):
             if self.evaluation:
                 self.evaluation.grasp_relation = array_to_pose(sTg)
                 self.evaluation.estimated_set_pose = self.selected_equipment.place_ps
+                self.evaluation.grasp = self._hand_js_cache.getLast()
 
             constraints = self.generate_path_constraints()
 
@@ -522,6 +521,7 @@ class EquipmentTask(GraspTask):
         Get a pose for the eef that looks towards the SSB from the current pose - only change eef orientation
         :return: PoseStamped
         """
+        raise NotImplementedError("unstable")
         eef_pose = PoseStamped()
         if frame is None:
             frame = self.moveit.eef_link
@@ -549,7 +549,6 @@ class EquipmentTask(GraspTask):
         up_vector.vector.x = 0
         up_vector.vector.y = 0
         up_vector.vector.z = 1
-        up_vector.vector.z = 1
 
         new_pose = eef_pose
         try:
@@ -557,7 +556,7 @@ class EquipmentTask(GraspTask):
             look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
             rospy.sleep(1.0)
             response = look_at_pose_client(initial_cam_pose, ssb_pose, up_vector)
-            new_pose.orientation = response.new_cam_pose.orientation
+            new_pose.pose.orientation = response.new_cam_pose.pose.orientation
         except rospy.TransportException as te:
             rospy.logerr("[EquipmentTask.pose_towards_ssb()] TransportException during Service call")
             rospy.logerr("[EquipmentTask.pose_towards_ssb()] service: %s" % look_at_pose_client.resolved_name)
@@ -568,15 +567,7 @@ class EquipmentTask(GraspTask):
         Move the camera to observe the previous set smart equipment and the query the object detector via service call
         :return:
         """
-        from sensor_msgs.msg import PointCloud2
-        pcl_pub = rospy.Publisher("/result/pointcloud", PointCloud2, queue_size=10)
-        diff_pub = rospy.Publisher("/result/ssb_delta", Float32, queue_size=10)
         self.hand_controller.closeHand(mode="basic")
-
-        # Current pose known from set algorithm
-        # self.selected_equipment.get_int_marker(self.selected_equipment.place_ps)
-        # watch_pose = self.pose_over_ssb()
-        # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] Start adjusting pose")
         try:
             watch_pose = self.pose_towards_ssb(frame="rs_gripper_d435_depth_optical_frame")
         except Exception as ex:
@@ -629,9 +620,7 @@ class EquipmentTask(GraspTask):
 
         diff = self.compute_ssb_delta(detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
-
-        pcl_pub.publish(rospy.wait_for_message("/gripper_d435/depth/color/points", PointCloud2))
-        diff_pub.publish(diff)
+        self.selected_equipment.ps = detected_ssb_pose
 
     def compute_ssb_delta(self, ps_1):
         """
@@ -691,35 +680,7 @@ class EquipmentTask(GraspTask):
         if 1 in stages:
             rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 1: Sensing for Smart Equipment")
             self.moveit.move_to_target(self.watch_joint_values, info="Sense", blind=True)
-            watch_pose = self.moveit.get_fk(self.watch_joint_values)  # type: PoseStamped
-            if self.evaluation:
-                self.evaluation.store_img("Sense")
-
-            detected_pose, score, name = self.adjust_object_detection(self.object_detection(),
-                                                                      offset=self.selected_equipment.detection_offset)
-            self.selected_equipment.ps = detected_pose
-            self.selected_equipment.get_int_marker(self.selected_equipment.ps,
-                                                   self.selected_equipment.calculate_relative_offset())
-            i_search = 0
-            min_score = rospy.get_param("~min_detection_score", 0.95)
-            decrement = rospy.get_param("~detection_score_decrement", 0.2)
-            while detected_pose is None or score < min_score - i_search * decrement:
-                rospy.loginfo("EquipmentTask.pick_after_place(): No SSB detected (score=%s)" % score)
-                title = "Look" + str(i_search)
-                while not self.moveit.move_to_target(watch_pose, info=title, endless=False, blind=True):
-                    rospy.logdebug("EquipmentTask.pick_after_place(): Target not reached")
-                detected_pose, score, name = self.adjust_object_detection(self.object_detection(),
-                                                                          offset=self.selected_equipment.detection_offset)
-                self.selected_equipment.ps = detected_pose
-                self.selected_equipment.get_int_marker(self.selected_equipment.ps,
-                                                       self.selected_equipment.calculate_relative_offset())
-                watch_pose.pose.position.z += 0.1
-                if self.evaluation:
-                    self.evaluation.store_img(title)
-                i_search += 1
-                if watch_pose.pose.position.z > 1.0:
-                    rospy.loginfo("EquipmentTask.pick_after_place(): wont find anything")
-                    return -1  # -1: PoseNotFound
+            self.check_set_equipment_pose()
             # Add SSB to scene
             self.moveit.add_equipment(self.selected_equipment)
 
@@ -732,14 +693,14 @@ class EquipmentTask(GraspTask):
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor")
 
-            if self.moveit.get_ik(target_pose) is None:
+            while self.moveit.get_ik(target_pose) is None:
                 self.selected_equipment.set_alternative_pose()
                 target_pose = self.selected_equipment.calculate_relative_offset()
                 self.selected_equipment.get_int_marker(self.selected_equipment.ps, target_pose)
-                if self.moveit.get_ik(target_pose) is None:
-                    return -2  # -2: EquipmentNotPicked
+                # if self.moveit.get_ik(target_pose) is None:
+                #     return -2  # -2: EquipmentNotPicked
 
-            if not self.moveit.move_to_target(target=target_pose, info="GraspFromFloor", endless=True):
+            if not self.moveit.move_to_set(target=target_pose, info="GraspFromFloor", endless=True):
                 return -2  # -2: EquipmentNotPicked
 
         if 3 in stages:
@@ -753,7 +714,7 @@ class EquipmentTask(GraspTask):
             EquipmentTask.compare_grasp(current_grasp, self.selected_equipment.grasp)
             self.selected_equipment.grasp = self.get_current_grasp()
             if self.evaluation:
-                self.evaluation.grasp = current_grasp
+                self.evaluation.grasp = self._hand_js_cache.getLast()
 
             self.moveit.attach_equipment(self.selected_equipment)
             # TODO: Evaluate Grasp based on finger position
