@@ -47,8 +47,8 @@ from moveit_msgs.msg import Constraints, OrientationConstraint
 from object_detector.srv import LocateInCloud, LocateInCloudRequest, LocateInCloudResponse
 from object_recognition_msgs.msg import TableArray
 from scipy.spatial.transform.rotation import Rotation as R
-from std_msgs.msg import Float32
-from std_msgs.msg import Header
+from std_msgs.msg import Float32, Header
+from sensor_msgs.msg import JointState
 from tbf_gripper_autonomy.srv import GenerateSetPose, GenerateSetPoseRequest
 from tbf_gripper_perception.srv import IdentifyFloor, IdentifyFloorRequest, IdentifyFloorResponse
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
@@ -95,6 +95,9 @@ class EquipmentTask(GraspTask):
         self.arm_frame = rospy.get_param("~arm_frame", "gripper_ur5_base_link")
         self.z_floor_in_arm_frame = rospy.get_param("~default_z_floor_in_arm_frame", -0.51)
 
+        sub = Subscriber(rospy.get_param("~hand_joint_state_topic", "/hand/joint_states"), JointState)
+        self._hand_js_cache = Cache(sub, 5)
+
         # @All parameters were imported@
         super(EquipmentTask, self).__init__(js_t=rospy.get_param("~arm/joint_states_topic", "/ur5/joint_states"),
                                             bu_pos=self.backup_joint_values,
@@ -103,6 +106,19 @@ class EquipmentTask(GraspTask):
                                             j_s=rospy.get_param("~arm/joint_speed", 5.0),
                                             j_a=rospy.get_param("~arm/joint_acceleration", 1.0))
         rospy.loginfo("EquipmentTask.__init__(): initialized")
+
+    def get_current_grasp(self):
+        """
+        Save to current joint configuration of the gripper, ie hand
+        :return:
+        """
+        hand_js = self._hand_js_cache.getLast()
+        while hand_js is None:
+            hand_js = self._hand_js_cache.getLast()
+            if hand_js is None:
+                rospy.sleep(0.1)
+        rospy.logdebug("[EquipmentTask.get_current_grasp] \n position: %s" % [hand_js.position])
+        return np.asarray(hand_js.position)
 
     def select_equipment(self, name="Smart_Sensor_Box"):
         """
@@ -221,6 +237,31 @@ class EquipmentTask(GraspTask):
             #     self.evaluation.resume()
         return candidate_pose
 
+    @staticmethod
+    def compare_grasp(ist, soll):
+        """
+        Compare two given grasps
+        :param ist: current grasp
+        :param soll: expected grasp
+        :return: difference
+        """
+        names = ["gripper_robotiq_finger_middle_joint_1", "gripper_robotiq_finger_1_joint_1",
+                 "gripper_robotiq_finger_2_joint_1",  "gripper_robotiq_finger_middle_joint_2",
+                 "gripper_robotiq_finger_1_joint_2", "gripper_robotiq_finger_2_joint_2",
+                 "gripper_robotiq_finger_middle_joint_3", "gripper_robotiq_finger_1_joint_3",
+                 "gripper_robotiq_finger_2_joint_3", "gripper_robotiq_palm_finger_1_joint",
+                 "gripper_robotiq_palm_finger_2_joint"]
+
+        diff = np.max(np.abs(ist - soll))
+        if diff > rospy.get_param("~grasp_tolerance", 0.01):
+            rospy.loginfo("[EquipmentTask.compare_current_grasp()] Difference: %s" % diff)
+            rospy.loginfo("[EquipmentTask.compare_current_grasp()] %s" % np.abs(ist - soll))
+            for i in range(len(names)):
+                name = names[i]
+                j_ist = ist[i]
+                j_soll = soll[i]
+                rospy.logdebug("%s: |%1.2f - %1.2f| = %1.2f" % (name, j_ist, j_soll, np.abs(j_ist - j_soll)))
+
     def perform(self, stages=None):
         """
         Equipment Handle Task:
@@ -297,6 +338,12 @@ class EquipmentTask(GraspTask):
             self.selected_equipment.ps = transform_ps(self.selected_equipment.ps, self.arm_frame, self.tf_listener)
             self.selected_equipment.place_ps = transform_ps(self.selected_equipment.place_ps, self.arm_frame,
                                                             self.tf_listener)
+            # Save grasp joints
+            current_grasp = self.get_current_grasp()
+            EquipmentTask.compare_grasp(current_grasp, self.selected_equipment.grasp)
+            self.selected_equipment.grasp = self.get_current_grasp()
+            if self.evaluation:
+                self.evaluation.grasp = current_grasp
 
             # Adjust SSB rotation
             aTs = pose_to_array(self.selected_equipment.place_ps.pose)  # in Arm coordinates, ie relative to <arm_frame>
@@ -699,6 +746,15 @@ class EquipmentTask(GraspTask):
             rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 3: Grasp and lift Equipment")
             self.hand_controller.openHand(mode="scissor")
             self.hand_controller.closeHand()
+
+            # TODO Grasp Evaluation
+            # Save grasp joints
+            current_grasp = self.get_current_grasp()
+            EquipmentTask.compare_grasp(current_grasp, self.selected_equipment.grasp)
+            self.selected_equipment.grasp = self.get_current_grasp()
+            if self.evaluation:
+                self.evaluation.grasp = current_grasp
+
             self.moveit.attach_equipment(self.selected_equipment)
             # TODO: Evaluate Grasp based on finger position
             lift_pose = self.selected_equipment.calculate_relative_offset()  # type: PoseStamped
@@ -975,7 +1031,7 @@ if __name__ == '__main__':
         while not rospy.is_shutdown():
             # obj.sense()
             rospy.loginfo("start")
-            obj.check_set_equipment_pose()
+            EquipmentTask.compare_grasp(obj.get_current_grasp(), obj.selected_equipment.grasp)
             # try:
             # rospy.loginfo("### Set %s ###" % eq.name)
             # obj.start([2])

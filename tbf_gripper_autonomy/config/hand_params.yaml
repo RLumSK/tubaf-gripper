@@ -4,3 +4,4 @@ hand_server_name: "/hand/gripper_action"
 hand_mode: "basic"
 toggle_depth_image_service_name: "/toggle_gripper_d435_throttle_depth_image_rect_raw"
 toggle_camera_info_service_name: "/toggle_gripper_d435_throttle_depth_camera_info"
+grasp_tolerance: 0.01

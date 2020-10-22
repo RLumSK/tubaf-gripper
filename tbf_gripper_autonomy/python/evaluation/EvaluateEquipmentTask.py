@@ -32,17 +32,19 @@
 
 import rospy
 import os
+import numpy as np
 
-from geometry_msgs.msg import PoseStamped as PoseStamped
-from geometry_msgs.msg import Pose as Pose
-from sensor_msgs.msg import Image as Image
+from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Pose
+from sensor_msgs.msg import Image, JointState
 from std_msgs.msg import Float32 as Float
-from std_msgs.msg import String as String
+from std_msgs.msg import String
 from std_msgs.msg import Int32 as Int32
 from moveit_msgs.msg import RobotTrajectory, PlanningScene, RobotState
-from object_recognition_msgs.msg import TableArray as TableArray
-from object_recognition_msgs.msg import Table as Table
-from visualization_msgs.msg import MarkerArray as MarkerArray
+from object_recognition_msgs.msg import TableArray
+from object_recognition_msgs.msg import Table
+from visualization_msgs.msg import MarkerArray
+from message_filters import Cache, Subscriber
 
 
 class EquipmentTask(object):
@@ -71,6 +73,7 @@ class EquipmentTask(object):
         self.floor = Table()
         self.sense_obstacles = MarkerArray()
         self.sense_ps = PoseStamped()
+        self.grasp = JointState()
 
         self.dct_rgb_img = {}
         self.dct_dpt_img = {}
@@ -212,7 +215,8 @@ class EquipmentTask(object):
         bag.write('pose/estimated', self.estimated_set_pose)
         bag.write('pose/intermediate', self.intermediate_set_pose)
         bag.write('pose/sensed', self.sensed_set_pose)
-        bag.write('grasp_relation', self.grasp_relation)
+        bag.write('ssb2hand', self.grasp_relation)
+        bag.write('grasp', self.grasp)
         bag.write('sensed_pose_confidence', Float(self.sensed_pose_confidence))
         bag.write('t_in_s', Float(self.t_in_s))
 
@@ -241,16 +245,19 @@ if __name__ == '__main__':
     rospy.init_node("evaluate_autonomy", log_level=rospy.DEBUG)
     # Init
     obj = EquipmentTask()
-    obj.t_start = rospy.Time.now()
-    rospy.sleep(1.0)
-    obj.store_img("test")
-    obj.pause()
-    rospy.sleep(1.0)
-    obj.resume()
-    rospy.sleep(1.0)
-    p = RobotTrajectory()
-    obj.add_moveit_plan_information("test", p, 0.1, 1, 120.0, PlanningScene(), RobotState())
-    rospy.sleep(1.0)
-    obj.t_in_s = obj.calc_time()
-    secs = rospy.Time.now().secs
-    obj.save_as_bag("~/bags/unknown_dir/test" + str(secs)[6:] + ".bag")
+    while not rospy.is_shutdown():
+        obj.save_current_grasp()
+        obj.compare_current_grasp()
+    # obj.t_start = rospy.Time.now()
+    # rospy.sleep(1.0)
+    # obj.store_img("test")
+    # obj.pause()
+    # rospy.sleep(1.0)
+    # obj.resume()
+    # rospy.sleep(1.0)
+    # p = RobotTrajectory()
+    # obj.add_moveit_plan_information("test", p, 0.1, 1, 120.0, PlanningScene(), RobotState())
+    # rospy.sleep(1.0)
+    # obj.t_in_s = obj.calc_time()
+    # secs = rospy.Time.now().secs
+    # obj.save_as_bag("~/bags/unknown_dir/test" + str(secs)[6:] + ".bag")

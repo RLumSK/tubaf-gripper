@@ -76,6 +76,7 @@ class SmartEquipment:
                                   'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
                                   'oientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
                               'detection_offset': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                              'hand_joints_on_grasp': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                               }):
         """
         Default Constructor, may give an dict() with parameters
@@ -120,7 +121,7 @@ class SmartEquipment:
         p.orientation.z = entry["gripper_equipment_pose"]["orientation"]["z"]
         p.orientation.w = entry["gripper_equipment_pose"]["orientation"]["w"]
         self.ssb_T_gripper = pose_to_array(p)  # type: np.ndarray   # description: Affine transformation from
-
+        self.grasp = np.asarray(entry["hand_joints_on_grasp"])
         if "T_alter" not in entry.keys():
             self.T_alter = None
         else:

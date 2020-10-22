@@ -20,7 +20,7 @@ smart_equipment:
     pickup_waypoints: # in degree [base, shoulder, elbow, wrist1, wrist2, wrist3]
       pre_grasp: [-171.2, -97.7, 44.6, -98.7, -85.4, 45.2]
       grasp: [-166.8, -83.4, 47.1, -107.5, -109.5, 35.8]
-      post_grasp: [-158.9, -91.8, 38.3, -88.2, -115.9, 41.1]
+      post_grasp: [-164.7, -94.15, 41.0, -89.2, -110.7, 36.8]
     place_waypoints:
       pre_set: [ 0.0, -110.0, 135.0, -169.5, -92.9, 47.0]
       set: [ 0.3, -17.0, 116.9, -244.3, -92.7, 47.6]
@@ -56,6 +56,7 @@ smart_equipment:
       - [ 0.0, -1.0, 0.0, 0.0 ]
       - [ 0.0, 0.0, 1.0, 0.0 ]
       - [ 0.0, 0.0, 0.0, 1.0 ]
+    hand_joints_on_grasp: [0.7207183146470701, 0.730300514461941, 0.7925848132586014, 0.7022383578612479, 0.7145583290517961, 0.7946381417903594, 0.06159985595274109, 0.07186649861153127, 0.1385996758936674, 0.09838865881340583, -0.09838865881340583]
 
   - name:
       "Kugel"
@@ -109,6 +110,7 @@ smart_equipment:
     detection_offset: [ 0.0, 0.0, 0.061, 0.0, 0.0, 1.5708 ]  # offset between the coordinate frame of the mesh and the one
     # referred to by the detecting algorithm: xyzrpy
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
+    hand_joints_on_grasp: [1.3291880028913678, 1.3291880028913678, 1.3291880028913678, 1.4845565284610591, 1.4845565284610591, 1.4845565284610591, 0.7135316647859172, 0.7135316647859172, 0.7135316647859172, 0.09838865881340583, -0.09838865881340583]
 
   - name:
       "Wassersonde"
@@ -161,6 +163,7 @@ smart_equipment:
     detection_offset: [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]  # offset between the coordinate frame of the mesh and the one
     # referred to by the detecting algorithm: xyzrpy
     hold_on_set: 25.0  # 0 is release, else is Duration in seconds
+    hand_joints_on_grasp: [1.3291880028913678, 1.3291880028913678, 1.3291880028913678, 1.4845565284610591, 1.4845565284610591, 1.4845565284610591, 0.7135316647859172, 0.7135316647859172, 0.7135316647859172, 0.09838865881340583, -0.09838865881340583]
 
 ### General Information ###
 interactive_marker_server_name: "SE_MarkerServer"
