@@ -33,6 +33,7 @@
 import rospy
 from autonomy.EquipmentTask import EquipmentTask
 from evaluation.EvaluateEquipmentTask import EquipmentTask as Evaluation
+from tubaf_tools.help import play_sound
 
 
 if __name__ == '__main__':
@@ -64,8 +65,10 @@ if __name__ == '__main__':
             if "pick" in str_exp:
                 rospy.loginfo("[exp_set_ssb as %s] Pick %s" % (nn, obj.name))
                 et.pick_after_place(obj)
+            play_sound("finish")
         except Exception as ex:
             rospy.logerr(ex.message)
+            play_sound("error")
         finally:
             if et.evaluation:
                 secs = rospy.Time.now().secs
@@ -73,4 +76,5 @@ if __name__ == '__main__':
                 et.evaluation = Evaluation()
                 et.moveit.evaluation = et.evaluation
         rospy.loginfo("[exp_set_ssb] Finished %s" % obj.name)
+        play_sound("world")
     rospy.spin()
