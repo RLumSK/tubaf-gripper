@@ -399,7 +399,7 @@ class MoveitInterface(object):
             # rospy.logdebug("MoveitInterface.move_to_target(): Plan:\n%s", plan)
             if len(plan.joint_trajectory.points) == 0:
                 rospy.loginfo("MoveitInterface.plan(): No valid plan found, trying again (%d/%d) ..." %
-                              (attempts, self.max_attempts + 1))
+                              (attempts, self.max_attempts))
                 rospy.logdebug("MoveitInterface.plan(): Current Joint values[deg] %s",
                                ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
                                )
@@ -569,9 +569,12 @@ class MoveitInterface(object):
         rospy.logdebug("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
             current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
         MoveitInterface.clear_octomap()
-        self.move_to_target(target, info, endless, constraints=constraints)
-        success = apply_planning_scene(current_octomap)
-        rospy.logdebug("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
+        success = self.move_to_target(target, info, endless, constraints=constraints)
+        oct_suc = apply_planning_scene(current_octomap)
+        if not oct_suc:
+            rospy.logwarn("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
+            rospy.sleep(10.0)
+            oct_suc = apply_planning_scene(current_octomap)
         return success
 
     def move_to_target(self, target, info, endless=True, blind=False, constraints=None):

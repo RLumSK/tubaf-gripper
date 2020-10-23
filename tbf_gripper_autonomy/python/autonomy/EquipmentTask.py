@@ -635,10 +635,13 @@ class EquipmentTask(GraspTask):
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor")
 
-            while self.moveit.get_ik(target_pose) is None:
+            i = 0
+            while self.moveit.get_ik(target_pose, max_attempts=10) is None and not rospy.is_shutdown() and i < 5:
+                self.debug_pose_pub.publish(target_pose)
                 self.selected_equipment.set_alternative_pose()
                 target_pose = self.selected_equipment.calculate_relative_offset()
                 self.selected_equipment.get_int_marker(self.selected_equipment.ps, target_pose)
+                i += 1
                 # if self.moveit.get_ik(target_pose) is None:
                 #     return -2  # -2: EquipmentNotPicked
 
