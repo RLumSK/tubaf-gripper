@@ -36,21 +36,24 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 from moveit_commander import RobotState, RobotTrajectory
-from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene, PlanningSceneComponents
+from moveit_msgs.msg import CollisionObject, Constraints, PlanningScene, PlanningSceneComponents, OrientationConstraint
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse,\
         GetPositionFK, GetPositionFKRequest, GetPositionFKResponse,\
         GetPlanningScene, GetPlanningSceneResponse
 from std_srvs.srv import Empty
 
 import numpy as np
+from scipy.spatial.transform.rotation import Rotation as R
 
 from shape_msgs.msg import Mesh
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped, Vector3Stamped
 from sensor_msgs.msg import JointState
 
 from tf import TransformListener
 from tubaf_tools.confirm_service import wait_for_confirmation
 from tbf_gripper_tools.SmartEquipment import SmartEquipment
+from tubaf_tools import array_to_pose, pose_to_array, transform_ps
+from look_at_pose.srv import LookAtPose, LookAtPoseResponse
 
 import pyassimp
 from pyassimp.errors import AssimpError
@@ -232,6 +235,7 @@ class MoveitInterface(object):
         self.attached_equipment = None
 
         self.scene_diff_pub = rospy.Publisher("/planning_scene", data_class=PlanningScene, queue_size=1)
+        self.dbg_pose_pub = rospy.Publisher("/dbg_pose", PoseStamped, queue_size=1)
 
     def _remove_world_object(self, name=None):
         """
@@ -325,9 +329,9 @@ class MoveitInterface(object):
         self.group.clear_pose_targets()
         start = self._set_start_state()
         current_values = self.group.get_current_joint_values()  # type: list
-        rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
-                       ["%.2f" % v for v in np.rad2deg(current_values)]
-                       )
+        # rospy.logdebug("MoveitInterface.plan(): Current Joint value %s",
+        #                ["%.2f" % v for v in np.rad2deg(current_values)]
+        #                )
         self.group.set_start_state(start)
         target_dict = dict()
         set_values = [0, 0, 0, 0, 0, 0]
@@ -337,11 +341,11 @@ class MoveitInterface(object):
                 for j, ist in zip(range(len(target)), current_values):
                     target_dict[joint_name[j]] = np.deg2rad(convert_angle(np.rad2deg(ist), target[j]))
                     set_values[j] = target_dict[joint_name[j]]
-                    rospy.logdebug("MoveitInterface.plan(): %s \t%4.2f (%4.2f) ->\t%4.2f" % (joint_name[j], target[j],
-                                                                                             np.rad2deg(ist),
-                                                                                             np.rad2deg(
-                                                                                                 target_dict[
-                                                                                                     joint_name[j]])))
+                    # rospy.logdebug("MoveitInterface.plan(): %s \t%4.2f (%4.2f) ->\t%4.2f" % (joint_name[j], target[j],
+                    #                                                                          np.rad2deg(ist),
+                    #                                                                          np.rad2deg(
+                    #                                                                              target_dict[
+                    #                                                                                  joint_name[j]])))
                     self.group.set_joint_value_target(joint_name[j], target_dict[joint_name[j]])
             elif type(target) is Pose:
                 rospy.logwarn("MoveitInterface.plan(): Planning Pose target %s", target)
@@ -464,6 +468,83 @@ class MoveitInterface(object):
 
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
         return get_planning_scene( components=PlanningSceneComponents( components=comp))  # type: GetPlanningSceneResponse
+
+    def look_at(self, ps, frame=None, info="Look", execute=False):
+        """
+        Look with the frame towards a given PoseStamped - only change eef orientation
+        :return: PoseStamped
+        """
+        if type(ps) is not PoseStamped:
+            raise("MoveitInterface.look_at: ps has wrong type, got %s expected PoseStamped" % type(ps))
+        if frame is None:
+            frame = self.eef_link
+        ret_ps = PoseStamped()
+        ret_ps.header.frame_id = ps.header.frame_id
+
+        try:
+            rospy.wait_for_service('look_at_pose')
+            look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
+            rospy.logdebug("[MoveitInterface.look_at()] ps \n%s\n frame: %s" % (ps, frame))
+
+            # from: https://github.com/UTNuclearRoboticsPublic/look_at_pose/blob/kinetic/nodes/test_client
+            # new_pose = new_cam_pose(pt_of_interest)
+            initial_cam_pose = PoseStamped()
+            initial_cam_pose.header.stamp = rospy.Time.now()
+            initial_cam_pose.header.frame_id = frame
+            initial_cam_pose.pose.position.x = 0
+            initial_cam_pose.pose.position.y = 0
+            initial_cam_pose.pose.position.z = 0
+            initial_cam_pose.pose.orientation.x = 0
+            initial_cam_pose.pose.orientation.y = 0
+            initial_cam_pose.pose.orientation.z = 0
+            initial_cam_pose.pose.orientation.w = 1
+
+            up_vector = Vector3Stamped()
+            up_vector.header.frame_id = frame
+            up_vector.header.stamp = rospy.Time(0)
+            up_vector.vector.x = 0
+            up_vector.vector.y = 0
+            up_vector.vector.z = 1
+
+            target_pose = transform_ps(ps, frame, self.tf_listener)
+
+            rospy.sleep(1.0)
+            response = look_at_pose_client(initial_cam_pose, target_pose, up_vector)  # type: LookAtPoseResponse
+
+            ret_ps = response.new_cam_pose
+            rospy.logdebug("[MoveitInterface.look_at()] ret_ps \n%s" % ret_ps)
+
+        except rospy.TransportException as te:
+            rospy.logerr("[MoveitInterface.look_at()] TransportException during Service call \n %s" % te.message)
+            rospy.logerr("[MoveitInterface.look_at()] service: %s" % look_at_pose_client.resolved_name)
+
+        # TODO apply frame-eef transformation
+        # [x, y, z], [r_x, r_y, r_z, r_w] = self.tf_listener.lookupTransform(self.eef_link, frame, rospy.Time(0))
+        # trans = np.asarray([x, y, z])
+        # rot = R.from_quat([r_x, r_y, r_z, r_w]).as_dcm()
+        # cTg = np.eye(4)
+        # cTg[:3,:3] = rot
+        # cTg[:3, 3] = trans
+        # cTs = pose_to_array(ret_ps.pose)
+        #
+        # gTs = np.matmul(np.linalg.inv(cTs), cTg)
+        # ret_ps.pose = array_to_pose(gTs)
+
+        c_orientation = OrientationConstraint()
+        c_orientation.header = ret_ps.header
+        c_orientation.orientation = ret_ps.pose.orientation
+        c_orientation.absolute_z_axis_tolerance = 2 * np.pi
+
+        constraints = Constraints()
+        constraints.name = "Camera_free_z_constraint"
+        constraints.orientation_constraints.append(c_orientation)
+
+        self.dbg_pose_pub.publish(ret_ps)
+        if execute:
+            self.move_to_target(ret_ps, info, blind=True, endless=False, constraints=constraints)
+            # self.move_to_target(ret_ps, info, blind=False, endless=False)
+
+        return ret_ps
 
     def move_to_set(self, target, info, endless=True, constraints=None):
         """
@@ -929,7 +1010,8 @@ if __name__ == '__main__':
     # Equipment Parameter
     for equip in rospy.get_param("/equipment_handler/smart_equipment"):
         eq = SmartEquipment(equip)
-        obj.add_equipment(eq)
+        obj.look_at(eq.place_ps, execute=True)
+        # obj.look_at(eq.place_ps, "rs_gripper_d435_depth_optical_frame", execute=True)
     # rospy.logdebug("hi")
     # obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     rospy.spin()

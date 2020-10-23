@@ -1,11 +1,10 @@
 <launch>
-<!--    START AT RECOGNITION AT JM-->
-<!--    <include file="$(find tbf_gripper_perception)/launch/recognition.launch" /> -->
     <arg name="ssb_detection_service_name"       default="locate_ssb_in_cloud"/>
     <arg name="cloud_topic"        default="/gripper_d435/depth_registered/points"/>
     <arg name="record"              default="false" />
+    <arg name="node_name"   default="test_EquipmentTask" />
 
-    <node name="equipment_handler" pkg="tbf_gripper_autonomy" type="EquipmentTask.py" respawn="false" output="screen">
+    <node name="$(arg node_name)" pkg="tbf_gripper_autonomy" type="EquipmentTask.py" respawn="false" output="screen">
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
@@ -13,17 +12,12 @@
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/pose_client.yaml"/>
         <param name="ssb_detection_service_name" value="$(arg ssb_detection_service_name)"/>
         <param name="cloud_topic" value="$(arg cloud_topic)"/>
+        <param name="confirm_plan_service_ns" value="/$(arg node_name)/confirm_plan"/>
+        <param name="min_detection_score" value="0.99" />
     </node>
 
-    <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_plan_marker" respawn="false" output="screen">
+    <node pkg="tubaf_tools" type="marker_confirm.py" name="$(arg node_name)_confirm_plan_marker" respawn="false" output="screen">
         <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_move_planning.yaml"/>
-        <param name="service_ns" value="/equipment_handler/confirm_plan"/>
+        <param name="service_ns" value="/$(arg node_name)/confirm_plan"/>
     </node>
-
-    <node pkg="tubaf_tools" type="marker_confirm.py" name="confirm_set_pose_marker" respawn="false" output="screen">
-        <rosparam command="load" file="$(find tubaf_tools)/config/marker_confirm_pose.yaml"/>
-        <param name="service_ns" value="/equipment_handler/confirm_set_pose"/>
-    </node>
-
-    <include file="$(find tbf_gripper_launch)/launch/bag_equipment_handling.launch" if="$(arg record)" />
 </launch>
