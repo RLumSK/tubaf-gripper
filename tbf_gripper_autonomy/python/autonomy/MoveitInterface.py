@@ -44,6 +44,8 @@ from std_srvs.srv import Empty
 
 import numpy as np
 from scipy.spatial.transform.rotation import Rotation as R
+from moveit_msgs.srv import ApplyPlanningScene
+from moveit_msgs.msg import PlanningSceneComponents
 
 from shape_msgs.msg import Mesh
 from geometry_msgs.msg import Pose, PoseStamped, Vector3Stamped
@@ -233,7 +235,7 @@ class MoveitInterface(object):
         self.confirm_plan_service_ns = rospy.get_param("~confirm_plan_service_ns", "/confirm_plan")
         self.scene.remove_attached_object(link=self.eef_link)  # Remove any equipped item on the end effector
         self.attached_equipment = None
-
+        self.current_octomap = MoveitInterface.get_planing_scene(PlanningSceneComponents.OCTOMAP).scene  # type:PlanningScene
         self.scene_diff_pub = rospy.Publisher("/planning_scene", data_class=PlanningScene, queue_size=1)
         self.dbg_pose_pub = rospy.Publisher("/dbg_pose", PoseStamped, queue_size=1)
 
@@ -448,6 +450,26 @@ class MoveitInterface(object):
         rospy.loginfo("MoveitInterface.execute(): Executing ...")
         return self.group.execute(plan)
 
+    def save_octomap(self):
+        """
+        Save the current octomap of the planing scene to apply it later
+        :return:
+        """
+        response = MoveitInterface.get_planing_scene(PlanningSceneComponents.OCTOMAP)
+        self.current_octomap = response.scene  # type:PlanningScene
+        self.current_octomap.is_diff = True  # keeps robot_state, since we will only add the old octomap
+
+    def apply_octomap(self):
+        """
+        Apply current octomap to planing scene
+        :return:
+        """
+        self.current_octomap.is_diff = True
+        apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
+        while not apply_planning_scene(self.current_octomap):
+            rospy.logwarn("[MoveitInterface.apply_octomap] Pending")
+            rospy.sleep(2.0)
+
     @staticmethod
     def clear_octomap():
         """
@@ -559,22 +581,10 @@ class MoveitInterface(object):
         :return: success
         :rtype: bool
         """
-        from moveit_msgs.srv import ApplyPlanningScene
-        from moveit_msgs.msg import PlanningSceneComponents
-
-        response = MoveitInterface.get_planing_scene(PlanningSceneComponents.OCTOMAP)
-        apply_planning_scene = rospy.ServiceProxy('/apply_planning_scene', ApplyPlanningScene)
-        current_octomap = response.scene  # type:PlanningScene
-        current_octomap.is_diff = True  # keeps robot_state, since we will only add the old octomap
-        rospy.logdebug("[MoveitInterface.move_to_set()] current_octomap id: %s \t resolution: %s" % (
-            current_octomap.world.octomap.octomap.id, current_octomap.world.octomap.octomap.resolution))
+        self.save_octomap()
         MoveitInterface.clear_octomap()
         success = self.move_to_target(target, info, endless, constraints=constraints)
-        oct_suc = apply_planning_scene(current_octomap)
-        if not oct_suc:
-            rospy.logwarn("[MoveitInterface.move_to_set()] apply_planning_scene successful? %s" % success)
-            rospy.sleep(10.0)
-            oct_suc = apply_planning_scene(current_octomap)
+        self.apply_octomap()
         return success
 
     def move_to_target(self, target, info, endless=True, blind=False, constraints=None):
@@ -813,79 +823,6 @@ class MoveitInterface(object):
         released_equipment.ps = self.tf_listener.transformPose(world_frame, released_equipment.ps)
         self.add_equipment(released_equipment)
         return released_equipment
-
-    def clear_octomap_on_mesh(self, ps, mesh):
-        """
-        Clears the octomap on a desired pose with a marker to enable planning to this pose without collision -
-        use careful
-        :param ps: pose of the mesh
-        :type ps: PoseStamped
-        :param mesh: path to mesh
-        :type mesh: str
-        :return: -
-        :rtype: -
-        """
-        # Octomap should be cleared of obstacles where the marker is added, now remove it to prevent collision
-        # Due to an missing frame_id in self.scene.remove_world_object(), we implement it ourself
-        orginal_ps = copy.deepcopy(ps)
-        co = CollisionObject()
-        co.operation = CollisionObject.REMOVE
-        co.header.frame_id = ps.header.frame_id
-        co.id = "tmp_scaled"
-        scaling = 1.5
-        sleep = 2.0
-        # ps.pose.position.z = ps.pose.position.z + 0.1 * (1 - scaling)  # move slightly in the ground
-        self.scene.add_mesh(name=co.id, pose=ps, filename=mesh, size=(scaling, scaling, scaling))
-        rospy.sleep(sleep)
-        self.scene._pub_co.publish(co)
-        rospy.sleep(sleep)
-        self.scene.add_mesh(name="tmp_orginal", pose=orginal_ps, filename=mesh, size=(1.0, 1.0, 1.0))
-        rospy.sleep(sleep)
-        co.id = "tmp_orginal"
-        self.scene._pub_co.publish(co)
-        rospy.sleep(sleep)
-        return
-
-    def clear_octomap_via_box_marker(self, ps=None):
-        """
-        Clear the octomap above the bos station using a marker
-        :param ps: optional pose where the box should clear
-        :type ps: PoseStamped
-        :return: None
-        """
-        rospy.logdebug("MoveitInterface.clear_octomap_via_box_marker():")
-        # size = (0.4, 0.6, 0.4)
-        # size = [0.6, 0.4, 0.5]
-        size = [0.75, 0.5, 0.5]
-        if ps is None:
-            ps = PoseStamped()
-            ps.header.frame_id = "controlbox_structure_top_front_link"
-            ps.header.stamp = rospy.Time.now()
-            ps.pose.position.x = 0  # was: size[0]/2.0
-            ps.pose.position.y = size[1] / 2.0
-            ps.pose.position.z = size[2] / 2.0
-            # If we exited the while loop without returning then we timed out
-            return False
-        # Adding Objects to the Planning Scene
-        # https://ros-planning.github.io/moveit_tutorials/doc/move_group_python_interface/move_group_python_interface_tutorial.html#start-rviz-and-movegroup-node
-        name = "rubber"
-        self.scene.add_box(name, ps, size)
-        wait_till_updated(self.scene, name, attached=False, known=True)
-        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Added")
-        self.scene.attach_box(ps.header.frame_id, name)
-        wait_till_updated(self.scene, name, attached=True, known=False)
-        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Attached")
-
-        rospy.sleep(1.0)
-
-        self.scene.remove_attached_object(ps.header.frame_id, name)
-        wait_till_updated(self.scene, name, attached=False, known=True)
-        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Detached")
-
-        # Note: The object must be detached before we can remove it from the world
-        self.scene.remove_world_object(name)
-        wait_till_updated(self.scene, name, attached=False, known=False)
-        rospy.loginfo("[MoveitInterface.clear_octomap_via_box_marker()] Removed")
 
     def get_object_pose(self, name):
         """
