@@ -476,7 +476,9 @@ class MoveitInterface(object):
         Call the 'clear_octomap' Service of the move_group node
         :return:
         """
+        rospy.wait_for_service('/clear_octomap')
         clear_octomap = rospy.ServiceProxy('/clear_octomap', Empty)
+        rospy.sleep(1.0)
         clear_octomap()
 
     @staticmethod
@@ -957,12 +959,15 @@ if __name__ == '__main__':
     rospy.init_node("MoveIt_Interface", log_level=rospy.DEBUG)
     # Init Moveit
     obj = MoveitInterface("~moveit")
-    # Equipment Parameter
-    for equip in rospy.get_param("/equipment_handler/smart_equipment"):
-        eq = SmartEquipment(equip)
-        obj.look_at(eq.place_ps, execute=True)
-        # obj.look_at(eq.place_ps, "rs_gripper_d435_depth_optical_frame", execute=True)
-    # rospy.logdebug("hi")
-    # obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    # # Equipment Parameter
+    # for equip in rospy.get_param("/equipment_handler/smart_equipment"):
+    #     eq = SmartEquipment(equip)
+    #     obj.look_at(eq.place_ps, execute=True)
+    #     # obj.look_at(eq.place_ps, "rs_gripper_d435_depth_optical_frame", execute=True)
+    # # rospy.logdebug("hi")
+    # # obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    while not rospy.is_shutdown():
+        MoveitInterface.clear_octomap()
+        rospy.sleep(2.0)
     rospy.spin()
 
