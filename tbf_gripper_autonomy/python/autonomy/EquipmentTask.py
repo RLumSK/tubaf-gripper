@@ -564,9 +564,14 @@ class EquipmentTask(GraspTask):
                     self.evaluation.store_img(title)
                 if score > max_score:
                     rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected with better score: %s" % score)
-                    max_score = score
-                    max_pose = detected_ssb_pose
-                    self.selected_equipment.get_int_marker(detected_ssb_pose)
+                    gripper_ps = transform_ps(SmartEquipment.calculate_pose2pose_offset(detected_ssb_pose,
+                                                                                        self.selected_equipment.ssb_T_gripper),
+                                              "base_footprint")
+                    if gripper_ps.pose.position.z > 0.025:
+                        rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected seams valid - updating")
+                        max_score = score
+                        max_pose = detected_ssb_pose
+                        self.selected_equipment.get_int_marker(detected_ssb_pose)
         score = max_score
         detected_ssb_pose = max_pose
 
@@ -684,17 +689,19 @@ class EquipmentTask(GraspTask):
             self.hand_controller.closeHand(continue_image_service=False)
 
             intermediate_pose = transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint")
-            intermediate_pose.pose.position.x += 0.1
+            intermediate_pose.pose.position.x += 0.075
             intermediate_pose.pose.position.y += 0.1
             intermediate_pose.pose.position.z += 0.25
             # rospy.logdebug("[EquipmentTask.pick_after_place(2)] intermediate_pose\n%s" % intermediate_pose)
             # rospy.logdebug("[EquipmentTask.pick_after_place(2)] target_pose\n%s" % target_pose)
             self.debug_pose_pub.publish(intermediate_pose)
             self.moveit.move_to_target(target=intermediate_pose, info="Grasp0Intermediate", endless=False, blind=True)
+            self.moveit.look_at(transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint"),
+                                info="Grasp1LookIntermediate", execute=True)
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor", continue_image_service=False)
 
-            if not self.moveit.move_to_set(target=target_pose, info="Grasp1FromFloor", endless=True):
+            if not self.moveit.move_to_set(target=target_pose, info="Grasp2FromFloor", endless=True):
                 return -2  # -2: EquipmentNotPicked
 
         if 3 in stages:
@@ -726,8 +733,8 @@ class EquipmentTask(GraspTask):
 
             set_ps = transform_ps(self.moveit.get_fk(self.selected_equipment.pickup_waypoints["grasp"]),
                                   "base_footprint")
-            set_ps.pose.position.z -= 0.15
-            if not self.moveit.move_to_target(target=set_ps, info="SetOntoRobot"):
+            set_ps.pose.position.z -= 0.07
+            if not self.moveit.move_to_target(target=set_ps, info="SetOntoRobot", endless=False, blind=True):
                 return -4  # -2: EquipmentNotSet
             self.moveit.detach_equipment()
             self.hand_controller.openHand()
