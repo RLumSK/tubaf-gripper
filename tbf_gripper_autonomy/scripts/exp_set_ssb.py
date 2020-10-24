@@ -76,5 +76,5 @@ if __name__ == '__main__':
                 et.evaluation = Evaluation()
                 et.moveit.evaluation = et.evaluation
         rospy.loginfo("[exp_set_ssb] Finished %s" % obj.name)
-        play_sound("world")
+        play_sound("win")
     rospy.spin()

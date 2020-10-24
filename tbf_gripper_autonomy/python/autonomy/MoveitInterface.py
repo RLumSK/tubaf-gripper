@@ -506,7 +506,7 @@ class MoveitInterface(object):
         try:
             rospy.wait_for_service('look_at_pose')
             look_at_pose_client = rospy.ServiceProxy('look_at_pose', LookAtPose)
-            rospy.logdebug("[MoveitInterface.look_at()] ps \n%s\n frame: %s" % (ps, frame))
+            # rospy.logdebug("[MoveitInterface.look_at()] ps \n%s\n frame: %s" % (ps, frame))
 
             # from: https://github.com/UTNuclearRoboticsPublic/look_at_pose/blob/kinetic/nodes/test_client
             # new_pose = new_cam_pose(pt_of_interest)
@@ -534,7 +534,7 @@ class MoveitInterface(object):
             response = look_at_pose_client(initial_cam_pose, target_pose, up_vector)  # type: LookAtPoseResponse
 
             ret_ps = response.new_cam_pose
-            rospy.logdebug("[MoveitInterface.look_at()] ret_ps \n%s" % ret_ps)
+            # rospy.logdebug("[MoveitInterface.look_at()] ret_ps \n%s" % ret_ps)
 
         except rospy.TransportException as te:
             rospy.logerr("[MoveitInterface.look_at()] TransportException during Service call \n %s" % te.message)
@@ -583,6 +583,7 @@ class MoveitInterface(object):
         """
         self.save_octomap()
         MoveitInterface.clear_octomap()
+        rospy.sleep(1.0)
         success = self.move_to_target(target, info, endless, constraints=constraints)
         self.apply_octomap()
         return success

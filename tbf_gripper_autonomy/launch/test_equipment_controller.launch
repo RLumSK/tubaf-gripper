@@ -13,7 +13,7 @@
         <param name="ssb_detection_service_name" value="$(arg ssb_detection_service_name)"/>
         <param name="cloud_topic" value="$(arg cloud_topic)"/>
         <param name="confirm_plan_service_ns" value="/$(arg node_name)/confirm_plan"/>
-        <param name="min_detection_score" value="0.99" />
+        <param name="min_detection_score" value="0.1" />
     </node>
 
     <node pkg="tubaf_tools" type="marker_confirm.py" name="$(arg node_name)_confirm_plan_marker" respawn="false" output="screen">

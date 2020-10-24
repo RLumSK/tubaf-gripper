@@ -216,7 +216,7 @@ class EquipmentTask(object):
                 for k in dct:
                     try:
                         for item in dct[k]:
-                            if dtype in [RobotTrajectory, PlanningScene, RobotState]:
+                            if dtype in [RobotTrajectory, PlanningScene, RobotState, PoseStamped]:
                                 bfile.write(prefix + k, item)
                             else:
                                 bfile.write(prefix + k, dtype(item))
@@ -238,7 +238,7 @@ class EquipmentTask(object):
         export_dict(self.dct_planner, bag, String, 'planner/')
         export_dict(self.dct_attempts, bag, Int32, 'attempts/')
         export_dict(self.dct_observed_pose, bag, PoseStamped, 'observed_ps/')
-        export_dict(self.dct_observation_confidence, bag, PoseStamped, 'observation_confidence/')
+        export_dict(self.dct_observation_confidence, bag, Float, 'observation_confidence/')
 
         for key in self.dct_rgb_img:
             bag.write('rgb/' + key, self.dct_rgb_img[key])
