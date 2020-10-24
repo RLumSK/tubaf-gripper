@@ -107,7 +107,7 @@ smart_equipment:
         z: 0.32813796208620294
         w: 0.09890636083194124
 
-    detection_offset: [ 0.0, 0.0, 0.061, 0.0, 0.0, 1.5708 ]  # offset between the coordinate frame of the mesh and the one
+    detection_offset: [ 0.0, 0.0, 0.061, 0.0, 0.0, 0.0 ] # [ 0.0, 0.0, 0.061, 0.0, 0.0, 1.5708 ]  # offset between the coordinate frame of the mesh and the one
     # referred to by the detecting algorithm: xyzrpy
     hold_on_set: 0.0  # 0 is release, else is Duration in seconds
     hand_joints_on_grasp: [1.3291880028913678, 1.3291880028913678, 1.3291880028913678, 1.4845565284610591, 1.4845565284610591, 1.4845565284610591, 0.7135316647859172, 0.7135316647859172, 0.7135316647859172, 0.09838865881340583, -0.09838865881340583]
