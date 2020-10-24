@@ -572,6 +572,7 @@ class GripperMarker(InteractiveMarker):
         MarkerServerSingleton.get_instance().clear()
         MarkerServerSingleton.get_instance().applyChanges()
 
+
 if __name__ == '__main__':
     rospy.init_node("SSBGraspMarker", log_level=rospy.INFO)
     # sm = SSBGraspedMarker()

@@ -63,6 +63,9 @@ class EquipmentTask(object):
         self.dct_planner = {}
         self.dct_attempts = {}
         self.dct_rel_time = {}
+        self.dct_observed_pose = {}
+        self.dct_observation_confidence = {}
+        self.dct_detect_image = {}
         self.estimated_set_pose = PoseStamped()
         self.sensed_set_pose = PoseStamped()
         self.intermediate_set_pose = PoseStamped()
@@ -87,6 +90,9 @@ class EquipmentTask(object):
         self._rgb_topic = rospy.get_param("~rgb_topic", "/gripper_d435/color/image_rect_color")
         self._dpt_topic = rospy.get_param("~depth_topic", "/gripper_d435/depth/image_rect_raw")
 
+        sub = Subscriber(rospy.get_param("~detect_image_topic", "/detectImage"), Image)
+        self.cache_detect_image = Cache(sub, 5, True)
+
     def add_moveit_plan_information(self, key, plan, duration, attempts, time, planing_scene):
         """
         Store information from MoveIt for a given key
@@ -96,7 +102,6 @@ class EquipmentTask(object):
         :param attempts: used number of attempts
         :param time: Time
         :param planing_scene: MoveIt! planing scene (full)
-        :param
         :return:
         """
         if key in self.dct_trajectory:
@@ -111,7 +116,25 @@ class EquipmentTask(object):
             self.dct_planing_time[key] = [duration]
             self.dct_attempts[key] = [attempts]
             self.dct_rel_time[key] = [time]
-    
+
+    def add_observation(self, key, ps, confidence):
+        """
+        Store information from Object detection
+        :param key: key for the dictionaries
+        :param ps: observed PoseStamped
+        :param confidence: score from observation
+        :return:
+        """
+        detect_img = self.cache_detect_image.getLast()
+        if key in self.dct_observed_pose:
+            self.dct_observed_pose[key].append(ps)
+            self.dct_observation_confidence[key].append(confidence)
+            self.dct_detect_image[key].append(detect_img)
+        else:
+            self.dct_observed_pose[key] = [ps]
+            self.dct_observation_confidence[key] = [confidence]
+            self.dct_detect_image[key] = [detect_img]
+
     def pause(self):
         """
         Pause timing
@@ -144,6 +167,15 @@ class EquipmentTask(object):
         duration = now - self.t_start - self._t_pause
         t_in_s = duration.to_sec()
         return t_in_s
+
+    def store_img(self, key):
+        """
+        Save one image from the rgb and depth topic in the dictionaries under the given key
+        :param key:
+        :return:
+        """
+        self.dct_rgb_img[key] = rospy.wait_for_message(self._rgb_topic, Image)
+        self.dct_dpt_img[key] = rospy.wait_for_message(self._dpt_topic, Image)
 
     def store_img(self, key):
         """
@@ -205,6 +237,8 @@ class EquipmentTask(object):
         export_dict(self.dct_rel_time, bag, Float, 'timing/')
         export_dict(self.dct_planner, bag, String, 'planner/')
         export_dict(self.dct_attempts, bag, Int32, 'attempts/')
+        export_dict(self.dct_observed_pose, bag, PoseStamped, 'observed_ps/')
+        export_dict(self.dct_observation_confidence, bag, PoseStamped, 'observation_confidence/')
 
         for key in self.dct_rgb_img:
             bag.write('rgb/' + key, self.dct_rgb_img[key])

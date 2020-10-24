@@ -512,12 +512,16 @@ class EquipmentTask(GraspTask):
             title = "Search" + str(i_search)
             detected_ssb_pose, score, eq_type = self.adjust_object_detection(self.object_detection(),
                                                                              self.selected_equipment.detection_offset)
-            self.debug_pose_pub.publish(detected_ssb_pose)
+            # self.debug_pose_pub.publish(detected_ssb_pose)
             # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] detected_ssb_pose \n %s" % detected_ssb_pose)
             if detected_ssb_pose is not None and score > rospy.get_param("~min_detection_score", 0.75):
                 break
             rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected %s - score: %s" % (i_search, score))
             if score > 0.1:
+                if self.evaluation:
+                    self.evaluation.add_observation(title, detected_ssb_pose, score)
+                    self.evaluation.store_img(title)
+
                 tmp_ps = PoseStamped()
                 tmp_ps.header.frame_id = self.moveit.eef_link
                 tmp_ps = transform_ps(tmp_ps, "base_footprint")
@@ -530,12 +534,37 @@ class EquipmentTask(GraspTask):
                 watch_ps.pose.position.z = watch_ps.pose.position.z + 0.05 * (i_search % 8)
                 self.moveit.move_to_target(watch_ps, info=title+"0hover", endless=False, blind=True)
 
-            self.debug_pose_pub.publish(watch_ps)
+            # self.debug_pose_pub.publish(watch_ps)
             if self.evaluation:
                 self.evaluation.store_img(title)
             i_search += 1
 
         rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected - score: %s" % score)
+
+        # We got one estimate of the ssb, we want to look closer
+        max_score = score
+        max_pose = detected_ssb_pose
+        if score > 0.1:
+            tmp_ps = PoseStamped()
+            tmp_ps.header.frame_id = self.moveit.eef_link
+            tmp_ps = transform_ps(tmp_ps, "base_footprint")
+            tmp_ps.pose.position.y -= 0.2
+            for i_search in range(5):
+                title = "Detailed" + str(i_search)
+                tmp_ps.pose.position.y += 0.1
+                self.moveit.move_to_target(tmp_ps, info=title + "0slide", endless=False, blind=False)
+                rospy.sleep(0.5)
+                watch_ps = self.moveit.look_at(transform_ps(detected_ssb_pose, "base_footprint"), execute=True)
+                detected_ssb_pose, score, eq_type = self.adjust_object_detection(self.object_detection(),
+                                                                                 self.selected_equipment.detection_offset)
+                if self.evaluation:
+                    self.evaluation.add_observation(title, detected_ssb_pose, score)
+                    self.evaluation.store_img(title)
+                if score > max_score:
+                    max_score = score
+                    max_pose = detected_ssb_pose
+        score = max_score
+        detected_ssb_pose = max_pose
 
         if self.evaluation:
             self.evaluation.pause()
@@ -617,7 +646,7 @@ class EquipmentTask(GraspTask):
             self.moveit.remove_equipment(self.selected_equipment.name)
             MoveitInterface.clear_octomap()
             self.selected_equipment = equipment
-            self.perform([0, 1])
+            # self.perform([0, 1])
 
         if 1 in stages:
             rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 1: Sensing for Smart Equipment")
@@ -629,7 +658,7 @@ class EquipmentTask(GraspTask):
         if 2 in stages:
             rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 2: Move Arm to Equipment")
             # Compute Grasp offset
-            # self.selected_equipment.place_ps was set earlier
+            # self.selected_equipment.ps was set  at   self.check_set_equipment_pose()
             target_pose = self.selected_equipment.calculate_relative_offset()
             self.selected_equipment.get_int_marker(self.selected_equipment.ps, target_pose)
             self.hand_controller.openHand()
@@ -637,20 +666,20 @@ class EquipmentTask(GraspTask):
 
             self.moveit.save_octomap()
             MoveitInterface.clear_octomap()
-            if self.moveit.get_ik(target_pose, max_attempts=10) is None:
-                self.debug_pose_pub.publish(target_pose)
+            if self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=10) is None:
+                self.debug_pose_pub.publish(self.selected_equipment.calculate_relative_offset())
                 self.selected_equipment.set_alternative_pose()
-                target_pose = self.selected_equipment.calculate_relative_offset()
-                self.selected_equipment.get_int_marker(self.selected_equipment.ps, target_pose)
+                self.selected_equipment.get_int_marker(self.selected_equipment.ps, self.selected_equipment.calculate_relative_offset())
                 if self.moveit.get_ik(target_pose, max_attempts=10) is None:
                     raise Exception("Target pose out of range")
-
+            rospy.loginfo("[EquipmentTask.pick_after_place(2)] taget pose seams valid - got IK solution")
             self.moveit.apply_octomap()
-            intermediate_pose = target_pose
-            intermediate_pose.pose.position.z -= 0.15
+            intermediate_pose = self.selected_equipment.calculate_relative_offset()
+            intermediate_pose.pose.position.z += 0.25
+            self.debug_pose_pub.publish(self.selected_equipment.calculate_relative_offset())
             self.moveit.move_to_target(target=intermediate_pose, info="Grasp0Intermediate", endless=False, blind=True)
 
-            if not self.moveit.move_to_set(target=target_pose, info="Grasp1FromFloor", endless=True):
+            if not self.moveit.move_to_set(target=self.selected_equipment.calculate_relative_offset(), info="Grasp1FromFloor", endless=True):
                 return -2  # -2: EquipmentNotPicked
 
         if 3 in stages:

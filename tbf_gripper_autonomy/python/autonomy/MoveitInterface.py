@@ -390,8 +390,8 @@ class MoveitInterface(object):
         plan_valid = False
         attempts = 1
         while not plan_valid and attempts <= self.max_attempts:
-            rospy.loginfo("MoveitInterface.plan(): Planning %s to: \n%s\tPlanning time: %s" %
-                          (info, target, self.group.get_planning_time()))
+            # rospy.logdebug("MoveitInterface.plan(): Planning %s to: \n%s\tPlanning time: %s" %
+            #               (info, target, self.group.get_planning_time()))
             # HERE WE PLAN #
             plan = self.group.plan()
 
