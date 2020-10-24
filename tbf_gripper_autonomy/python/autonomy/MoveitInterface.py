@@ -400,8 +400,8 @@ class MoveitInterface(object):
             attempts += 1
             # rospy.logdebug("MoveitInterface.move_to_target(): Plan:\n%s", plan)
             if len(plan.joint_trajectory.points) == 0:
-                rospy.loginfo("MoveitInterface.plan(): No valid plan found, trying again (%d/%d) ..." %
-                              (attempts, self.max_attempts))
+                rospy.loginfo("MoveitInterface.plan(%s): No valid plan found, trying again (%d/%d) ..." %
+                              (info, attempts, self.max_attempts))
                 rospy.logdebug("MoveitInterface.plan(): Current Joint values[deg] %s",
                                ["%.2f" % v for v in np.rad2deg(self.group.get_current_joint_values())]
                                )
@@ -489,7 +489,7 @@ class MoveitInterface(object):
         """
 
         get_planning_scene = rospy.ServiceProxy('/get_planning_scene', GetPlanningScene)
-        return get_planning_scene( components=PlanningSceneComponents( components=comp))  # type: GetPlanningSceneResponse
+        return get_planning_scene(components=PlanningSceneComponents(components=comp))
 
     def look_at(self, ps, frame=None, info="Look", execute=False):
         """
@@ -564,7 +564,6 @@ class MoveitInterface(object):
         self.dbg_pose_pub.publish(ret_ps)
         if execute:
             self.move_to_target(ret_ps, info, blind=True, endless=False, constraints=constraints)
-            # self.move_to_target(ret_ps, info, blind=False, endless=False)
 
         return ret_ps
 
@@ -582,9 +581,19 @@ class MoveitInterface(object):
         :rtype: bool
         """
         self.save_octomap()
-        MoveitInterface.clear_octomap()
-        rospy.sleep(1.0)
-        success = self.move_to_target(target, info, endless, constraints=constraints)
+        e = True
+        success = False
+        iplanner = 0
+        while not rospy.is_shutdown() and e and not success:
+            e = endless
+            MoveitInterface.clear_octomap()
+            rospy.sleep(1.0)
+            success = self.move_to_target(target, info, endless=False, constraints=constraints)
+            if not success:
+                iplanner += 1
+                if iplanner >= len(self.lst_planner):
+                    iplanner = 0
+                self.group.set_planner_id(self.lst_planner[iplanner])
         self.apply_octomap()
         return success
 

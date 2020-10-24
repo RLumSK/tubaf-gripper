@@ -502,7 +502,7 @@ class EquipmentTask(GraspTask):
         Move the camera to observe the previous set smart equipment and the query the object detector via service call
         :return:
         """
-        self.hand_controller.closeHand(mode="basic")
+        self.hand_controller.closeHand(mode="basic", continue_image_service=False)
         # watch_ps = self.moveit.look_at(self.selected_equipment.place_ps,
         #                                execute=False)  # frame="rs_gripper_d435_depth_optical_frame"
         i_search = 1
@@ -669,7 +669,7 @@ class EquipmentTask(GraspTask):
             # Compute Grasp offset
             # self.selected_equipment.ps was set  at   self.check_set_equipment_pose()
             self.selected_equipment.get_int_marker(None, self.selected_equipment.calculate_relative_offset())
-            self.moveit.move_to_target(self.watch_joint_values, info="Prepare", blind=True)
+            self.moveit.move_to_target(self.watch_joint_values, info="Prepare", blind=True, endless=False)
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor", continue_image_service=False)
 
@@ -677,6 +677,7 @@ class EquipmentTask(GraspTask):
             MoveitInterface.clear_octomap()
             target_pose = transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint")
             ik_solution = self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=10)
+            rospy.logdebug("[EquipmentTask.pick_after_place(2)] ik_solution\n%s" % ik_solution)
             if ik_solution is None:
                 self.debug_pose_pub.publish(self.selected_equipment.calculate_relative_offset())
                 self.selected_equipment.set_alternative_pose()
@@ -694,10 +695,10 @@ class EquipmentTask(GraspTask):
             intermediate_pose.pose.position.z += 0.25
             # rospy.logdebug("[EquipmentTask.pick_after_place(2)] intermediate_pose\n%s" % intermediate_pose)
             # rospy.logdebug("[EquipmentTask.pick_after_place(2)] target_pose\n%s" % target_pose)
-            self.debug_pose_pub.publish(intermediate_pose)
+            # self.debug_pose_pub.publish(intermediate_pose)
             self.moveit.move_to_target(target=intermediate_pose, info="Grasp0Intermediate", endless=False, blind=True)
-            self.moveit.look_at(transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint"),
-                                info="Grasp1LookIntermediate", execute=True)
+            self.moveit.look_at(transform_ps(self.selected_equipment.ps, "base_footprint"),
+                                info="Grasp1LookIntermediate", execute=True, frame=self.moveit.eef_link)
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor", continue_image_service=False)
 
@@ -988,7 +989,7 @@ if __name__ == '__main__':
     obj = EquipmentTask(evaluation=None)
 
     obj.hand_controller.openHand()
-    rospy.sleep(rospy.Duration(1))
+    rospy.sleep(1.0)
     obj.hand_controller.closeHand(continue_image_service=False)
 
     eq = obj.lst_equipment[0]  # type: SmartEquipment
