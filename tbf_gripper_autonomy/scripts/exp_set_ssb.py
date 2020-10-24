@@ -37,10 +37,10 @@ from tubaf_tools.help import play_sound
 
 
 if __name__ == '__main__':
-    rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
+    rospy.init_node("Experiment_SSB", log_level=rospy.INFO)
     et = EquipmentTask(evaluation=Evaluation())  # type: EquipmentTask
     et.hand_controller.openHand()
-    rospy.sleep(rospy.Duration(1))
+    rospy.sleep(1.0)
     et.hand_controller.closeHand(continue_image_service=False)
 
     str_exp = rospy.get_param("~experiment", "set_and_pick")
