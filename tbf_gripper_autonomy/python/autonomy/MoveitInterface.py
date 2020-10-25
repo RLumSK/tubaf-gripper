@@ -543,30 +543,9 @@ class MoveitInterface(object):
             rospy.logerr("[MoveitInterface.look_at()] service: %s" % look_at_pose_client.resolved_name)
 
         # TODO apply frame-eef transformation
-        # [x, y, z], [r_x, r_y, r_z, r_w] = self.tf_listener.lookupTransform(self.eef_link, frame, rospy.Time(0))
-        # trans = np.asarray([x, y, z])
-        # rot = R.from_quat([r_x, r_y, r_z, r_w]).as_dcm()
-        # cTg = np.eye(4)
-        # cTg[:3,:3] = rot
-        # cTg[:3, 3] = trans
-        # cTs = pose_to_array(ret_ps.pose)
-        #
-        # gTs = np.matmul(np.linalg.inv(cTs), cTg)
-        # ret_ps.pose = array_to_pose(gTs)
 
-        # c_orientation = OrientationConstraint()
-        # c_orientation.header = ret_ps.header
-        # c_orientation.orientation = ret_ps.pose.orientation
-        # c_orientation.absolute_z_axis_tolerance = 2 * np.pi
-        #
-        # constraints = Constraints()
-        # constraints.name = "Camera_free_z_constraint"
-        # constraints.orientation_constraints.append(c_orientation)
-        #
-        # self.dbg_pose_pub.publish(ret_ps)
         if execute:
             self.move_to_target(ret_ps, info, blind=True, endless=False)
-            # self.move_to_target(ret_ps, info, blind=True, endless=False, constraints=constraints)
 
         return ret_ps
 
