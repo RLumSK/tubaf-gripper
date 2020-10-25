@@ -468,16 +468,48 @@ class EquipmentTask(GraspTask):
         :rtype: -
         """
         self.perform(stages)
-        # self.perform([0, 1, 2, 3, 4, 5, 6])
-        # self.perform([6])
-        # self.perform([3])
 
-    def pose_over_ssb(self):
+    def compute_ssb_delta(self, ps_1):
+        """
+        compute the euclidean distance between pose and self.selected_equipment.place_ps
+        :param ps_1: second pose (/result/observed_pose)
+        :type ps_1: PoseStamped
+        :return: difference
+        :rtype: float
+        """
+        ps_0 = self.selected_equipment.place_ps
+        pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
+        pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
+        try:
+            ps_1.header.stamp.secs = 0
+            ps_1.header.stamp.nsecs = 0
+            ps_1.header.seq = 0
+            rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Placed Pose:\n%s" % ps_0)
+            rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Observed Pose:\n%s" % ps_1)
+            ps1 = transform_ps(ps_1, ps_0.header.frame_id, self.tf_listener)
+            # ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
+        except Exception as ex:
+            rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
+            pub0.publish(ps_0)
+            pub1.publish(ps_1)
+            return np.NaN
+        T0 = pose_to_array(ps_0.pose)
+        T1 = pose_to_array(ps1.pose)
+
+        pub0.publish(ps_0)
+        pub1.publish(ps1)
+
+        return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
+
+    def pose_over_ssb(self, estimated_ssb=None):
         """
         Get a pose for the eef that looks down on the SSB, it hovers over it orthogonal to the floor
         :return: Pose Stamped
         """
-        watch_pose = transform_ps(self.selected_equipment.place_ps, self.arm_frame, self.tf_listener)
+        if estimated_ssb is None:
+            watch_pose = transform_ps(self.selected_equipment.place_ps, self.arm_frame, self.tf_listener)
+        else:
+            watch_pose = transform_ps(estimated_ssb, self.arm_frame, self.tf_listener)
 
         if self.evaluation:
             self.evaluation.estimated_set_pose = copy.deepcopy(watch_pose)
@@ -508,6 +540,7 @@ class EquipmentTask(GraspTask):
         i_search = 1
         score = -1.0
         detected_ssb_pose = None
+        watch_ps = self.pose_over_ssb()  # self.selected_equipment.place_ps is assumed as pose
 
         while not rospy.is_shutdown():
             title = "Search" + str(i_search)
@@ -517,24 +550,10 @@ class EquipmentTask(GraspTask):
             # rospy.logdebug("[EquipmentTask.check_set_equipment_pose()] detected_ssb_pose \n %s" % detected_ssb_pose)
             if detected_ssb_pose is not None and score > rospy.get_param("~min_detection_score", 0.5):
                 break
-            rospy.loginfo("EquipmentTask.check_set_equipment_pose(): No SSB detected %s - score: %s" % (i_search, score))
-            if score > 0.2:
-                if self.evaluation:
-                    self.evaluation.add_observation(title, detected_ssb_pose, score)
-                    self.evaluation.store_img(title)
-
-                tmp_ps = PoseStamped()
-                tmp_ps.header.frame_id = self.moveit.eef_link
-                tmp_ps = transform_ps(tmp_ps, "base_footprint")
-                tmp_ps.pose.position.y += 0.4
-                self.moveit.move_to_target(tmp_ps, info=title+"0slide", endless=False, blind=True)
-                rospy.sleep(0.5)
-                watch_ps = self.moveit.look_at(transform_ps(detected_ssb_pose, "base_footprint"), execute=True,
-                                               info=title+"Look")
-            else:
-                watch_ps = self.pose_over_ssb()
-                watch_ps.pose.position.z = watch_ps.pose.position.z + 0.05 * (i_search % 8)
-                self.moveit.move_to_target(watch_ps, info=title+"0hover", endless=False, blind=True)
+            rospy.loginfo(
+                "EquipmentTask.check_set_equipment_pose(): No SSB detected %s - score: %s" % (i_search, score))
+            watch_ps.pose.position.z = watch_ps.pose.position.z + 0.05 * (i_search % 8)
+            self.moveit.move_to_target(watch_ps, info=title + "0hover", endless=False, blind=True)
 
             # self.debug_pose_pub.publish(watch_ps)
             if self.evaluation:
@@ -542,28 +561,37 @@ class EquipmentTask(GraspTask):
             i_search += 1
 
         rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected - score: %s" % score)
-
+        old_z = watch_ps.pose.position.z
+        watch_ps = self.pose_over_ssb(detected_ssb_pose)
+        watch_ps.pose.position.z = old_z
+        watch_ps = transform_ps(watch_ps, "base_footprint", self.tf_listener)
         # We got one estimate of the ssb, we want to look closer
         max_score = score
         max_pose = detected_ssb_pose
+        n_steps = 3  # 5
+        iter = 0.8 / n_steps  # 0.1
+        old_y = watch_ps.pose.position.y
+        y_base = watch_ps.pose.position.y - (iter * n_steps) / 2.  # -0.25
+        z_base = watch_ps.pose.position.z
         if score > 0.1:
-            for i_search in range(5):
+            for i_search in range(n_steps+1):
                 title = "Detailed" + str(i_search)
-                tmp_ps = PoseStamped()
-                tmp_ps.header.frame_id = self.moveit.eef_link
-                tmp_ps = transform_ps(tmp_ps, "base_footprint")
-                tmp_ps.pose.position.y = -0.2 + 0.1*i_search
-                if self.moveit.move_to_target(tmp_ps, info=title + "0slide", endless=False, blind=True):
+                watch_ps.pose.position.y = y_base + iter * i_search
+                dy = 1.1*np.abs(old_y-watch_ps.pose.position.y)
+                watch_ps.pose.position.z = z_base - dy*dy
+                self.debug_pose_pub.publish(watch_ps)
+                if self.moveit.move_to_target(watch_ps, info=title + "1slide", endless=False, blind=True):
                     rospy.sleep(0.5)
-                    watch_ps = self.moveit.look_at(transform_ps(detected_ssb_pose, "base_footprint"), execute=True,
-                                                   info=title+"Look")
+                    self.moveit.look_at(transform_ps(detected_ssb_pose, "base_footprint"), execute=True,
+                                        info=title + "1Look")
                 detected_ssb_pose, score, eq_type = self.adjust_object_detection(self.object_detection(),
                                                                                  self.selected_equipment.detection_offset)
                 if self.evaluation:
                     self.evaluation.add_observation(title, detected_ssb_pose, score)
                     self.evaluation.store_img(title)
                 if score > max_score:
-                    rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected with better score: %s" % score)
+                    rospy.loginfo(
+                        "EquipmentTask.check_set_equipment_pose(): SSB detected with better score: %s" % score)
                     gripper_ps = transform_ps(SmartEquipment.calculate_pose2pose_offset(detected_ssb_pose,
                                                                                         self.selected_equipment.ssb_T_gripper),
                                               "base_footprint")
@@ -600,39 +628,8 @@ class EquipmentTask(GraspTask):
 
         diff = self.compute_ssb_delta(detected_ssb_pose)
         rospy.loginfo("EquipmentTask.check_set_equipment_pose() Difference is %s" % diff)
-        self.selected_equipment.ps = detected_ssb_pose
-
-    def compute_ssb_delta(self, ps_1):
-        """
-        compute the euclidean distance between pose and self.selected_equipment.place_ps
-        :param ps_1: second pose (/result/observed_pose)
-        :type ps_1: PoseStamped
-        :return: difference
-        :rtype: float
-        """
-        ps_0 = self.selected_equipment.place_ps
-        pub0 = rospy.Publisher("/result/placed_pose", PoseStamped, queue_size=10)
-        pub1 = rospy.Publisher("/result/observed_pose", PoseStamped, queue_size=10)
-        try:
-            ps_1.header.stamp.secs = 0
-            ps_1.header.stamp.nsecs = 0
-            ps_1.header.seq = 0
-            rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Placed Pose:\n%s" % ps_0)
-            rospy.logdebug("[EquipmentTask.py::compute_ssb_delta()] Observed Pose:\n%s" % ps_1)
-            ps1 = transform_ps(ps_1, ps_0.header.frame_id, self.tf_listener)
-            # ps1 = self.tfBuffer.transform(ps_1, ps_0.header.frame_id)
-        except Exception as ex:
-            rospy.logwarn("[EquipmentTask.py::compute_ssb_delta()] Couldn't transform \n%s" % ex.message)
-            pub0.publish(ps_0)
-            pub1.publish(ps_1)
-            return np.NaN
-        T0 = pose_to_array(ps_0.pose)
-        T1 = pose_to_array(ps1.pose)
-
-        pub0.publish(ps_0)
-        pub1.publish(ps1)
-
-        return np.linalg.norm(T1[:3, 3] - T0[:3, 3])
+        self.selected_equipment.ps = copy.deepcopy(detected_ssb_pose)
+        self.debug_pose_pub.publish(self.selected_equipment.ps)
 
     def pick_after_place(self, equipment, stages=range(5)):
         """
@@ -675,35 +672,71 @@ class EquipmentTask(GraspTask):
 
             self.moveit.save_octomap()
             MoveitInterface.clear_octomap()
-            target_pose = transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint")
-            ik_solution = self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=10)
+
+            ik_solution = self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=3)
             rospy.logdebug("[EquipmentTask.pick_after_place(2)] ik_solution\n%s" % ik_solution)
             if ik_solution is None:
-                self.debug_pose_pub.publish(self.selected_equipment.calculate_relative_offset())
+                # self.debug_pose_pub.publish(self.selected_equipment.calculate_relative_offset())
                 self.selected_equipment.set_alternative_pose()
+                self.moveit.add_equipment(self.selected_equipment)  # We need to update our mesh, even the station is symetric its mesh may vary
                 self.selected_equipment.get_int_marker(None, self.selected_equipment.calculate_relative_offset())
                 ik_solution = self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=10)
                 if ik_solution is None:
                     raise Exception("Target pose out of range")
+            target_pose = transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint",
+                                       self.tf_listener)
             rospy.loginfo("[EquipmentTask.pick_after_place(2)] taget pose seams valid - got IK solution")
             self.moveit.apply_octomap()
             self.hand_controller.closeHand(continue_image_service=False)
 
-            intermediate_pose = transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint")
-            intermediate_pose.pose.position.x += 0.075
-            intermediate_pose.pose.position.y += 0.1
-            intermediate_pose.pose.position.z += 0.25
-            # rospy.logdebug("[EquipmentTask.pick_after_place(2)] intermediate_pose\n%s" % intermediate_pose)
-            # rospy.logdebug("[EquipmentTask.pick_after_place(2)] target_pose\n%s" % target_pose)
-            # self.debug_pose_pub.publish(intermediate_pose)
-            self.moveit.move_to_target(target=intermediate_pose, info="Grasp0Intermediate", endless=False, blind=True)
-            self.moveit.look_at(transform_ps(self.selected_equipment.ps, "base_footprint"),
-                                info="Grasp1LookIntermediate", execute=True, frame=self.moveit.eef_link)
+            ## Move to intermediate pose
+            target_gripper_ps = copy.deepcopy(self.selected_equipment.calculate_relative_offset())
+            target_gripper_ps = transform_ps(target_gripper_ps, "base_footprint", self.tf_listener)
+            self.debug_pose_pub.publish(target_gripper_ps)
+            offset = 0.18 # 0.12
+            for position in [target_gripper_ps.pose.position.x, target_gripper_ps.pose.position.y]:
+                if position > 0.0:
+                    position -= offset
+                else:
+                    position += offset
+            target_gripper_ps.pose.position.z += offset
+            target_gripper_ps.pose.orientation = target_pose.pose.orientation
+
+            self.debug_pose_pub.publish(target_gripper_ps)
+            self.moveit.move_to_target(target=target_gripper_ps, info="Grasp0Intermediate", endless=False, blind=True)
+            # rospy.sleep(2.0)
+            # gripper_target = self.selected_equipment.calculate_relative_offset()
+            # self.debug_pose_pub.publish(gripper_target)
+            # self.moveit.look_at(gripper_target, execute=True)
+            target_gripper_ps.pose.orientation = target_pose.pose.orientation
+
             self.hand_controller.openHand()
             self.hand_controller.closeHand(mode="scissor", continue_image_service=False)
+            rospy.sleep(5.0)
 
-            if not self.moveit.move_to_set(target=target_pose, info="Grasp2FromFloor", endless=True):
-                return -2  # -2: EquipmentNotPicked
+            offset = 0.0
+            while not rospy.is_shutdown():
+                self.debug_pose_pub.publish(target_pose)
+                if self.moveit.move_to_set(target=target_pose, info="Grasp2FromFloor", endless=False):
+                    break
+                self.selected_equipment.set_alternative_pose()
+                self.moveit.add_equipment(self.selected_equipment)
+                if self.moveit.move_to_set(target=target_pose, info="Grasp2FromFloor", endless=False):
+                    break
+                for position in [target_pose.pose.position.x, target_pose.pose.position.y]:
+                    if position > 0.0:
+                        position -= offset
+                    else:
+                        position += offset
+                target_pose.pose.position.z += offset
+                offset += 0.005
+                rospy.loginfo("[EquipmentTask.pick_after_place(2)] Try with offset: %s" % offset)
+
+            # if not self.moveit.move_to_set(target=target_pose, info="Grasp2FromFloor", endless=False):
+            #     rospy.loginfo("[EquipmentTask.pick_after_place(2)] Didn't reach equipment, try again with alternative pose")
+            #     self.selected_equipment.set_alternative_pose()
+            #     self.pick_after_place(self.selected_equipment, range(2, 6))
+            #     return -2  # -2: EquipmentNotPicked
 
         if 3 in stages:
             rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 3: Grasp and lift Equipment")
@@ -722,8 +755,12 @@ class EquipmentTask(GraspTask):
             # TODO: Evaluate Grasp based on finger position
             lift_pose = self.selected_equipment.calculate_relative_offset()  # type: PoseStamped
             lift_pose.pose.position.z += 0.3
+
+            self.moveit.save_octomap()
+            MoveitInterface.clear_octomap()
             if not self.moveit.move_to_target(target=lift_pose, info="LiftFromFloor", blind=True):
                 return -3  # -2: EquipmentNotLifted
+            self.moveit.apply_octomap()
 
         if 4 in stages:
             rospy.loginfo("[EquipmentTask.pick_after_place()] Stage 4: Set station onto robot")
@@ -734,7 +771,7 @@ class EquipmentTask(GraspTask):
 
             set_ps = transform_ps(self.moveit.get_fk(self.selected_equipment.pickup_waypoints["grasp"]),
                                   "base_footprint")
-            set_ps.pose.position.z -= 0.07
+            set_ps.pose.position.z -= 0.04
             if not self.moveit.move_to_target(target=set_ps, info="SetOntoRobot", endless=False, blind=True):
                 return -4  # -2: EquipmentNotSet
             self.moveit.detach_equipment()
@@ -1002,7 +1039,14 @@ if __name__ == '__main__':
             # rospy.loginfo("### Set %s ###" % eq.name)
             # obj.start([2])
             # rospy.loginfo("### Picking %s ###" % eq.name)
-            obj.pick_after_place(eq)
+            # on_robot = copy.deepcopy(eq.ps)
+            # eq.ps = eq.place_ps
+            # eq.set_alternative_pose()
+            # obj.moveit.add_equipment(eq)
+            obj.check_set_equipment_pose()
+            # obj.pick_after_place(eq, [1, 2, 3, 4, 5])
+            # eq.place_ps = on_robot
+            # obj.pick_after_place(eq, [4, 5])
             # obj.check_set_equipment_pose()
         # except Exception as ex:
         # rospy.logerr(type(ex).__str__())

@@ -554,18 +554,19 @@ class MoveitInterface(object):
         # gTs = np.matmul(np.linalg.inv(cTs), cTg)
         # ret_ps.pose = array_to_pose(gTs)
 
-        c_orientation = OrientationConstraint()
-        c_orientation.header = ret_ps.header
-        c_orientation.orientation = ret_ps.pose.orientation
-        c_orientation.absolute_z_axis_tolerance = 2 * np.pi
-
-        constraints = Constraints()
-        constraints.name = "Camera_free_z_constraint"
-        constraints.orientation_constraints.append(c_orientation)
-
-        self.dbg_pose_pub.publish(ret_ps)
+        # c_orientation = OrientationConstraint()
+        # c_orientation.header = ret_ps.header
+        # c_orientation.orientation = ret_ps.pose.orientation
+        # c_orientation.absolute_z_axis_tolerance = 2 * np.pi
+        #
+        # constraints = Constraints()
+        # constraints.name = "Camera_free_z_constraint"
+        # constraints.orientation_constraints.append(c_orientation)
+        #
+        # self.dbg_pose_pub.publish(ret_ps)
         if execute:
-            self.move_to_target(ret_ps, info, blind=True, endless=False, constraints=constraints)
+            self.move_to_target(ret_ps, info, blind=True, endless=False)
+            # self.move_to_target(ret_ps, info, blind=True, endless=False, constraints=constraints)
 
         return ret_ps
 
@@ -960,14 +961,18 @@ if __name__ == '__main__':
     # Init Moveit
     obj = MoveitInterface("~moveit")
     # # Equipment Parameter
-    # for equip in rospy.get_param("/equipment_handler/smart_equipment"):
-    #     eq = SmartEquipment(equip)
+    for equip in rospy.get_param("~smart_equipment"):
+        eq = SmartEquipment(equip)
+        while not rospy.is_shutdown():
+            obj.add_equipment(eq)
+            eq.set_alternative_pose()
+            obj.add_equipment(eq)
     #     obj.look_at(eq.place_ps, execute=True)
     #     # obj.look_at(eq.place_ps, "rs_gripper_d435_depth_optical_frame", execute=True)
     # # rospy.logdebug("hi")
     # # obj.get_fk([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-    while not rospy.is_shutdown():
-        MoveitInterface.clear_octomap()
-        rospy.sleep(2.0)
-    rospy.spin()
+    # while not rospy.is_shutdown():
+    #     MoveitInterface.clear_octomap()
+    #     rospy.sleep(2.0)
+    # rospy.spin()
 

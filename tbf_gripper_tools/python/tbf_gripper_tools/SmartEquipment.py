@@ -311,7 +311,7 @@ class SmartEquipment:
 
     def set_alternative_pose(self):
         """
-        if the equipment is symetric, detection algorithms can be tricked since observations cant determine a deterministic geometric pose
+        if the equipment is symmetric, detection algorithms can be tricked since observations cant determine a deterministic geometric pose
         switch to alternative - depends on class
         :return:
         """
@@ -321,7 +321,7 @@ class SmartEquipment:
             return
         self.ps.pose = array_to_pose(np.matmul(pose_to_array(self.ps.pose), self.T_alter))
         rospy.loginfo("[SmartEquipment.set_alternative_pose()] alternative set \n %s" % self.ps)
-        return
+        return self.ps
 
 
 if __name__ == '__main__':

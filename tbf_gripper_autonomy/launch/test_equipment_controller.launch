@@ -5,7 +5,7 @@
     <arg name="node_name"   default="test_EquipmentTask" />
 
     <node name="$(arg node_name)" pkg="tbf_gripper_autonomy" type="EquipmentTask.py" respawn="false" output="screen">
-        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/smart_equipment.yaml"/>
+        <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/se_ohne_henkel.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/moveit_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/arm_params.yaml"/>
         <rosparam command="load" file="$(find tbf_gripper_autonomy)/config/hand_params.yaml"/>
