@@ -358,9 +358,11 @@ class MoveitInterface(object):
                 active_joints = self.group.get_active_joints()
                 target_values = self.get_ik(target)  # type: list
                 if target_values is None:
-                    rospy.loginfo("MoveitInterface.plan(): IK Service call failed - give it a try using the "
-                                  "pose interface")
-                    self.group.set_joint_value_target(target, self.eef_link, self.use_approximate_ik)
+                    rospy.logwarn("MoveitInterface.plan(): IK Service call failed - no second chance")
+                    return False
+                    #rospy.loginfo("MoveitInterface.plan(): IK Service call failed - give it a try using the "
+                    #              "pose interface")
+                    # self.group.set_joint_value_target(target, self.eef_link, self.use_approximate_ik)
                 else:
                     for name, ist, soll in zip(active_joints, current_values, target_values):
                         solu = convert_angle(np.rad2deg(ist), np.rad2deg(soll))
@@ -389,14 +391,15 @@ class MoveitInterface(object):
         plan = None
         plan_valid = False
         attempts = 1
+        plan_timings = rospy.get_param("~plan_timings", [0, 1, 2, 4, 8, 16, 32, 62, 128, 256])
         while not plan_valid and attempts <= self.max_attempts:
             # rospy.logdebug("MoveitInterface.plan(): Planning %s to: \n%s\tPlanning time: %s" %
             #               (info, target, self.group.get_planning_time()))
             # HERE WE PLAN #
             plan = self.group.plan()
 
-            self.group.set_planning_time(self.parameter["planner_time"] * attempts ** 2)
-            self.group.set_num_planning_attempts(self.parameter["planner_attempts"] * attempts ** 2)
+            self.group.set_planning_time(plan_timings[attempts])
+            self.group.set_num_planning_attempts(plan_timings[attempts] ** 2+10)
             attempts += 1
             # rospy.logdebug("MoveitInterface.move_to_target(): Plan:\n%s", plan)
             if len(plan.joint_trajectory.points) == 0:

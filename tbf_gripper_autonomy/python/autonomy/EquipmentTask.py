@@ -571,13 +571,14 @@ class EquipmentTask(GraspTask):
         max_score = score
         max_pose = detected_ssb_pose
         n_steps = steps  # 5
-        iter = 1.0 / n_steps  # 0.1
+        iter = 0.6 / n_steps  # 0.1
         old_y = watch_ps.pose.position.y
         y_base = watch_ps.pose.position.y - (iter * n_steps) / 2.  # -0.25
         z_base = watch_ps.pose.position.z
         first_detected_pose = transform_ps(detected_ssb_pose, "base_footprint")
+        first_detected_pose.pose.position.z += 0.2  # origin of the station is at its bottom, so look a bit higher
         if score > 0.1:
-            for i_search in range(n_steps+1):
+            for i_search in range(n_steps):
                 title = "Detailed" + str(i_search)
                 watch_ps.pose.position.y = y_base + iter * i_search
                 dy = 1.1*np.abs(old_y-watch_ps.pose.position.y)
@@ -595,6 +596,7 @@ class EquipmentTask(GraspTask):
                 if score > max_score:
                     rospy.loginfo(
                         "EquipmentTask.check_set_equipment_pose(): SSB detected with better score: %s" % score)
+                    rospy.sleep(1.0)
                     gripper_ps = transform_ps(SmartEquipment.calculate_pose2pose_offset(detected_ssb_pose,
                                                                                         self.selected_equipment.ssb_T_gripper),
                                               "base_footprint")
@@ -683,7 +685,7 @@ class EquipmentTask(GraspTask):
                 self.selected_equipment.set_alternative_pose()
                 self.moveit.add_equipment(self.selected_equipment)  # We need to update our mesh, even the station is symetric its mesh may vary
                 self.selected_equipment.get_int_marker(None, self.selected_equipment.calculate_relative_offset())
-                ik_solution = self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=10)
+                ik_solution = self.moveit.get_ik(self.selected_equipment.calculate_relative_offset(), max_attempts=3)
                 if ik_solution is None:
                     raise Exception("Target pose out of range")
             target_pose = transform_ps(self.selected_equipment.calculate_relative_offset(), "base_footprint",
