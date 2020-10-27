@@ -429,21 +429,21 @@ class EquipmentTask(GraspTask):
                 rospy.logdebug("EquipmentTask.perform([5]): Release pose was: \n %s" % release_pose)
 
                 ## Do we really need a Release Pose?
-                # release_pose.pose.position.x = release_pose.pose.position.z - 0.15
-                # from scipy.spatial.transform import Rotation as R
-                # r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
-                #                     release_pose.pose.orientation.z, release_pose.pose.orientation.w])
-                # r_relative = R.from_euler('z', -20, degrees=True)
-                # r_soll = r_is
-                # rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
-                # self.debug_pose_pub.publish(release_pose)
-                #
-                # if not self.moveit.move_to_target(release_pose, info="Place2Release", endless=False, blind=True):
-                #     rospy.logwarn("EquipmentTask.perform([5]): Release Pose not reached - continue with Look")
-                # else:
-                #     self.hand_controller.closeHand(continue_image_service=False)
-                # if self.evaluation:
-                #     self.evaluation.store_img("Place2Release" + str(i))
+                release_pose.pose.position.x = release_pose.pose.position.z - 0.15
+                from scipy.spatial.transform import Rotation as R
+                r_is = R.from_quat([release_pose.pose.orientation.x, release_pose.pose.orientation.y,
+                                    release_pose.pose.orientation.z, release_pose.pose.orientation.w])
+                r_relative = R.from_euler('z', -20, degrees=True)
+                r_soll = r_is
+                rospy.logdebug("EquipmentTask.perform([5]): Release pose is: \n %s" % release_pose)
+                self.debug_pose_pub.publish(release_pose)
+
+                if not self.moveit.move_to_target(release_pose, info="Place2Release", endless=False, blind=True):
+                    rospy.logwarn("EquipmentTask.perform([5]): Release Pose not reached - continue with Look")
+                else:
+                    self.hand_controller.closeHand(continue_image_service=False)
+                if self.evaluation:
+                    self.evaluation.store_img("Place2Release" + str(i))
 
         if 6 in stages:
             rospy.loginfo("STAGE 7: Search for SSB")
