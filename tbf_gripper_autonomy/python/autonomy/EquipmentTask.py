@@ -577,7 +577,7 @@ class EquipmentTask(GraspTask):
         y_base = watch_ps.pose.position.y - (iter * n_steps) / 2.  # -0.25
         z_base = watch_ps.pose.position.z
         first_detected_pose = transform_ps(detected_ssb_pose, "base_footprint")
-        first_detected_pose.pose.position.z += 0.2  # origin of the station is at its bottom, so look a bit higher
+        #first_detected_pose.pose.position.z += 0.2  # origin of the station is at its bottom, so look a bit higher
         if score > 0.1:
             for i_search in range(n_steps):
                 title = "Detailed" + str(i_search)
