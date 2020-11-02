@@ -551,7 +551,7 @@ class MoveitInterface(object):
         ret_ps.pose.position.y += 0.15
 
         if execute:
-            self.move_to_target(ret_ps, info, blind=False, endless=False)
+            self.move_to_target(ret_ps, info, blind=True, endless=False)
 
         return ret_ps
 
