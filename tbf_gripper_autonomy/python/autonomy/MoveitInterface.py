@@ -540,15 +540,18 @@ class MoveitInterface(object):
 
             ret_ps = response.new_cam_pose
             # rospy.logdebug("[MoveitInterface.look_at()] ret_ps \n%s" % ret_ps)
+            self.dbg_pose_pub.publish(ret_ps)
 
         except rospy.TransportException as te:
             rospy.logerr("[MoveitInterface.look_at()] TransportException during Service call \n %s" % te.message)
             rospy.logerr("[MoveitInterface.look_at()] service: %s" % look_at_pose_client.resolved_name)
 
         # TODO apply frame-eef transformation
+        # ret_ps.header.frame_id = self.eef_link
+        ret_ps.pose.position.y += 0.15
 
         if execute:
-            self.move_to_target(ret_ps, info, blind=True, endless=False)
+            self.move_to_target(ret_ps, info, blind=False, endless=False)
 
         return ret_ps
 

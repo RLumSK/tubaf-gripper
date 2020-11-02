@@ -572,41 +572,41 @@ class EquipmentTask(GraspTask):
         max_score = score
         max_pose = detected_ssb_pose
         # TODO: Move over ssb pose and detect stable
-        # n_steps = steps  # 5
-        # iter = 0.6 / n_steps  # 0.1
-        # old_y = watch_ps.pose.position.y
-        # y_base = watch_ps.pose.position.y - (iter * n_steps) / 2.  # -0.25
-        # z_base = watch_ps.pose.position.z
-        # first_detected_pose = transform_ps(detected_ssb_pose, "base_footprint")
-        # #first_detected_pose.pose.position.z += 0.2  # origin of the station is at its bottom, so look a bit higher
-        # if score > 0.1:
-        #     for i_search in range(n_steps):
-        #         title = "Detailed" + str(i_search)
-        #         watch_ps.pose.position.y = y_base + iter * i_search
-        #         dy = 1.1*np.abs(old_y-watch_ps.pose.position.y)
-        #         watch_ps.pose.position.z = z_base - dy*dy
-        #         self.debug_pose_pub.publish(watch_ps)
-        #         if self.moveit.move_to_target(watch_ps, info=title + "1slide", endless=False, blind=True):
-        #             rospy.sleep(1.0)
-        #             self.moveit.look_at(first_detected_pose, execute=True,
-        #                                 info=title + "1Look")
-        #         detected_ssb_pose, score, eq_type = self.adjust_object_detection(self.object_detection(),
-        #                                                                          self.selected_equipment.detection_offset)
-        #         if self.evaluation:
-        #             self.evaluation.add_observation(title, detected_ssb_pose, score)
-        #             self.evaluation.store_img(title)
-        #         if score > max_score:
-        #             rospy.loginfo(
-        #                 "EquipmentTask.check_set_equipment_pose(): SSB detected with better score: %s" % score)
-        #             rospy.sleep(1.0)
-        #             gripper_ps = transform_ps(SmartEquipment.calculate_pose2pose_offset(detected_ssb_pose,
-        #                                                                                 self.selected_equipment.ssb_T_gripper),
-        #                                       "base_footprint")
-        #             if gripper_ps.pose.position.z > 0.025:
-        #                 rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected seams valid - updating")
-        #                 max_score = score
-        #                 max_pose = detected_ssb_pose
-        #                 self.selected_equipment.get_int_marker(detected_ssb_pose)
+        n_steps = steps  # 5
+        iter = 0.66 / n_steps  # 0.1
+        old_y = watch_ps.pose.position.y
+        y_base = watch_ps.pose.position.y - (iter * n_steps) / 2.  # -0.25
+        z_base = watch_ps.pose.position.z
+        first_detected_pose = transform_ps(detected_ssb_pose, "base_footprint")
+        first_detected_pose.pose.position.z += 0.2  # origin of the station is at its bottom, so look a bit higher
+        if score > 0.1:
+            for i_search in range(n_steps):
+                title = "Detailed" + str(i_search)
+                watch_ps.pose.position.y = y_base + iter * i_search
+                dy = 1.2*np.abs(old_y-watch_ps.pose.position.y)
+                watch_ps.pose.position.z = z_base - dy*dy
+                self.debug_pose_pub.publish(watch_ps)
+                if self.moveit.move_to_target(watch_ps, info=title + "1slide", endless=False, blind=True):
+                    rospy.sleep(1.0)
+                    self.moveit.look_at(first_detected_pose, frame="rs_gripper_d435_depth_optical_frame", execute=True,
+                                        info=title + "1Look")
+                detected_ssb_pose, score, eq_type = self.adjust_object_detection(self.object_detection(),
+                                                                                 self.selected_equipment.detection_offset)
+                if self.evaluation:
+                    self.evaluation.add_observation(title, detected_ssb_pose, score)
+                    self.evaluation.store_img(title)
+                if score > max_score:
+                    rospy.loginfo(
+                        "EquipmentTask.check_set_equipment_pose(): SSB detected with better score: %s" % score)
+                    rospy.sleep(1.0)
+                    gripper_ps = transform_ps(SmartEquipment.calculate_pose2pose_offset(detected_ssb_pose,
+                                                                                        self.selected_equipment.ssb_T_gripper),
+                                              "base_footprint")
+                    if gripper_ps.pose.position.z > 0.025:
+                        rospy.loginfo("EquipmentTask.check_set_equipment_pose(): SSB detected seams valid - updating")
+                        max_score = score
+                        max_pose = detected_ssb_pose
+                        self.selected_equipment.get_int_marker(detected_ssb_pose)
         score = max_score
         detected_ssb_pose = max_pose
 
