@@ -37,7 +37,7 @@ from tubaf_tools.help import play_sound
 
 
 if __name__ == '__main__':
-    rospy.init_node("Experiment_SSB", log_level=rospy.INFO)
+    rospy.init_node("Experiment_SSB", log_level=rospy.DEBUG)
     et = EquipmentTask(evaluation=Evaluation())  # type: EquipmentTask
     et.hand_controller.openHand()
     rospy.sleep(1.0)
