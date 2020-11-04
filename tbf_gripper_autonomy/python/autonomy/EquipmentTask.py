@@ -928,7 +928,7 @@ def sense(tf_listener=None, evaluation=None):
 
     if evaluation:
         evaluation.sense_result(identify_floor_req.planes, request.floor, request.obstacles, ret_ps)
-
+    ret_ps.pose.position.z += rospy.get_param("~set_floor_offset_z", 0.005)
     # ret_ps.pose.position.z = 0
     rospy.logdebug("[EquipmentTas.py - sense()] ret_ps.pose.position.z = %2.4f in <base_footprint>" %
                    ret_ps.pose.position.z)

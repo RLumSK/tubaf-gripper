@@ -17,6 +17,7 @@
         <param name="experiment" value="$(arg experiment)"/>
         <param name="object" value="$(arg object)"/>
         <param name="confirm_plan_service_ns" value="/$(arg node_name)/confirm_plan"/>
+        <param name="set_floor_offset_z" value="0.01"/>
     </node>
 
     <node pkg="tubaf_tools" type="marker_confirm.py" name="$(arg node_name)_confirm_plan_marker" respawn="false" output="screen">
