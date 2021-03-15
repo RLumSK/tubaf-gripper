@@ -1023,39 +1023,39 @@ if __name__ == '__main__':
     rospy.init_node("EquipmentTask", log_level=rospy.DEBUG)
     # obj = EquipmentTask(evaluation=Evaluation())
     obj = EquipmentTask(evaluation=None)
-
-    obj.hand_controller.openHand()
-    rospy.sleep(1.0)
-    obj.hand_controller.closeHand(continue_image_service=False)
-
-    eq = obj.lst_equipment[0]  # type: SmartEquipment
-    if obj.select_equipment(eq.name):
-        while not rospy.is_shutdown():
-            # obj.sense()
-            rospy.loginfo("start")
-            # EquipmentTask.compare_grasp(obj.get_current_grasp(), obj.selected_equipment.grasp)
-            # try:
-            # rospy.loginfo("### Set %s ###" % eq.name)
-            # obj.start([2])
-            # rospy.loginfo("### Picking %s ###" % eq.name)
-            # on_robot = copy.deepcopy(eq.ps)
-            # eq.ps = eq.place_ps
-            # eq.set_alternative_pose()
-            # obj.moveit.add_equipment(eq)
-            obj.check_set_equipment_pose()
-            # obj.pick_after_place(eq, [1, 2, 3, 4, 5])
-            # eq.place_ps = on_robot
-            # obj.pick_after_place(eq, [4, 5])
-            # obj.check_set_equipment_pose()
-        # except Exception as ex:
-        # rospy.logerr(type(ex).__str__())
-        # rospy.logerr(ex.message)
-        # finally:
-        #     if obj.evaluation:
-        #         n = eq.name.split(" ")
-        #         secs = rospy.Time.now().secs
-        #         obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
-        #         obj.evaluation = Evaluation()
-        #         obj.moveit.evaluation = obj.evaluation
-        # rospy.loginfo("### Finished %s ###" % eq.name)
     rospy.spin()
+    # obj.hand_controller.openHand()
+    # rospy.sleep(1.0)
+    # obj.hand_controller.closeHand(continue_image_service=False)
+    #
+    # eq = obj.lst_equipment[0]  # type: SmartEquipment
+    # if obj.select_equipment(eq.name):
+    #     while not rospy.is_shutdown():
+    #         # obj.sense()
+    #         rospy.loginfo("start")
+    #         # EquipmentTask.compare_grasp(obj.get_current_grasp(), obj.selected_equipment.grasp)
+    #         # try:
+    #         # rospy.loginfo("### Set %s ###" % eq.name)
+    #         obj.start([3])
+    #         # rospy.loginfo("### Picking %s ###" % eq.name)
+    #         # on_robot = copy.deepcopy(eq.ps)
+    #         # eq.ps = eq.place_ps
+    #         # eq.set_alternative_pose()
+    #         # obj.moveit.add_equipment(eq)
+    #         obj.check_set_equipment_pose()
+    #         # obj.pick_after_place(eq, [1, 2, 3, 4, 5])
+    #         # eq.place_ps = on_robot
+    #         # obj.pick_after_place(eq, [4, 5])
+    #         # obj.check_set_equipment_pose()
+    #     # except Exception as ex:
+    #     # rospy.logerr(type(ex).__str__())
+    #     # rospy.logerr(ex.message)
+    #     # finally:
+    #     #     if obj.evaluation:
+    #     #         n = eq.name.split(" ")
+    #     #         secs = rospy.Time.now().secs
+    #     #         obj.evaluation.save_as_bag("~/bags/EquipmentTask/" + n[-1] + str(secs)[6:] + ".bag")
+    #     #         obj.evaluation = Evaluation()
+    #     #         obj.moveit.evaluation = obj.evaluation
+    #     # rospy.loginfo("### Finished %s ###" % eq.name)
+    # rospy.spin()
