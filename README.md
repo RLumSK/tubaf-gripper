@@ -2,6 +2,15 @@
 
 ![Teaserimage](./teaser.png)
 
+## Scope:
+
+This repository is the code stack of my phd-thesis with the topic: Autonomous Instrumentation of old underground mines using a mobile manipulator. It depends heavily on packages from the robot (Julius). For further information please feel free to contace me: research(at)steve-grehl.eu
+
+## Publications:
+
+- Paper: [Design of an Autonomous Robot for Mapping, Navigation, and Manipulation in Underground Mines (https://www.researchgate.net/publication/330192804_Design_of_an_Autonomous_Robot_for_Mapping_Navigation_and_Manipulation_in_Underground_Mines) - IROS 2018, Madrid
+- Thesis: [Autonomous Instrumentation of old underground mines using a mobile manipulator](thesis.steve-grehl.de)
+
 ## Packagelist:
 
 * tbf_gripper_autonomy ([Doc](./tbf_gripper_autonomy/README.md))
@@ -13,8 +22,8 @@
 
 ## General information
 
-The manipulation unit consists of three hardware parts: the UR5, the Robotiq S model gripper and the Asus Xtion Pro Live.
-Launch files for those devices are located in the `julius_base` package.
+The manipulation unit consists of three hardware parts: the UR5, the Robotiq S model gripper and a RGB-D cameraq (Asus Xtion Pro Live/Intel Realsense D435).
+Launch files for those devices are located in the `julius_base` package (not included here).
 The following launch file calls may be used to start them:
 
 ```bash
