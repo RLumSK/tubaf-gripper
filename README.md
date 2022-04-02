@@ -8,8 +8,8 @@ This repository is the code stack of my phd-thesis with the topic: Autonomous In
 
 ## Publications:
 
-- Paper: [Design of an Autonomous Robot for Mapping, Navigation, and Manipulation in Underground Mines (https://www.researchgate.net/publication/330192804_Design_of_an_Autonomous_Robot_for_Mapping_Navigation_and_Manipulation_in_Underground_Mines) - IROS 2018, Madrid
-- Thesis: [Autonomous Instrumentation of old underground mines using a mobile manipulator](thesis.steve-grehl.de)
+- Paper: [Design of an Autonomous Robot for Mapping, Navigation, and Manipulation in Underground Mines](https://www.researchgate.net/publication/330192804_Design_of_an_Autonomous_Robot_for_Mapping_Navigation_and_Manipulation_in_Underground_Mines) - IROS 2018, Madrid
+- Thesis: [Autonomous Instrumentation of old underground mines using a mobile manipulator](thesis.steve-grehl.de) - TUBAF 2021
 
 ## Packagelist:
 
